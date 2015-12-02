@@ -1812,7 +1812,11 @@ EXPORT_SYMBOL_GPL(rt_mutex_lock_interruptible);
 
 int __sched __rt_mutex_trylock(struct rt_mutex *lock)
 {
+#ifdef CONFIG_PREEMPT_RT
+	if (IS_ENABLED(CONFIG_DEBUG_RT_MUTEXES) && WARN_ON_ONCE(in_irq() || in_nmi()))
+#else
 	if (IS_ENABLED(CONFIG_DEBUG_RT_MUTEXES) && WARN_ON_ONCE(!in_task()))
+#endif
 		return 0;
 
 	/*
