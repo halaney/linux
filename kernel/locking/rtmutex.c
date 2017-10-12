@@ -1405,13 +1405,24 @@ static void __sched rt_mutex_slowunlock(struct rt_mutex *lock)
 	rt_mutex_postunlock(&wake_q);
 }
 
+int __sched __rt_mutex_lock_state(struct rt_mutex *lock, long state)
+{
+	might_sleep();
+
+	if (likely(rt_mutex_cmpxchg_acquire(lock, NULL, current)))
+		return 0;
+
+	return rt_mutex_slowlock(lock, state, NULL, RT_MUTEX_MIN_CHAINWALK);
+}
+
 /*
  * debug aware fast / slowpath lock,trylock,unlock
  *
  * The atomic acquire/release ops are compiled away, when either the
  * architecture does not support cmpxchg or when debugging is enabled.
  */
-static __always_inline int __rt_mutex_lock(struct rt_mutex *lock, long state,
+static __always_inline int __rt_mutex_lock(struct rt_mutex *lock,
+					   long state,
 					   unsigned int subclass)
 {
 	int ret;
@@ -1422,7 +1433,8 @@ static __always_inline int __rt_mutex_lock(struct rt_mutex *lock, long state,
 	if (likely(rt_mutex_cmpxchg_acquire(lock, NULL, current)))
 		return 0;
 
-	ret = rt_mutex_slowlock(lock, state, NULL, RT_MUTEX_MIN_CHAINWALK);
+	ret = rt_mutex_slowlock(lock, state, NULL, RT_MUTEX_MIN_CHAINWALK,
+				NULL);
 	if (ret)
 		mutex_release(&lock->dep_map, _RET_IP_);
 	return ret;
@@ -1470,6 +1482,21 @@ int __sched rt_mutex_lock_interruptible(struct rt_mutex *lock)
 }
 EXPORT_SYMBOL_GPL(rt_mutex_lock_interruptible);
 
+int __sched __rt_mutex_trylock(struct rt_mutex *lock)
+{
+	if (IS_ENABLED(CONFIG_DEBUG_RT_MUTEXES) && WARN_ON_ONCE(!in_task()))
+		return 0;
+
+	/*
+	 * No lockdep annotation required because lockdep disables the fast
+	 * path.
+	 */
+	if (likely(rt_mutex_cmpxchg_acquire(lock, NULL, current)))
+		return 1;
+
+	return rt_mutex_slowtrylock(lock);
+}
+
 /**
  * rt_mutex_trylock - try to lock a rt_mutex
  *
@@ -1486,23 +1513,21 @@ int __sched rt_mutex_trylock(struct rt_mutex *lock)
 {
 	int ret;
 
-	if (IS_ENABLED(CONFIG_DEBUG_RT_MUTEXES) && WARN_ON_ONCE(!in_task()))
-		return 0;
-
-	/*
-	 * No lockdep annotation required because lockdep disables the fast
-	 * path.
-	 */
-	if (likely(rt_mutex_cmpxchg_acquire(lock, NULL, current)))
-		return 1;
-
-	ret = rt_mutex_slowtrylock(lock);
+	ret = __rt_mutex_trylock(lock);
 	if (ret)
 		mutex_acquire(&lock->dep_map, 0, 1, _RET_IP_);
 
 	return ret;
 }
 EXPORT_SYMBOL_GPL(rt_mutex_trylock);
+
+void __sched __rt_mutex_unlock(struct rt_mutex *lock)
+{
+	if (likely(rt_mutex_cmpxchg_release(lock, current, NULL)))
+		return;
+
+	rt_mutex_slowunlock(lock);
+}
 
 /**
  * rt_mutex_unlock - unlock a rt_mutex
@@ -1512,10 +1537,8 @@ EXPORT_SYMBOL_GPL(rt_mutex_trylock);
 void __sched rt_mutex_unlock(struct rt_mutex *lock)
 {
 	mutex_release(&lock->dep_map, _RET_IP_);
-	if (likely(rt_mutex_cmpxchg_release(lock, current, NULL)))
-		return;
 
-	rt_mutex_slowunlock(lock);
+	__rt_mutex_unlock(lock);
 }
 EXPORT_SYMBOL_GPL(rt_mutex_unlock);
 
