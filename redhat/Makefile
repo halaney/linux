@@ -267,6 +267,7 @@ sources-rh: $(TARBALL) generate-testpatch-tmp setup-source dist-configs-check
 		update_scripts.sh \
 		mod-blacklist.sh \
 		mod-internal.list \
+	    	mod-kvm.list \
 		mod-sign.sh \
 		configs/flavors \
 		configs/generate_all_configs.sh \
