@@ -543,6 +543,9 @@ ExclusiveOS: Linux
 %ifnarch %{nobuildarches}
 Requires: %{name}-core-uname-r = %{KVERREL}
 Requires: %{name}-modules-uname-r = %{KVERREL}
+%if %{with_realtime}
+Requires: realtime-setup
+%endif
 %endif
 
 
