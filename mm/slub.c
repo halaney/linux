@@ -3400,13 +3400,12 @@ redo:
 		 * we need to take the local_lock. We shouldn't simply defer to
 		 * __slab_free() as that wouldn't use the cpu freelist at all.
 		 */
-		unsigned long flags;
 		void **freelist;
 
-		local_lock_irqsave(&s->cpu_slab->lock, flags);
+		local_lock(&s->cpu_slab->lock);
 		c = this_cpu_ptr(s->cpu_slab);
 		if (unlikely(page != c->page)) {
-			local_unlock_irqrestore(&s->cpu_slab->lock, flags);
+			local_unlock(&s->cpu_slab->lock);
 			goto redo;
 		}
 		tid = c->tid;
@@ -3416,7 +3415,7 @@ redo:
 		c->freelist = head;
 		c->tid = next_tid(tid);
 
-		local_unlock_irqrestore(&s->cpu_slab->lock, flags);
+		local_unlock(&s->cpu_slab->lock);
 #endif
 		stat(s, FREE_FASTPATH);
 	} else
