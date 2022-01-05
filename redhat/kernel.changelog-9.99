@@ -1,3 +1,6 @@
+* Wed Jan 05 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.15.13-0]
+- Linux v5.15.13
+
 * Wed Dec 29 2021 Justin M. Forbes <jforbes@fedoraproject.org> [5.15.12-0]
 - iwlwifi: mvm: Increase the scan timeout guard to 30 seconds (Ilan Peer)
 
