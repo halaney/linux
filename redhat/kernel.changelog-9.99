@@ -1,3 +1,6 @@
+* Tue Jan 11 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.15.14-0]
+- Fix up changelog (Justin M. Forbes)
+
 * Wed Jan 05 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.15.13-0]
 - Linux v5.15.13
 
