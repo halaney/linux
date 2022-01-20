@@ -1,3 +1,6 @@
+* Thu Jan 20 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.15.16-0]
+- drm/amdgpu: don't do resets on APUs which don't support it (Alex Deucher)
+
 * Sun Jan 16 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.15.15-0]
 - netfilter: nat: force port remap to prevent shadowing well-known ports (Florian Westphal)
 - netfilter: conntrack: tag conntracks picked up in local out hook (Florian Westphal)
