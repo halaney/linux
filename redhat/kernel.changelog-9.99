@@ -1,3 +1,13 @@
+* Thu Jan 20 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.2-0]
+- Add packaged but empty /lib/modules/<kver>/systemtap/ (Justin M. Forbes)
+- Revert "[scsi] megaraid_sas: re-add certain pci-ids" (Justin M. Forbes)
+- Revert "wireguard: disable in FIPS mode" (Justin M. Forbes)
+- Revert "mm/cma: mark CMA on x86_64 tech preview and print RHEL-specific infos" (Justin M. Forbes)
+- Revert "[fs] dax: mark tech preview" (Justin M. Forbes)
+- Revert "wireguard: mark as Tech Preview" (Justin M. Forbes)
+- drm/amdgpu: don't do resets on APUs which don't support it (Alex Deucher)
+- Reset release (Justin M. Forbes)
+
 * Sun Jan 16 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.1-60]
 - netfilter: nat: force port remap to prevent shadowing well-known ports (Florian Westphal)
 - netfilter: conntrack: tag conntracks picked up in local out hook (Florian Westphal)
