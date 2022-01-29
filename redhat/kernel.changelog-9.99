@@ -1,3 +1,8 @@
+* Sat Jan 29 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.4-0]
+- Revert "drm/i915: Flush TLBs before releasing backing store" (Justin M. Forbes)
+- Fix up changelog (Justin M. Forbes)
+- Add file forgotten in simpledrm revert (Justin M. Forbes)
+
 * Thu Jan 27 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.3-0]
 - Revert "fedora: Disable fbdev drivers and use simpledrm instead" (Justin M. Forbes)
 
