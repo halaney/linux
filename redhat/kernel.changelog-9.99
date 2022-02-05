@@ -1,3 +1,7 @@
+* Sat Feb 05 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.6-0]
+- Revert "ath11k: add support for WCN6855 hw2.1" (Justin M. Forbes)
+- Changelog updates for rebase (Justin M. Forbes)
+
 * Tue Feb 01 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.5-0]
 - Linux v5.16.5 rebase
 - ath11k: add support for WCN6855 hw2.1 (Baochen Qiang)
