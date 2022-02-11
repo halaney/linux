@@ -1,3 +1,6 @@
+* Fri Feb 11 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.9-0]
+- tipc: improve size validations for received domain records (Jon Maloy)
+
 * Tue Feb 08 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.8-0]
 - drm/i915/psr: Disable PSR2 selective fetch for all TGL steps (Lyude Paul)
 - Set a value for CONFIG_FRAMEBUFFER_CONSOLE_LEGACY_ACCELERATION coming in with 5.16.8 (Justin M. Forbes)
