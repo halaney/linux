@@ -1,3 +1,8 @@
+* Wed Feb 16 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.10-0]
+- Revert "x86/PCI: Ignore E820 reservations for bridge windows on newer systems" (Justin M. Forbes)
+- usb: gadget: clear related members when goto fail (Hangyu Hua)
+- usb: gadget: don't release an existing dev->buf (Hangyu Hua)
+
 * Fri Feb 11 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.9-0]
 - tipc: improve size validations for received domain records (Jon Maloy)
 
