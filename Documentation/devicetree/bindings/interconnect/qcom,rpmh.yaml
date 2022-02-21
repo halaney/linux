@@ -49,6 +49,18 @@ properties:
       - qcom,sc7280-mmss-noc
       - qcom,sc7280-nsp-noc
       - qcom,sc7280-system-noc
+      - qcom,sc8280xp-aggre1_noc
+      - qcom,sc8280xp-aggre2_noc
+      - qcom,sc8280xp-clk_virt
+      - qcom,sc8280xp-config_noc
+      - qcom,sc8280xp-dc_noc
+      - qcom,sc8280xp-gem_noc
+      - qcom,sc8280xp-lpass_ag_noc
+      - qcom,sc8280xp-mc_virt
+      - qcom,sc8280xp-mmss_noc
+      - qcom,sc8280xp-nspa_noc
+      - qcom,sc8280xp-nspb_noc
+      - qcom,sc8280xp-system_noc_main
       - qcom,sdm845-aggre1-noc
       - qcom,sdm845-aggre2-noc
       - qcom,sdm845-config-noc
