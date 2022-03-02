@@ -1,3 +1,6 @@
+* Wed Mar 02 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.12-0]
+- drm/nouveau/backlight: Fix LVDS backlight detection on some laptops (Lyude Paul)
+
 * Wed Feb 23 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.11-0]
 - spec: don't overwrite auto.conf with .config (Ondrej Mosnacek)
 - New configs for 5.16.10 (Justin M. Forbes)
