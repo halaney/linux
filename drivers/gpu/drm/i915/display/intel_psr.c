@@ -735,14 +735,10 @@ static bool intel_psr2_sel_fetch_config_valid(struct intel_dp *intel_dp,
 		return false;
 	}
 
-	/*
-	 * There's two things stopping this from being enabled on TGL:
-	 * For steps A0-C0: workarounds Wa_14010254185 Wa_14010103792 are missing
-	 * For all steps: PSR2 selective fetch causes screen flickering
-	 */
-	if (IS_TIGERLAKE(dev_priv)) {
+	/* Wa_14010254185 Wa_14010103792 */
+	if (IS_TGL_DISPLAY_STEP(dev_priv, STEP_A0, STEP_C0)) {
 		drm_dbg_kms(&dev_priv->drm,
-			    "PSR2 sel fetch not enabled, currently broken on TGL\n");
+			    "PSR2 sel fetch not enabled, missing the implementation of WAs\n");
 		return false;
 	}
 
