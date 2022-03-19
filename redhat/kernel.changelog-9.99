@@ -1,3 +1,6 @@
+* Sat Mar 19 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.16-0]
+- drm/mgag200: Fix PLL setup for g200wb and g200ew (Jocelyn Falempe)
+
 * Thu Mar 17 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.15-1]
 - Back out the nfs workaround and just revert the query for fs_location (Justin M. Forbes)
 
