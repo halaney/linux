@@ -1,3 +1,15 @@
+* Mon Mar 28 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17-0]
+- Revert "swiotlb: rework "fix info leak with DMA_FROM_DEVICE"" (Linus Torvalds)
+- drm/i915: Temporarily disable selective fetch for PSR2 on ADL-P (Lyude Paul) [2065794]
+- Fix RHDISTGIT for Fedora (Justin M. Forbes)
+- mm/sparsemem: Fix 'mem_section' will never be NULL gcc 12 warning (Waiman Long)
+- Turn on RANDOM_TRUST_BOOTLOADER (Justin M. Forbes)
+- Revert "PCI/MSI: Mask MSI-X vectors only on success" (Justin M. Forbes)
+- Define SNAPSHOT correctly for VERSION_ON_UPSTREAM=0 (Justin M. Forbes)
+- Config fixups after some RHEL specific patches were reverted (Justin M. Forbes)
+- Basic Fedora Branch setup (Justin M. Forbes)
+- Reset Makefile.rhelver for the 5.18 cycle (Justin M. Forbes)
+
 * Sat Mar 19 2022 Fedora Kernel Team <kernel-team@fedoraproject.org> [5.17-0.rc8.34e047aa16c0.124]
 - Enable net reference count trackers in all debug kernels (Jiri Benc)
 - redhat/Makefile: Reorganize variables (Prarit Bhargava)
