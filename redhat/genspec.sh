@@ -73,7 +73,7 @@ LENGTH=$(wc -l "$clogf" | awk '{print $1}')
 #left by the 'print version\n' logic above
 cname="$(git var GIT_COMMITTER_IDENT |sed 's/>.*/>/')"
 cdate="$(LC_ALL=C date +"%a %b %d %Y")"
-cversion="[$RPMVERSION]";
+cversion="[$KVERSION-$PKGRELEASE]";
 tac "$clogf" | sed "1{/^$/d; /^- /i\
 * $cdate $cname $cversion
 	}" > "$clogf.rev"
