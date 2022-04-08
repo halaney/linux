@@ -1,3 +1,6 @@
+* Fri Apr 08 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.19-0]
+- Config update for 5.16.19 (Justin M. Forbes)
+
 * Mon Mar 28 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.16.18-0]
 - Revert "swiotlb: rework "fix info leak with DMA_FROM_DEVICE"" (Linus Torvalds)
 - Fix RHDISTGIT for Fedora (Justin M. Forbes)
