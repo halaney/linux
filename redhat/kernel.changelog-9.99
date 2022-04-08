@@ -1,3 +1,26 @@
+* Fri Apr 08 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.2-0]
+- Move the patch to the redhat directory so it doesn't end up as an applied patch (Justin M. Forbes)
+- Config updates for 5.17.2 (Justin M. Forbes)
+- Fedora: arm: Updates for QCom devices (Peter Robinson)
+- Fedora arm and generic updates for 5.17 (Peter Robinson)
+- enable COMMON_CLK_SI5341 for Xilinx ZYNQ-MP (Peter Robinson)
+- Update Fix 'mem_section' will never be NULL gcc 12 warning to V4 (Justin M. Forbes)
+- NFSv4.1 provide mount option to toggle trunking discovery (Olga Kornievskaia)
+- Add the Revert patch so that it can be applied when building dist-git for F34 and F35 (Justin M. Forbes)
+- redhat/configs/process_configs.sh: Avoid race with find (Prarit Bhargava)
+- redhat/configs/process_configs.sh: Remove CONTINUEONERROR (Prarit Bhargava)
+- redhat/configs/process_configs.sh: Fix race with tools generation (Prarit Bhargava)
+- Bluetooth: hci_core: Rate limit the logging of invalid SCO handle (Luiz Augusto von Dentz)
+- Bluetooth: hci_event: Fix HCI_EV_VENDOR max_len (Luiz Augusto von Dentz)
+- Update mm/sparsemem: Fix 'mem_section' will never be NULL gcc 12 (Justin M. Forbes)
+- net: bcmgenet: Use stronger register read/writes to assure ordering (Jeremy Linton)
+- We actually needed the previous patch from os-build (Justin M. Forbes)
+- redhat: Fix release tagging (Prarit Bhargava)
+- Fix up changelog generation for stable releases (Justin M. Forbes)
+- Remove i686 configs and filters (Justin M. Forbes)
+- redhat/self-test: Fix shellcheck test (Prarit Bhargava)
+- redhat/configs: Set CONFIG_X86_AMD_PSTATE built-in on Fedora (Prarit Bhargava)
+
 * Mon Mar 28 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.1-300]
 - Revert "swiotlb: rework "fix info leak with DMA_FROM_DEVICE"" (Linus Torvalds)
 - drm/i915: Temporarily disable selective fetch for PSR2 on ADL-P (Lyude Paul) [2065794]
