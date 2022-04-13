@@ -1,3 +1,8 @@
+* Wed Apr 13 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.3-0]
+- ALSA: memalloc: Add fallback SG-buffer allocations for x86 (Takashi Iwai)
+- Turn AMD_PSTATE back to module so users can choose (Justin M. Forbes)
+- drm/i915: update new TMDS clock setting defined by VBT (Lee Shawn C)
+
 * Fri Apr 08 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.2-0]
 - Move the patch to the redhat directory so it doesn't end up as an applied patch (Justin M. Forbes)
 - Config updates for 5.17.2 (Justin M. Forbes)
