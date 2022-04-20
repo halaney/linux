@@ -1,3 +1,7 @@
+* Wed Apr 20 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.4-0]
+- Add F34 and F35 as release targets (Justin M. Forbes)
+- Revert "net: bcmgenet: Use stronger register read/writes to assure ordering" (Justin M. Forbes)
+
 * Wed Apr 13 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.3-0]
 - ALSA: memalloc: Add fallback SG-buffer allocations for x86 (Takashi Iwai)
 - Turn AMD_PSTATE back to module so users can choose (Justin M. Forbes)
