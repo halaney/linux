@@ -1,3 +1,6 @@
+* Thu Apr 28 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.5-0]
+- Linux v5.17.5
+
 * Wed Apr 20 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.4-0]
 - Add F34 and F35 as release targets (Justin M. Forbes)
 - Revert "net: bcmgenet: Use stronger register read/writes to assure ordering" (Justin M. Forbes)
