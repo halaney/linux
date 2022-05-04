@@ -102,6 +102,14 @@ static const char *const pmic_models[] = {
 	[32] = "PM8150B",
 	[33] = "PMK8002",
 	[36] = "PM8009",
+	[47] = "PMK8350",
+	[48] = "PM8350",
+	[49] = "PM8350C",
+	[50] = "PM8350B",
+	[51] = "PMR735A",
+	[52] = "PMR735B",
+	[58] = "PM8450",
+	[65] = "PM8010",
 };
 #endif /* CONFIG_DEBUG_FS */
 
@@ -299,8 +307,12 @@ static const struct soc_id soc_id[] = {
 	{ 421, "IPQ6000" },
 	{ 422, "IPQ6010" },
 	{ 425, "SC7180" },
+	{ 439, "SM8350" },
+	{ 449, "SC8280XP" },
 	{ 453, "IPQ6005" },
 	{ 455, "QRB5165" },
+	{ 460, "SA8540P" },
+	{ 480, "SM8450" },
 };
 
 static const char *socinfo_machine(struct device *dev, unsigned int id)
