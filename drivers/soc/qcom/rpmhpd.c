@@ -118,6 +118,11 @@ static struct rpmhpd sdm845_cx_ao = {
 	.res_name = "cx.lvl",
 };
 
+static struct rpmhpd sdm845_nsp = {
+	.pd = { .name = "nsp", },
+	.res_name = "nsp.lvl",
+};
+
 static struct rpmhpd *sdm845_rpmhpds[] = {
 	[SDM845_EBI] = &sdm845_ebi,
 	[SDM845_MX] = &sdm845_mx,
@@ -291,10 +296,31 @@ static const struct rpmhpd_desc sc8180x_desc = {
 	.num_pds = ARRAY_SIZE(sc8180x_rpmhpds),
 };
 
+/* SC8280xp RPMH powerdomains */
+static struct rpmhpd *sc8280xp_rpmhpds[] = {
+	[SC8280XP_CX] = &sdm845_cx,
+	[SC8280XP_CX_AO] = &sdm845_cx_ao,
+	[SC8280XP_MX] = &sdm845_mx,
+	[SC8280XP_MX_AO] = &sdm845_mx_ao,
+	[SC8280XP_EBI] = &sdm845_ebi,
+	[SC8280XP_LCX] = &sdm845_lcx,
+	[SC8280XP_LMX] = &sdm845_lmx,
+	[SC8280XP_GFX] = &sdm845_gfx,
+	[SC8280XP_MMCX] = &sm8150_mmcx,
+	[SC8280XP_MMCX_AO] = &sm8150_mmcx_ao,
+	[SC8280XP_NSP] = &sdm845_nsp,
+};
+
+static const struct rpmhpd_desc sc8280xp_desc = {
+	.rpmhpds = sc8280xp_rpmhpds,
+	.num_pds = ARRAY_SIZE(sc8280xp_rpmhpds),
+};
+
 static const struct of_device_id rpmhpd_match_table[] = {
 	{ .compatible = "qcom,sc7180-rpmhpd", .data = &sc7180_desc },
 	{ .compatible = "qcom,sc7280-rpmhpd", .data = &sc7280_desc },
 	{ .compatible = "qcom,sc8180x-rpmhpd", .data = &sc8180x_desc },
+	{ .compatible = "qcom,sc8280xp-rpmhpd", .data = &sc8280xp_desc },
 	{ .compatible = "qcom,sdm845-rpmhpd", .data = &sdm845_desc },
 	{ .compatible = "qcom,sdx55-rpmhpd", .data = &sdx55_desc},
 	{ .compatible = "qcom,sm8150-rpmhpd", .data = &sm8150_desc },
