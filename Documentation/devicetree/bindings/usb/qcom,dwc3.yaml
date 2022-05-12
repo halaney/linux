@@ -90,15 +90,30 @@ properties:
           when a wakeup event is received on USB2 bus.
       - description: The interrupt that is asserted
           when a wakeup event is received on USB3 bus.
+      - description: The interrupt that is asserted
+          when a wakeup event is received on USB3 bus.
       - description: Wakeup event on DM line.
+      - description: Wakeup event on DM line.
+      - description: Wakeup event on DM line.
+      - description: Wakeup event on DM line.
+      - description: Wakeup event on DP line.
+      - description: Wakeup event on DP line.
+      - description: Wakeup event on DP line.
       - description: Wakeup event on DP line.
 
   interrupt-names:
     items:
       - const: hs_phy_irq
       - const: ss_phy_irq
+      - const: ss_phy_irq1
       - const: dm_hs_phy_irq
+      - const: dm_hs_phy_irq1
+      - const: dm_hs_phy_irq2
+      - const: dm_hs_phy_irq3
       - const: dp_hs_phy_irq
+      - const: dp_hs_phy_irq1
+      - const: dp_hs_phy_irq2
+      - const: dp_hs_phy_irq3
 
   qcom,select-utmi-as-pipe-clk:
     description:
