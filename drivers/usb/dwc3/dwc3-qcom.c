@@ -74,8 +74,15 @@ struct dwc3_qcom {
 
 	int			hs_phy_irq;
 	int			dp_hs_phy_irq;
+	int			dp_hs_phy_irq1;
+	int			dp_hs_phy_irq2;
+	int			dp_hs_phy_irq3;
 	int			dm_hs_phy_irq;
+	int			dm_hs_phy_irq1;
+	int			dm_hs_phy_irq2;
+	int			dm_hs_phy_irq3;
 	int			ss_phy_irq;
+	int			ss_phy_irq1;
 
 	struct extcon_dev	*edev;
 	struct extcon_dev	*host_edev;
@@ -296,50 +303,50 @@ static void dwc3_qcom_interconnect_exit(struct dwc3_qcom *qcom)
 	icc_put(qcom->icc_path_apps);
 }
 
+static void dwc3_qcom_disable_interrupt(int irq)
+{
+	if (irq) {
+		disable_irq_wake(irq);
+		disable_irq_nosync(irq);
+	}
+}
+
 static void dwc3_qcom_disable_interrupts(struct dwc3_qcom *qcom)
 {
-	if (qcom->hs_phy_irq) {
-		disable_irq_wake(qcom->hs_phy_irq);
-		disable_irq_nosync(qcom->hs_phy_irq);
-	}
+	dwc3_qcom_disable_interrupt(qcom->hs_phy_irq);
+	dwc3_qcom_disable_interrupt(qcom->dp_hs_phy_irq);
+	dwc3_qcom_disable_interrupt(qcom->dp_hs_phy_irq1);
+	dwc3_qcom_disable_interrupt(qcom->dp_hs_phy_irq2);
+	dwc3_qcom_disable_interrupt(qcom->dp_hs_phy_irq3);
+	dwc3_qcom_disable_interrupt(qcom->dm_hs_phy_irq);
+	dwc3_qcom_disable_interrupt(qcom->dm_hs_phy_irq1);
+	dwc3_qcom_disable_interrupt(qcom->dm_hs_phy_irq2);
+	dwc3_qcom_disable_interrupt(qcom->dm_hs_phy_irq3);
+	dwc3_qcom_disable_interrupt(qcom->ss_phy_irq);
+	dwc3_qcom_disable_interrupt(qcom->ss_phy_irq1);
+}
 
-	if (qcom->dp_hs_phy_irq) {
-		disable_irq_wake(qcom->dp_hs_phy_irq);
-		disable_irq_nosync(qcom->dp_hs_phy_irq);
-	}
-
-	if (qcom->dm_hs_phy_irq) {
-		disable_irq_wake(qcom->dm_hs_phy_irq);
-		disable_irq_nosync(qcom->dm_hs_phy_irq);
-	}
-
-	if (qcom->ss_phy_irq) {
-		disable_irq_wake(qcom->ss_phy_irq);
-		disable_irq_nosync(qcom->ss_phy_irq);
+static void dwc3_qcom_enable_interrupt(int irq)
+{
+	if (irq) {
+		enable_irq(irq);
+		enable_irq_wake(irq);
 	}
 }
 
 static void dwc3_qcom_enable_interrupts(struct dwc3_qcom *qcom)
 {
-	if (qcom->hs_phy_irq) {
-		enable_irq(qcom->hs_phy_irq);
-		enable_irq_wake(qcom->hs_phy_irq);
-	}
-
-	if (qcom->dp_hs_phy_irq) {
-		enable_irq(qcom->dp_hs_phy_irq);
-		enable_irq_wake(qcom->dp_hs_phy_irq);
-	}
-
-	if (qcom->dm_hs_phy_irq) {
-		enable_irq(qcom->dm_hs_phy_irq);
-		enable_irq_wake(qcom->dm_hs_phy_irq);
-	}
-
-	if (qcom->ss_phy_irq) {
-		enable_irq(qcom->ss_phy_irq);
-		enable_irq_wake(qcom->ss_phy_irq);
-	}
+	dwc3_qcom_enable_interrupt(qcom->hs_phy_irq);
+	dwc3_qcom_enable_interrupt(qcom->dp_hs_phy_irq);
+	dwc3_qcom_enable_interrupt(qcom->dp_hs_phy_irq1);
+	dwc3_qcom_enable_interrupt(qcom->dp_hs_phy_irq2);
+	dwc3_qcom_enable_interrupt(qcom->dp_hs_phy_irq3);
+	dwc3_qcom_enable_interrupt(qcom->dm_hs_phy_irq);
+	dwc3_qcom_enable_interrupt(qcom->dm_hs_phy_irq1);
+	dwc3_qcom_enable_interrupt(qcom->dm_hs_phy_irq2);
+	dwc3_qcom_enable_interrupt(qcom->dm_hs_phy_irq3);
+	dwc3_qcom_enable_interrupt(qcom->ss_phy_irq);
+	dwc3_qcom_enable_interrupt(qcom->ss_phy_irq1);
 }
 
 static int dwc3_qcom_suspend(struct dwc3_qcom *qcom)
@@ -450,73 +457,90 @@ static int dwc3_qcom_get_irq(struct platform_device *pdev,
 	return ret;
 }
 
-static int dwc3_qcom_setup_irq(struct platform_device *pdev)
+static int dwc3_qcom_setup_irq(struct platform_device *pdev, int *irq_out, char *name, int acpi_index, char *thread_name)
 {
 	struct dwc3_qcom *qcom = platform_get_drvdata(pdev);
-	const struct dwc3_acpi_pdata *pdata = qcom->acpi_pdata;
 	int irq;
 	int ret;
 
-	irq = dwc3_qcom_get_irq(pdev, "hs_phy_irq",
-				pdata ? pdata->hs_phy_irq_index : -1);
+	irq = dwc3_qcom_get_irq(pdev, name, acpi_index);
 	if (irq > 0) {
 		/* Keep wakeup interrupts disabled until suspend */
 		irq_set_status_flags(irq, IRQ_NOAUTOEN);
 		ret = devm_request_threaded_irq(qcom->dev, irq, NULL,
 					qcom_dwc3_resume_irq,
 					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-					"qcom_dwc3 HS", qcom);
+					thread_name, qcom);
 		if (ret) {
-			dev_err(qcom->dev, "hs_phy_irq failed: %d\n", ret);
+			dev_err(qcom->dev, "%s failed: %d\n", name, ret);
 			return ret;
 		}
-		qcom->hs_phy_irq = irq;
+		*irq_out = irq;
 	}
 
-	irq = dwc3_qcom_get_irq(pdev, "dp_hs_phy_irq",
-				pdata ? pdata->dp_hs_phy_irq_index : -1);
-	if (irq > 0) {
-		irq_set_status_flags(irq, IRQ_NOAUTOEN);
-		ret = devm_request_threaded_irq(qcom->dev, irq, NULL,
-					qcom_dwc3_resume_irq,
-					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-					"qcom_dwc3 DP_HS", qcom);
-		if (ret) {
-			dev_err(qcom->dev, "dp_hs_phy_irq failed: %d\n", ret);
-			return ret;
-		}
-		qcom->dp_hs_phy_irq = irq;
-	}
+	return 0;
+}
 
-	irq = dwc3_qcom_get_irq(pdev, "dm_hs_phy_irq",
-				pdata ? pdata->dm_hs_phy_irq_index : -1);
-	if (irq > 0) {
-		irq_set_status_flags(irq, IRQ_NOAUTOEN);
-		ret = devm_request_threaded_irq(qcom->dev, irq, NULL,
-					qcom_dwc3_resume_irq,
-					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-					"qcom_dwc3 DM_HS", qcom);
-		if (ret) {
-			dev_err(qcom->dev, "dm_hs_phy_irq failed: %d\n", ret);
-			return ret;
-		}
-		qcom->dm_hs_phy_irq = irq;
-	}
+static int dwc3_qcom_setup_irqs(struct platform_device *pdev)
+{
+	struct dwc3_qcom *qcom = platform_get_drvdata(pdev);
+	const struct dwc3_acpi_pdata *pdata = qcom->acpi_pdata;
+	int ret;
 
-	irq = dwc3_qcom_get_irq(pdev, "ss_phy_irq",
-				pdata ? pdata->ss_phy_irq_index : -1);
-	if (irq > 0) {
-		irq_set_status_flags(irq, IRQ_NOAUTOEN);
-		ret = devm_request_threaded_irq(qcom->dev, irq, NULL,
-					qcom_dwc3_resume_irq,
-					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
-					"qcom_dwc3 SS", qcom);
-		if (ret) {
-			dev_err(qcom->dev, "ss_phy_irq failed: %d\n", ret);
-			return ret;
-		}
-		qcom->ss_phy_irq = irq;
-	}
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->hs_phy_irq, "hs_phy_irq",
+			pdata ? pdata->hs_phy_irq_index : -1, "qcom_dwc3 HS");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->dp_hs_phy_irq, "dp_hs_phy_irq",
+			pdata ? pdata->dp_hs_phy_irq_index : -1, "qcom_dwc3 DP_HS");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->dp_hs_phy_irq1, "dp_hs_phy_irq1",
+			-1, "qcom_dwc3 DP_HS1");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->dp_hs_phy_irq2, "dp_hs_phy_irq2",
+			-1, "qcom_dwc3 DP_HS2");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->dp_hs_phy_irq3, "dp_hs_phy_irq3",
+			-1, "qcom_dwc3 DP_HS3");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->dm_hs_phy_irq, "dm_hs_phy_irq",
+			pdata ? pdata->dm_hs_phy_irq_index : -1, "qcom_dwc3 DM_HS");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->dm_hs_phy_irq1, "dm_hs_phy_irq1",
+			-1, "qcom_dwc3 DM_HS1");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->dm_hs_phy_irq2, "dm_hs_phy_irq2",
+			-1, "qcom_dwc3 DM_HS2");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->dm_hs_phy_irq3, "dm_hs_phy_irq3",
+			-1, "qcom_dwc3 DM_HS3");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->ss_phy_irq, "ss_phy_irq",
+			pdata ? pdata->ss_phy_irq_index : -1, "qcom_dwc3 SS");
+	if (ret)
+		return ret;
+
+	ret = dwc3_qcom_setup_irq(pdev, &qcom->ss_phy_irq1, "ss_phy_irq1",
+			-1, "qcom_dwc3 SS1");
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -778,7 +802,7 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 		goto clk_disable;
 	}
 
-	ret = dwc3_qcom_setup_irq(pdev);
+	ret = dwc3_qcom_setup_irqs(pdev);
 	if (ret) {
 		dev_err(dev, "failed to setup IRQs, err=%d\n", ret);
 		goto clk_disable;
