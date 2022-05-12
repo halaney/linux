@@ -73,15 +73,21 @@ properties:
 
   phys:
     minItems: 1
-    maxItems: 2
+    maxItems: 6
 
   phy-names:
     minItems: 1
-    maxItems: 2
+    maxItems: 6
     items:
       enum:
         - usb2-phy
+        - usb2-phy0
+        - usb2-phy1
+        - usb2-phy2
+        - usb2-phy3
         - usb3-phy
+        - usb3-phy0
+        - usb3-phy1
 
   resets:
     minItems: 1
