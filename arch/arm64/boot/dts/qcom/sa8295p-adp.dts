@@ -148,6 +148,14 @@
 			regulator-allow-set-load;
 		};
 
+		vreg_l7g: ldo7 {
+			regulator-name = "vreg_l7g";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-allow-set-load;
+		};
+
 		vreg_l8g: ldo8 {
 			regulator-name = "vreg_l8g";
 			regulator-min-microvolt = <880000>;
