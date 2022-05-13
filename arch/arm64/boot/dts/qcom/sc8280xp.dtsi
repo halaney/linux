@@ -706,12 +706,16 @@
 			clocks = <&rpmhcc RPMH_CXO_CLK>,
 				 <&sleep_clk>,
 				 <&usb_0_ssphy>,
-				 <&usb_1_ssphy>;
+				 <&usb_1_ssphy>,
+				 <&usb_2_ssphy>,
+				 <&usb_2_ssphy1>;
 			clock-names = "bi_tcxo",
 				      "sleep_clk",
 				      "usb3_phy_wrapper_gcc_usb30_pipe_clk",
-				      "usb3_uni_phy_sec_gcc_usb30_pipe_clk";
-			power-domains = <&rpmhpd SC8280XP_CX>;
+				      "usb3_uni_phy_sec_gcc_usb30_pipe_clk",
+				      "usb3_uni_phy_mp_gcc_usb30_pipe_0_clk",
+				      "usb3_uni_phy_mp_gcc_usb30_pipe_1_clk";
+			power-domain = <&rpmhpd SC8280XP_CX>;
 		};
 
 		ipcc: mailbox@408000 {
@@ -1495,6 +1499,177 @@
 				phys = <&usb_1_hsphy>, <&usb_1_ssphy>;
 				phy-names = "usb2-phy", "usb3-phy";
 			};
+		};
+
+		usb_2: usb@a4f8800 {
+			compatible = "qcom,sc8280xp-dwc3", "qcom,dwc3";
+			reg = <0 0x0a4f8800 0 0x400>;
+			status = "disabled";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			clocks = <&gcc GCC_USB30_MP_MASTER_CLK>,
+				<&gcc GCC_CFG_NOC_USB3_MP_AXI_CLK>,
+				<&gcc GCC_AGGRE_USB3_MP_AXI_CLK>,
+				<&gcc GCC_USB30_MP_MOCK_UTMI_CLK>,
+				<&gcc GCC_USB30_MP_SLEEP_CLK>,
+				<&gcc GCC_AGGRE_USB_NOC_AXI_CLK>,
+				<&gcc GCC_AGGRE_USB_NOC_NORTH_AXI_CLK>,
+				<&gcc GCC_AGGRE_USB_NOC_SOUTH_AXI_CLK>,
+				<&gcc GCC_SYS_NOC_USB_AXI_CLK>;
+			clock-names = "core", "iface", "bus_aggr",
+					"utmi", "sleep", "noc_aggr",
+					"noc_aggr_north", "noc_aggr_south",
+					"noc_sys";
+
+			interrupts-extended = <&pdc 127 IRQ_TYPE_EDGE_RISING>,
+					<&pdc 126 IRQ_TYPE_EDGE_RISING>,
+					<&pdc 129 IRQ_TYPE_EDGE_RISING>,
+					<&pdc 128 IRQ_TYPE_EDGE_RISING>,
+					<&pdc 131 IRQ_TYPE_EDGE_RISING>,
+					<&pdc 130 IRQ_TYPE_EDGE_RISING>,
+					<&pdc 133 IRQ_TYPE_EDGE_RISING>,
+					<&pdc 132 IRQ_TYPE_EDGE_RISING>,
+					<&pdc 16 IRQ_TYPE_LEVEL_HIGH>,
+					<&pdc 17 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "dp_hs_phy_irq", "dm_hs_phy_irq",
+					"dp_hs_phy_irq1", "dm_hs_phy_irq1",
+					"dp_hs_phy_irq2", "dm_hs_phy_irq2",
+					"dp_hs_phy_irq3", "dm_hs_phy_irq3",
+					"ss_phy_irq", "ss_phy_irq1";
+
+			power-domains = <&gcc USB30_MP_GDSC>;
+
+			resets = <&gcc GCC_USB30_MP_BCR>;
+
+			interconnects = <&aggre1_noc MASTER_USB3_MP 0 &mc_virt SLAVE_EBI1 0>,
+				        <&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_USB3_MP 0>;
+			interconnect-names = "usb-ddr", "apps-usb";
+
+			usb_2_dwc3: usb@a400000 {
+				compatible = "snps,dwc3";
+				reg = <0 0x0a400000 0 0xcd00>;
+				interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
+				iommus = <&apps_smmu 0x800 0x0>;
+				phys = <&usb2_phy2>, <&usb_2_ssphy>,
+					<&usb2_phy3>, <&usb_2_ssphy1>,
+					<&usb2_phy4>, <&usb2_phy5>;
+				phy-names = "usb2-phy0", "usb3-phy0", "usb2-phy1", "usb3-phy1",
+							"usb2-phy2", "usb2-phy3";
+			};
+		};
+
+		usb2_phy2: hsphy@88e7000 {
+			compatible = "qcom,sc8280xp-usb-hs-phy",
+				     "qcom,usb-snps-hs-5nm-phy";
+			reg = <0 0x88e7000 0 0x400>;
+			status = "disabled";
+			#phy-cells = <0>;
+
+			clocks = <&gcc GCC_USB2_HS0_CLKREF_CLK>;
+			clock-names = "ref";
+
+			resets = <&gcc GCC_QUSB2PHY_HS0_MP_BCR>;
+		};
+
+		usb_qmp_phy0: phy-wrapper@88ef000 {
+			compatible = "qcom,sm8350-qmp-usb3-uni-phy";
+			reg = <0 0x088ef000 0 0x200>;
+			status = "disabled";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			clocks = <&gcc GCC_USB3_MP_PHY_AUX_CLK>,
+				 <&rpmhcc RPMH_CXO_CLK>,
+				 <&gcc GCC_USB3_MP0_CLKREF_CLK>,
+				 <&gcc GCC_USB3_MP_PHY_COM_AUX_CLK>;
+			clock-names = "aux", "ref_clk_src", "ref", "com_aux";
+
+			resets = <&gcc GCC_USB3_UNIPHY_MP0_BCR>,
+					<&gcc GCC_USB3UNIPHY_PHY_MP0_BCR>;
+			reset-names = "phy", "common";
+
+			usb_2_ssphy: phy@88efe00 {
+				reg = <0 0x088efe00 0 0x200>,
+				      <0 0x088f0000 0 0x200>,
+				      <0 0x088ef200 0 0x1100>;
+				#phy-cells = <0>;
+				#clock-cells = <0>;
+				clocks = <&gcc GCC_USB3_MP_PHY_PIPE_0_CLK>;
+				clock-names = "pipe0";
+				clock-output-names = "usb2_phy_pipe_0_clk_src";
+			};
+		};
+
+		usb2_phy3: hsphy@88e8000 {
+			compatible = "qcom,sc8280xp-usb-hs-phy",
+				     "qcom,usb-snps-hs-5nm-phy";
+			reg = <0 0x88e8000 0 0x400>;
+			status = "disabled";
+			#phy-cells = <0>;
+
+			clocks = <&gcc GCC_USB2_HS1_CLKREF_CLK>;
+			clock-names = "ref";
+
+			resets = <&gcc GCC_QUSB2PHY_HS1_MP_BCR>;
+		};
+
+		usb_qmp_phy1: phy-wrapper@88f1000 {
+			compatible = "qcom,sm8350-qmp-usb3-uni-phy";
+			reg = <0 0x088f1000 0 0x200>;
+			status = "disabled";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			ranges;
+
+			clocks = <&gcc GCC_USB3_MP_PHY_AUX_CLK>,
+				 <&rpmhcc RPMH_CXO_CLK>,
+				 <&gcc GCC_USB3_MP1_CLKREF_CLK>,
+				 <&gcc GCC_USB3_MP_PHY_COM_AUX_CLK>;
+			clock-names = "aux", "ref_clk_src", "ref", "com_aux";
+
+			resets = <&gcc GCC_USB3_UNIPHY_MP1_BCR>,
+					<&gcc GCC_USB3UNIPHY_PHY_MP1_BCR>;
+			reset-names = "phy", "common";
+
+			usb_2_ssphy1: phy@88f1e00 {
+				reg = <0 0x088f1e00 0 0x200>,
+				      <0 0x088f2000 0 0x200>,
+				      <0 0x088f1200 0 0x1100>;
+				#phy-cells = <0>;
+				#clock-cells = <0>;
+				clocks = <&gcc GCC_USB3_MP_PHY_PIPE_1_CLK>;
+				clock-names = "pipe0";
+				clock-output-names = "usb2_phy1_pipe_0_clk_src";
+			};
+		};
+
+		usb2_phy4: hsphy@88e9000 {
+			compatible = "qcom,sc8280xp-usb-hs-phy",
+				     "qcom,usb-snps-hs-5nm-phy";
+			reg = <0 0x88e9000 0 0x400>;
+			status = "disabled";
+			#phy-cells = <0>;
+
+			clocks = <&gcc GCC_USB2_HS2_CLKREF_CLK>;
+			clock-names = "ref";
+
+			resets = <&gcc GCC_QUSB2PHY_HS2_MP_BCR>;
+		};
+
+		usb2_phy5: hsphy@88ea000 {
+			compatible = "qcom,sc8280xp-usb-hs-phy",
+				     "qcom,usb-snps-hs-5nm-phy";
+			reg = <0 0x88ea000 0 0x400>;
+			status = "disabled";
+			#phy-cells = <0>;
+
+			clocks = <&gcc GCC_USB2_HS3_CLKREF_CLK>;
+			clock-names = "ref";
+
+			resets = <&gcc GCC_QUSB2PHY_HS3_MP_BCR>;
 		};
 
 		usb_0_hsphy: phy@88e5000 {

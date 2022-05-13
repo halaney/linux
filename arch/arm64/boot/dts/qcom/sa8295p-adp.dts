@@ -268,8 +268,62 @@
 };
 
 &usb_1_qmpphy {
-	status = "okay";
+	//status = "okay";
 
 	vdda-phy-supply = <&vreg_l4c>;
 	vdda-pll-supply = <&vreg_l1c>;
+};
+
+&usb_2 {
+	status = "okay";
+};
+
+&usb_2_dwc3 {
+	dr_mode = "host";
+};
+
+&usb2_phy2 {
+	status = "okay";
+
+	vdda-pll-supply = <&vreg_l5a>;
+	vdda18-supply = <&vreg_l7g>;
+	vdda33-supply = <&vreg_l13a>;
+};
+
+&usb_qmp_phy0 {
+	status = "okay";
+
+	vdda-phy-supply = <&vreg_l3a>;
+	vdda-pll-supply = <&vreg_l5a>;
+};
+
+&usb2_phy3 {
+	status = "okay";
+
+	vdda-pll-supply = <&vreg_l5a>;
+	vdda18-supply = <&vreg_l7g>;
+	vdda33-supply = <&vreg_l13a>;
+};
+
+&usb_qmp_phy1 {
+	status = "okay";
+
+	vdda-phy-supply = <&vreg_l3a>;
+	vdda-pll-supply = <&vreg_l5a>;
+};
+
+&usb2_phy4 {
+	status = "okay";
+
+	vdda-pll-supply = <&vreg_l5a>;
+	vdda18-supply = <&vreg_l7g>;
+	vdda33-supply = <&vreg_l13a>;
+};
+
+&usb2_phy5 {
+	status = "okay";
+
+	vdda-pll-supply = <&vreg_l5a>;
+	vdda18-supply = <&vreg_l7g>;
+	vdda33-supply = <&vreg_l13a>;
 };
