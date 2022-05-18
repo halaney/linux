@@ -1,3 +1,6 @@
+* Sun May 15 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.8-0]
+- Linux v5.17.8
+
 * Thu May 12 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.7-0]
 - Set CONFIG_EFI_DXE_MEM_ATTRIBUTES (Justin M. Forbes)
 - efi: x86: Set the NX-compatibility flag in the PE header (Peter Jones)
