@@ -1,3 +1,6 @@
+* Wed May 18 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.9-0]
+- Fix changelog for 5.17.8 (Justin M. Forbes)
+
 * Sun May 15 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.8-0]
 - Linux v5.17.8
 
