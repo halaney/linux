@@ -794,6 +794,13 @@ union efi_tcg2_protocol {
 	} mixed_mode;
 };
 
+struct riscv_efi_boot_protocol {
+	u64 revision;
+
+	efi_status_t (__efiapi *get_boot_hartid)(struct riscv_efi_boot_protocol *,
+						 unsigned long *boot_hartid);
+};
+
 typedef union efi_load_file_protocol efi_load_file_protocol_t;
 typedef union efi_load_file_protocol efi_load_file2_protocol_t;
 
@@ -939,7 +946,8 @@ efi_status_t handle_kernel_image(unsigned long *image_addr,
 				 unsigned long *image_size,
 				 unsigned long *reserve_addr,
 				 unsigned long *reserve_size,
-				 efi_loaded_image_t *image);
+				 efi_loaded_image_t *image,
+				 efi_handle_t image_handle);
 
 asmlinkage void __noreturn efi_enter_kernel(unsigned long entrypoint,
 					    unsigned long fdt_addr,
