@@ -1,3 +1,7 @@
+* Wed May 25 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.10-0]
+- fedora: Re-enable efifb and vesafb drivers (Javier Martinez Canillas)
+- drivers/firmware: skip simpledrm if nvidia-drm.modeset=1 is set (Javier Martinez Canillas)
+
 * Wed May 18 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.17.9-0]
 - Fix changelog for 5.17.8 (Justin M. Forbes)
 
