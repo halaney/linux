@@ -1,3 +1,19 @@
+* Thu May 26 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.18.0-0]
+- Fix versioning for Stable Fedora (Justin M. Forbes)
+- Reset release to 0 for stable (Justin M. Forbes)
+- Add fedora-dist-git-test script (Justin M. Forbes)
+- fedora: Re-enable efifb and vesafb drivers (Javier Martinez Canillas)
+- drivers/firmware: skip simpledrm if nvidia-drm.modeset=1 is set (Javier Martinez Canillas)
+- Basic Fedora branch setup (Justin M. Forbes)
+- redhat/Makefile: Drop quotation marks around string definitions (Prarit Bhargava)
+- Fedora: arm: Updates for QCom devices (Peter Robinson)
+- Fedora arm and generic updates for 5.17 (Peter Robinson)
+- enable COMMON_CLK_SI5341 for Xilinx ZYNQ-MP (Peter Robinson)
+- Turn on CONFIG_DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING for Fedora (Justin M. Forbes)
+- redhat/self-test/data: Update data set (Prarit Bhargava)
+- Revert variable switch for lasttag (Justin M. Forbes)
+Resolves: 
+
 * Mon May 23 2022 Fedora Kernel Team <kernel-team@fedoraproject.org> [5.18.0-58]
 - redhat: Add self-tests to .gitlab-ci.yml (Prarit Bhargava)
 - redhat/self-test: Update data (Prarit Bhargava)
