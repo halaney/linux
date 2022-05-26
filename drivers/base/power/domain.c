@@ -873,8 +873,6 @@ static int genpd_runtime_suspend(struct device *dev)
 	s64 elapsed_ns;
 	int ret;
 
-	dev_dbg(dev, "%s()\n", __func__);
-
 	genpd = dev_to_genpd(dev);
 	if (IS_ERR(genpd))
 		return -EINVAL;
@@ -949,8 +947,6 @@ static int genpd_runtime_resume(struct device *dev)
 	s64 elapsed_ns;
 	int ret;
 	bool timed = true;
-
-	dev_dbg(dev, "%s()\n", __func__);
 
 	genpd = dev_to_genpd(dev);
 	if (IS_ERR(genpd))
