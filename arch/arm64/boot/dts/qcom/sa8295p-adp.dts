@@ -201,7 +201,7 @@
 };
 
 &ufs_card_hc {
-	status = "okay";
+	//status = "okay";
 
 	reset-gpios = <&tlmm 229 GPIO_ACTIVE_LOW>;
 
