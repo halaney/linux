@@ -123,6 +123,7 @@ static int qcom_snps_hsphy_suspend(struct qcom_snps_hsphy *hsphy)
 	}
 
 	clk_disable_unprepare(hsphy->cfg_ahb_clk);
+	clk_disable_unprepare(hsphy->ref_clk);
 	return 0;
 }
 
@@ -131,6 +132,12 @@ static int qcom_snps_hsphy_resume(struct qcom_snps_hsphy *hsphy)
 	int ret;
 
 	dev_dbg(&hsphy->phy->dev, "Resume QCOM SNPS PHY, mode\n");
+
+	ret = clk_prepare_enable(hsphy->ref_clk);
+	if (ret) {
+		dev_err(&hsphy->phy->dev, "failed to enable ref clock\n");
+		return ret;
+	}
 
 	ret = clk_prepare_enable(hsphy->cfg_ahb_clk);
 	if (ret) {
@@ -182,6 +189,12 @@ static int qcom_snps_hsphy_init(struct phy *phy)
 	ret = regulator_bulk_enable(ARRAY_SIZE(hsphy->vregs), hsphy->vregs);
 	if (ret)
 		return ret;
+
+	ret = clk_prepare_enable(hsphy->ref_clk);
+	if (ret) {
+		dev_err(&phy->dev, "failed to enable ref clock, %d\n", ret);
+		goto poweroff_phy;
+	}
 
 	ret = clk_prepare_enable(hsphy->cfg_ahb_clk);
 	if (ret) {
@@ -248,6 +261,7 @@ static int qcom_snps_hsphy_init(struct phy *phy)
 
 disable_ahb_clk:
 	clk_disable_unprepare(hsphy->cfg_ahb_clk);
+	clk_disable_unprepare(hsphy->ref_clk);
 poweroff_phy:
 	regulator_bulk_disable(ARRAY_SIZE(hsphy->vregs), hsphy->vregs);
 
@@ -260,6 +274,7 @@ static int qcom_snps_hsphy_exit(struct phy *phy)
 
 	reset_control_assert(hsphy->phy_reset);
 	clk_disable_unprepare(hsphy->cfg_ahb_clk);
+	clk_disable_unprepare(hsphy->ref_clk);
 	regulator_bulk_disable(ARRAY_SIZE(hsphy->vregs), hsphy->vregs);
 	hsphy->phy_initialized = false;
 
