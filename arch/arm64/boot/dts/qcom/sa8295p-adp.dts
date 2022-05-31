@@ -10,6 +10,8 @@
 #include <dt-bindings/input/gpio-keys.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/spmi/spmi.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 
 #include "sa8540p.dtsi"
 
@@ -140,6 +142,14 @@
 		compatible = "qcom,pm8150-rpmh-regulators";
 		qcom,pmic-id = "g";
 
+		vreg_l7g: ldo7 {
+			regulator-name = "vreg_l7g";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+			regulator-allow-set-load;
+		};
+
 		vreg_l3g: ldo3 {
 			regulator-name = "vreg_l3g";
 			regulator-min-microvolt = <1200000>;
@@ -243,7 +253,7 @@
 };
 
 &usb_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &usb_1_dwc3 {
@@ -252,7 +262,7 @@
 };
 
 &usb_1_hsphy {
-	status = "okay";
+	status = "disabled";
 
 	vdda-pll-supply = <&vreg_l1c>;
 	vdda18-supply = <&vreg_l7c>;
@@ -260,8 +270,57 @@
 };
 
 &usb_1_qmpphy {
-	status = "okay";
+	status = "disabled";
 
 	vdda-phy-supply = <&vreg_l4c>;
 	vdda-pll-supply = <&vreg_l1c>;
+};
+
+&usb_2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb20_vbus_boost_default>;
+
+	status = "okay";
+};
+
+&usb_2_hsphy_1 {
+	status = "okay";
+
+	vdda-pll-supply = <&vreg_l5a>;
+	vdda18-supply = <&vreg_l7g>;
+	vdda33-supply = <&vreg_l13a>;
+};
+
+&spmi_bus {
+	#address-cells = <2>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <4>;
+
+	qcom,pm8540@4 {
+		compatible = "qcom,spmi-pmic";
+		reg = <4 SPMI_USID>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pm8540_2_gpios: pinctrl@c000 {
+			compatible = "qcom,pm8150-gpio";
+			reg = <0xc000>;
+			gpio-controller;
+			#gpio-cells = <2>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+		};
+	};
+};
+
+&pm8540_2_gpios {
+	usb20_vbus_boost {
+		usb20_vbus_boost_default: usb20_vbus_boost_default {
+			pins = "gpio9";
+			function = "normal";
+			output-high;
+			power-source = <0>;
+		};
+	};
 };
