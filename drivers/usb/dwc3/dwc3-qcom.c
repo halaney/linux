@@ -350,6 +350,8 @@ static int dwc3_qcom_suspend(struct dwc3_qcom *qcom)
 	if (qcom->is_suspended)
 		return 0;
 
+	dev_err(qcom->dev, "dwc3_qcom_suspend\n");
+
 	val = readl(qcom->qscratch_base + PWR_EVNT_IRQ_STAT_REG);
 	if (!(val & PWR_EVNT_LPM_IN_L2_MASK))
 		dev_err(qcom->dev, "HS-PHY not in L2\n");
@@ -376,6 +378,8 @@ static int dwc3_qcom_resume(struct dwc3_qcom *qcom)
 
 	if (!qcom->is_suspended)
 		return 0;
+
+	dev_err(qcom->dev, "dwc3_qcom_resume\n");
 
 	if (device_may_wakeup(qcom->dev))
 		dwc3_qcom_disable_interrupts(qcom);
@@ -419,6 +423,9 @@ static irqreturn_t qcom_dwc3_resume_irq(int irq, void *data)
 
 static void dwc3_qcom_select_utmi_clk(struct dwc3_qcom *qcom)
 {
+
+	dev_err(qcom->dev, "dwc3_qcom_select_utmi_clk\n");
+
 	/* Configure dwc3 to use UTMI clock as PIPE clock not present */
 	dwc3_qcom_setbits(qcom->qscratch_base, QSCRATCH_GENERAL_CFG,
 			  PIPE_UTMI_CLK_DIS);
@@ -563,6 +570,8 @@ static int dwc3_qcom_clk_init(struct dwc3_qcom *qcom, int count)
 		}
 
 		qcom->clks[i] = clk;
+
+		clk_set_rate(qcom->clks[0], 66666667);
 	}
 
 	return 0;
@@ -714,6 +723,8 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, qcom);
 	qcom->dev = &pdev->dev;
 
+	dev_err(&pdev->dev, "dwc3_qcom_probe: Started probe\n");
+
 	if (has_acpi_companion(dev)) {
 		qcom->acpi_pdata = acpi_device_get_match_data(dev);
 		if (!qcom->acpi_pdata) {
@@ -824,6 +835,8 @@ static int dwc3_qcom_probe(struct platform_device *pdev)
 	pm_runtime_enable(dev);
 	pm_runtime_forbid(dev);
 
+	dev_err(&pdev->dev, "dwc3_qcom_probe: Completed probe\n");
+
 	return 0;
 
 interconnect_exit:
@@ -840,6 +853,8 @@ clk_disable:
 	}
 reset_assert:
 	reset_control_assert(qcom->resets);
+
+	dev_err(&pdev->dev, "dwc3_qcom_probe: Returning error 0x%x for probe\n", ret);
 
 	return ret;
 }
