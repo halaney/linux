@@ -1,3 +1,8 @@
+* Mon Jun 06 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.18.2-0]
+- Add the fedora-stable-release.sh script to generate stable dist-git (Justin M. Forbes)
+- Add the simpleDRM revert patch so that F35 can be maintained without it (Justin M. Forbes)
+Resolves: 
+
 * Thu May 26 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.18.0-0]
 - Fix versioning for Stable Fedora (Justin M. Forbes)
 - Reset release to 0 for stable (Justin M. Forbes)
