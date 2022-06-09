@@ -18,6 +18,7 @@
 
 	aliases {
 		serial0 = &qup2_uart17;
+		spi9 = &qup1_spi9;
 	};
 
 	chosen {
@@ -162,8 +163,22 @@
 	};
 };
 
+&qup1 {
+	status = "okay";
+};
+
 &qup2 {
 	status = "okay";
+};
+
+&qup1_spi9  {
+	status = "okay";
+
+	spidevmaster@0 {
+		compatible = "qcom,spidev";
+		reg = <0>;
+		status = "okay";
+	};
 };
 
 &qup2_uart17 {
