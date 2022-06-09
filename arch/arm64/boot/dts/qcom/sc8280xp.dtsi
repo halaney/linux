@@ -762,6 +762,24 @@
 
 			status = "disabled";
 
+			qup2_spi16: spi@880000 {
+				compatible = "qcom,geni-spi";
+				reg = <0 0x00880000 0 0x4000>;
+				clock-names = "se";
+				clocks = <&gcc GCC_QUPV3_WRAP2_S0_CLK>;
+				interrupts = <GIC_SPI 373 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&qup2_spi16_default>;
+				interconnects = <&clk_virt MASTER_QUP_CORE_2 0 &clk_virt SLAVE_QUP_CORE_2 0>,
+						<&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_QUP_2 0>,
+						<&aggre1_noc MASTER_QUP_2 0 &mc_virt SLAVE_EBI1 0>;
+				interconnect-names = "qup-core", "qup-config", "qup-memory";
+				spi-max-frequency = <50000000>;
+				status = "disabled";
+			};
+
 			qup2_uart17: serial@884000 {
 				compatible = "qcom,geni-uart";
 				reg = <0 0x00884000 0 0x4000>;
@@ -773,6 +791,24 @@
 				interconnects = <&clk_virt MASTER_QUP_CORE_2 0 &clk_virt SLAVE_QUP_CORE_2 0>,
 						<&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_QUP_2 0>;
 				interconnect-names = "qup-core", "qup-config";
+				status = "disabled";
+			};
+
+			qup2_spi22: spi@898000 {
+				compatible = "qcom,geni-spi";
+				reg = <0 0x00898000 0 0x4000>;
+				clock-names = "se";
+				clocks = <&gcc GCC_QUPV3_WRAP2_S6_CLK>;
+				interrupts = <GIC_SPI 833 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&qup2_spi22_default>;
+				interconnects = <&clk_virt MASTER_QUP_CORE_2 0 &clk_virt SLAVE_QUP_CORE_2 0>,
+						<&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_QUP_2 0>,
+						<&aggre1_noc MASTER_QUP_2 0 &mc_virt SLAVE_EBI1 0>;
+				interconnect-names = "qup-core", "qup-config", "qup-memory";
+				spi-max-frequency = <50000000>;
 				status = "disabled";
 			};
 
@@ -837,6 +873,24 @@
 			ranges;
 
 			status = "disabled";
+
+			qup1_spi9: spi@a84000 {
+				compatible = "qcom,geni-spi";
+				reg = <0 0x00a84000 0 0x4000>;
+				clock-names = "se";
+				clocks = <&gcc GCC_QUPV3_WRAP1_S1_CLK>;
+				interrupts = <GIC_SPI 354 IRQ_TYPE_LEVEL_HIGH>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&qup1_spi9_default>;
+				interconnects = <&clk_virt MASTER_QUP_CORE_1 0 &clk_virt SLAVE_QUP_CORE_1 0>,
+						<&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_QUP_1 0>,
+						<&aggre1_noc MASTER_QUP_1 0 &mc_virt SLAVE_EBI1 0>;
+				interconnect-names = "qup-core", "qup-config", "qup-memory";
+				spi-max-frequency = <50000000>;
+				status = "disabled";
+			};
 		};
 
 		ufs_mem_hc: ufs@1d84000 {
@@ -1553,6 +1607,27 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 			gpio-ranges = <&tlmm 0 0 230>;
+
+			qup1_spi9_default: qup1-spi0-default {
+				pins = "gpio41", "gpio42", "gpio43", "gpio44";
+				function = "qup9";
+				drive-strength = <6>;
+				bias-disable;
+			};
+
+			qup2_spi16_default: qup2-spi16-default {
+				pins = "gpio70", "gpio71", "gpio72", "gpio73";
+				function = "qup16";
+				drive-strength = <6>;
+				bias-disable;
+			};
+
+			qup2_spi22_default: qup2-spi22-default {
+				pins = "gpio85", "gpio86", "gpio83", "gpio84";
+				function = "qup22";
+				drive-strength = <6>;
+				bias-disable;
+			};
 		};
 
 		apps_smmu: iommu@15000000 {
