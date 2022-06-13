@@ -294,7 +294,7 @@
 };
 
 &usb_0 {
-	status = "okay";
+	status = "disabled";
 };
 
 &usb_0_dwc3 {
@@ -303,7 +303,7 @@
 };
 
 &usb_0_hsphy {
-	status = "okay";
+	status = "disabled";
 
 	vdda-pll-supply = <&vreg_l5a>;
 	vdda18-supply = <&vreg_l7a>;
@@ -311,14 +311,14 @@
 };
 
 &usb_0_qmpphy {
-	status = "okay";
+	status = "disabled";
 
 	vdda-phy-supply = <&vreg_l3a>;
 	vdda-pll-supply = <&vreg_l5a>;
 };
 
 &usb_1 {
-	status = "okay";
+	status = "disabled";
 };
 
 &usb_1_dwc3 {
@@ -327,7 +327,7 @@
 };
 
 &usb_1_hsphy {
-	status = "okay";
+	status = "disabled";
 
 	vdda-pll-supply = <&vreg_l1c>;
 	vdda18-supply = <&vreg_l7c>;
@@ -335,7 +335,7 @@
 };
 
 &usb_1_qmpphy {
-	status = "okay";
+	status = "disabled";
 
 	vdda-phy-supply = <&vreg_l4c>;
 	vdda-pll-supply = <&vreg_l1c>;
