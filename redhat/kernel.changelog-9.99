@@ -1,4 +1,5 @@
 * Tue Jun 14 2022 Justin M. Forbes <jforbes@fedoraproject.org> [5.18.4-0]
+- Linux v5.18.4 rebase
 - Enable CKI on os-build MRs only (Don Zickus)
 - drm/amd/display: Cap OLED brightness per max frame-average luminance (Roman Li) [2095858]
 - redhat/configs/fedora: Enable a set of modules used on some x86 tablets (Hans de Goede)
