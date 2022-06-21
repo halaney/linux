@@ -1,1 +1,1 @@
-# CONFIG_SPI_SPIDEV is not set
+CONFIG_SPI_SPIDEV=m
