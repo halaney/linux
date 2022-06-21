@@ -1536,7 +1536,7 @@
 				        <&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_USB3_MP 0>;
 			interconnect-names = "usb-ddr", "apps-usb";
 
-			usb_2_dwc3: usb@a800000 {
+			usb_2_dwc3: usb@a400000 {
 				compatible = "snps,dwc3";
 				reg = <0 0x0a400000 0 0xd93c>;
 				interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
