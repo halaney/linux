@@ -19,8 +19,8 @@
 
 	aliases {
 		serial0 = &qup2_uart17;
-		//i2c15 = &qup1_i2c15;
-		//i2c18 = &qup2_i2c18;
+		i2c15 = &qup1_i2c15;
+		i2c18 = &qup2_i2c18;
 		spi9 = &qup1_spi9;
 	};
 
@@ -179,11 +179,11 @@
 };
 
 &qup1_i2c15 {
-	status = "disabled";
+	status = "okay";
 };
 
 &qup2_i2c18 {
-	status = "disabled";
+	status = "okay";
 };
 
 &qup1_spi9  {
