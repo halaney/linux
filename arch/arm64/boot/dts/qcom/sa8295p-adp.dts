@@ -21,6 +21,9 @@
 
 	aliases {
 		serial0 = &qup2_uart17;
+		//i2c15 = &qup1_i2c15;
+		//i2c18 = &qup2_i2c18;
+		spi9 = &qup1_spi9;
 	};
 
 	chosen {
@@ -168,6 +171,14 @@
 	};
 };
 
+&qup0 {
+	status = "okay";
+};
+
+&qup1 {
+	status = "okay";
+};
+
 &qup2 {
 	status = "okay";
 };
@@ -175,6 +186,24 @@
 &qup2_uart17 {
 	compatible = "qcom,geni-debug-uart";
 	status = "okay";
+};
+
+&qup1_i2c15 {
+	status = "disabled";
+};
+
+&qup2_i2c18 {
+	status = "disabled";
+};
+
+&qup1_spi9  {
+	status = "okay";
+
+	spidevmaster@0 {
+		status = "okay";
+		compatible = "qcom,spidev";
+		reg = <0>;
+	};
 };
 
 &remoteproc_adsp {
