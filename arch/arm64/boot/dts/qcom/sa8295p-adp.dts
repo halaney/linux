@@ -278,8 +278,7 @@
 	vccq-supply = <&vreg_l3c>;
 	vccq-max-microamp = <900000>;
 
-	// Controller fails to enable on QDrive3 (SA8540p).
-	status = "disabled";
+	status = "okay";
 };
 
 &ufs_card_phy {
