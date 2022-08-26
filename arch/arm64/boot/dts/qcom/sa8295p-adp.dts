@@ -19,8 +19,6 @@
 	aliases {
 		serial0 = &qup2_uart17;
 		spi9 = &qup1_spi9;
-		i2c15 = &qup1_i2c15;
-		i2c18 = &qup2_i2c18;
 	};
 
 	chosen {
@@ -183,16 +181,8 @@
 	};
 };
 
-&qup1_i2c15 {
-	status = "okay";
-};
-
 &qup2_uart17 {
 	compatible = "qcom,geni-debug-uart";
-	status = "okay";
-};
-
-&qup2_i2c18 {
 	status = "okay";
 };
 
