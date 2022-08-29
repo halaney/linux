@@ -13,3 +13,8 @@
 	model = "Qualcomm SA8540 ADP";
 	compatible = "qcom,sa8540p-adp-ride", "qcom,sa8540p";
 };
+
+&ufs_card_hc {
+	/* Currently broken on this board */
+	status = "disabled";
+};
