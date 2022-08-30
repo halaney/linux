@@ -12,6 +12,10 @@
 / {
 	model = "Qualcomm SA8540 ADP";
 	compatible = "qcom,sa8540p-adp-ride", "qcom,sa8540p";
+
+	aliases {
+		spi9 = &qup1_spi9;
+	};
 };
 
 &ufs_card_hc {
@@ -75,6 +79,20 @@
 
 	vdda-phy-supply = <&vreg_l3a>;
 	vdda-pll-supply = <&vreg_l5a>;
+};
+
+&qup1 {
+	status = "okay";
+};
+
+&qup1_spi9 {
+	status = "okay";
+
+	spidevmaster@0 {
+		compatible = "qcom,spidev";
+		reg = <0>;
+		status = "okay";
+	};
 };
 
 /* PINCTRL */
