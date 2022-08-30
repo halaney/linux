@@ -377,20 +377,17 @@ static int apr_device_probe(struct device *dev)
 static int apr_device_remove(struct device *dev)
 {
 	struct apr_device *adev = to_apr_device(dev);
-	struct apr_driver *adrv;
+	struct apr_driver *adrv = to_apr_driver(dev->driver);
 	struct packet_router *apr = dev_get_drvdata(adev->dev.parent);
 
-	if (dev->driver) {
-		adrv = to_apr_driver(dev->driver);
-		if (adrv->remove)
-			adrv->remove(adev);
-		spin_lock(&apr->svcs_lock);
-		idr_remove(&apr->svcs_idr, adev->svc.id);
-		spin_unlock(&apr->svcs_lock);
-	}
+	if (adrv->remove)
+		adrv->remove(adev);
+	spin_lock(&apr->svcs_lock);
+	idr_remove(&apr->svcs_idr, adev->svc.id);
+	spin_unlock(&apr->svcs_lock);
+}
 
 	return 0;
-}
 
 static int apr_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
