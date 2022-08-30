@@ -15,6 +15,8 @@
 
 	aliases {
 		spi9 = &qup1_spi9;
+		i2c15 = &qup1_i2c15;
+		i2c18 = &qup2_i2c18;
 	};
 };
 
@@ -85,6 +87,10 @@
 	status = "okay";
 };
 
+&qup1_i2c15 {
+	status = "okay";
+};
+
 &qup1_spi9 {
 	status = "okay";
 
@@ -93,6 +99,10 @@
 		reg = <0>;
 		status = "okay";
 	};
+};
+
+&qup2_i2c18 {
+	status = "okay";
 };
 
 /* PINCTRL */
