@@ -29,6 +29,8 @@
 	status = "okay";
 
 	pinctrl-names = "default";
+	/* TODO: remove the unnecessary ones below, I think they all are for QDrive3. I believe these
+	are needed for sa8295p-adp (or possibly qdrive, but firmware is leaving gpio in a ok state?) */
 	pinctrl-0 = <&usb2_en_state>, <&usb3_en_state>, <&usb4_en_state>, <&usb5_en_state>;
 };
 
@@ -44,39 +46,7 @@
 	vdda33-supply = <&vreg_l13a>;
 };
 
-&usb_2_hsphy1 {
-	status = "okay";
-
-	vdda-pll-supply = <&vreg_l5a>;
-	vdda18-supply = <&vreg_l7g>;
-	vdda33-supply = <&vreg_l13a>;
-};
-
-&usb_2_hsphy2 {
-	status = "okay";
-
-	vdda-pll-supply = <&vreg_l5a>;
-	vdda18-supply = <&vreg_l7g>;
-	vdda33-supply = <&vreg_l13a>;
-};
-
-&usb_2_hsphy3 {
-	status = "okay";
-
-	vdda-pll-supply = <&vreg_l5a>;
-	vdda-pll-supply = <&vreg_l5a>;
-	vdda18-supply = <&vreg_l7g>;
-	vdda33-supply = <&vreg_l13a>;
-};
-
 &usb_2_qmpphy0 {
-	status = "okay";
-
-	vdda-phy-supply = <&vreg_l3a>;
-	vdda-pll-supply = <&vreg_l5a>;
-};
-
-&usb_2_qmpphy1 {
 	status = "okay";
 
 	vdda-phy-supply = <&vreg_l3a>;
