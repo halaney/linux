@@ -1568,10 +1568,7 @@
 				reg = <0 0x0a400000 0 0xd93c>;
 				interrupts = <GIC_SPI 133 IRQ_TYPE_LEVEL_HIGH>;
 				iommus = <&apps_smmu 0x800 0x0>;
-				phys = <&usb_2_hsphy0>, <&usb_2_ssphy0>,
-				       <&usb_2_hsphy1>, <&usb_2_ssphy1>,
-				       <&usb_2_hsphy2>,
-				       <&usb_2_hsphy3>;
+				phys = <&usb_2_hsphy0>, <&usb_2_ssphy0>;
 				phy-names = "usb2-phy", "usb3-phy";
 			};
 		};
