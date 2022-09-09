@@ -29,7 +29,7 @@
 	status = "okay";
 
 	pinctrl-names = "default";
-	pinctrl-0 = <&usb2_en_state>, <&usb3_en_state>, <&usb4_en_state>, <&usb5_en_state>;
+	pinctrl-0 = <&usb2_en_state>;
 };
 
 &usb_2_dwc3 {
