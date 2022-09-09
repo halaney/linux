@@ -722,9 +722,6 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 		reg &= ~DWC3_GUSB3PIPECTL_DEPOCHANGE;
 
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
-	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(1), reg);
-	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(2), reg);
-	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(3), reg);
 
 	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
 
@@ -796,9 +793,6 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
 		reg &= ~DWC3_GUSB2PHYCFG_U2_FREECLK_EXISTS;
 
 	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(1), reg);
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(2), reg);
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(3), reg);
 
 	return 0;
 }
@@ -1301,9 +1295,7 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 {
 	struct device		*dev = dwc->dev;
 	struct device_node	*node = dev->of_node;
-	struct phy *phy;
 	int ret;
-	int i;
 
 	if (node) {
 		dwc->usb2_phy = devm_usb_get_phy_by_phandle(dev, "usb-phy", 0);
@@ -1345,17 +1337,6 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 			dwc->usb3_generic_phy = NULL;
 		else
 			return dev_err_probe(dev, ret, "no usb3 phy configured\n");
-	}
-
-	for (i = 2; i < 100; i++) {
-		phy = devm_of_phy_get_by_index(dev, dev->of_node, i);
-		if (IS_ERR(phy))
-			continue;
-
-		printk(KERN_ERR "%s() powering up %d\n", __func__, i);
-		phy_set_mode(phy, PHY_MODE_USB_HOST);
-		phy_init(phy);
-		phy_power_on(phy);
 	}
 
 	return 0;
