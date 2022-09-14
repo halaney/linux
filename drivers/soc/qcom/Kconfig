@@ -26,6 +26,13 @@ config QCOM_COMMAND_DB
 	  resource on a RPM-hardened platform must use this database to get
 	  SoC specific identifier and information for the shared resources.
 
+config QCOM_KASLR_OFF_SAVE
+	tristate "Qualcom Technologies, Inc. kaslr offset save"
+	depends on ARCH_QCOM || COMPILE_TEST
+	depends on OF_RESERVED_MEM
+	help
+	  Save the kaslr offset region in a dedicated reserved region.
+
 config QCOM_CPR
 	tristate "QCOM Core Power Reduction (CPR) support"
 	depends on ARCH_QCOM && HAS_IOMEM
