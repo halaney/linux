@@ -1323,6 +1323,20 @@
 #define QPHY_V5_PCS_USB3_UNI_LFPS_DET_HIGH_COUNT_VAL	0x1018
 #define QPHY_V5_PCS_USB3_UNI_RXEQTRAINING_DFE_TIME_S2	0x103c
 
+/* Only for QMP V5 PHY - PCS_PCIE registers */
+#define QPHY_V5_PCS_PCIE_ENDPOINT_REFCLK_DRIVE         0x20
+#define QPHY_V5_PCS_PCIE_INT_AUX_CLK_CONFIG1           0x54
+#define QPHY_V5_PCS_PCIE_OSC_DTCT_ACTIONS              0x94
+#define QPHY_V5_PCS_PCIE_EQ_CONFIG2                    0xa8
+
+/* Only for QMP V5 PHY - USB/PCIe PCS registers */
+#define QPHY_V5_PCS_REFGEN_REQ_CONFIG1                 0x0dc
+#define QPHY_V5_PCS_G3S2_PRE_GAIN                      0x170
+#define QPHY_V5_PCS_RX_SIGDET_LVL                      0x188
+#define QPHY_V5_PCS_RATE_SLEW_CNTRL1                   0x198
+#define QPHY_V5_PCS_EQ_CONFIG2                         0x1e0
+#define QPHY_V5_PCS_EQ_CONFIG3                         0x1e4
+
 /* USB43DP_QSERDES_TXA */
 #define USB43DP_QSERDES_TX_RES_CODE_LANE_OFFSET_TX	0x30
 #define USB43DP_QSERDES_TX_RES_CODE_LANE_OFFSET_RX	0x34
