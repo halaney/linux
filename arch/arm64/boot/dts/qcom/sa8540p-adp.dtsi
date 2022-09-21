@@ -389,8 +389,17 @@
 	clock-frequency = <38400000>;
 };
 
+&pcie2a {
+	status = "okay";
+};
+
 &pcie3a {
 	wake-gpios = <&tlmm 56 GPIO_ACTIVE_HIGH>;
+};
+
+&pcie2a_phy {
+	vdda-phy-supply = <&vreg_l11a>;
+	vdda-pll-supply = <&vreg_l3a>;
 
 	status = "okay";
 };
@@ -398,8 +407,6 @@
 &pcie3a_phy {
 	vdda-phy-supply = <&vreg_l11a>;
 	vdda-pll-supply = <&vreg_l3a>;
-
-	status = "okay";
 };
 
 /* PINCTRL */

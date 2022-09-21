@@ -83,10 +83,10 @@
 	};
 };
 
-&pcie3a {
+&pcie2a {
 	status = "disabled";
 };
 
-&pcie3a_phy {
+&pcie2a_phy {
 	status = "disabled";
 };
