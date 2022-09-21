@@ -82,3 +82,11 @@
 		power-source = <0>;
 	};
 };
+
+&pcie3a {
+	status = "disabled";
+};
+
+&pcie3a_phy {
+	status = "disabled";
+};
