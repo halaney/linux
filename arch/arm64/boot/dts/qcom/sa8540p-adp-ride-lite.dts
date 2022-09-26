@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Linaro Limited
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ */
+
+/dts-v1/;
+
+#include "sa8540p-adp.dtsi"
+
+/ {
+	model = "Qualcomm SA8540 ADP";
+	compatible = "qcom,sa8540p-adp-ride", "qcom,sa8540p";
+
+	aliases {
+		spi9 = &qup1_spi9;
+		i2c15 = &qup1_i2c15;
+		i2c18 = &qup2_i2c18;
+	};
+};
+
+&ufs_card_hc {
+	/* Currently broken on this board */
+	status = "disabled";
+};
+
+&usb_2 {
+	status = "okay";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&usb2_en_state>;
+};
+
+&usb_2_dwc3 {
+	dr_mode = "host";
+};
+
+&usb_2_hsphy0 {
+	status = "okay";
+
+	vdda-pll-supply = <&vreg_l5a>;
+	vdda18-supply = <&vreg_l7g>;
+	vdda33-supply = <&vreg_l13a>;
+};
+
+&usb_2_qmpphy0 {
+	status = "okay";
+
+	vdda-phy-supply = <&vreg_l3a>;
+	vdda-pll-supply = <&vreg_l5a>;
+};
+
+&qup1 {
+	status = "okay";
+};
+
+&qup1_i2c15 {
+	status = "okay";
+};
+
+&qup1_spi9 {
+	status = "okay";
+
+	spidevmaster@0 {
+		compatible = "qcom,spidev";
+		reg = <0>;
+		status = "okay";
+	};
+};
+
+&qup2_i2c18 {
+	status = "okay";
+};
+
+/* PINCTRL */
+&pm8450c_gpios {
+	usb2_en_state: usb2-en-state {
+		pins = "gpio9";
+		function = "normal";
+		output-high;
+		power-source = <0>;
+	};
+};
