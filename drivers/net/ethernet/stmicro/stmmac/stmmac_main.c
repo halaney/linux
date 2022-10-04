@@ -1115,6 +1115,7 @@ static int stmmac_init_phy(struct net_device *dev)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 	struct device_node *node;
+	int phy_id = 0;
 	int ret;
 
 	node = priv->plat->phylink_node;
@@ -1132,6 +1133,19 @@ static int stmmac_init_phy(struct net_device *dev)
 		if (!priv->phydev) {
 			netdev_err(priv->dev, "no phy at addr %d\n", addr);
 			return -ENODEV;
+		}
+
+		phy_id = priv->phydev->phy_id & priv->phydev->drv->phy_id_mask;
+		if (phy_id == MARVEL_PHY_ID && !priv->plat->phy_intr_en) {
+			pr_info(" %s phy_id = %#x, phy_id_mask = %#x\n",
+				__func__, priv->phydev->phy_id,
+				priv->phydev->drv->phy_id_mask);
+			ret = priv->plat->phy_intr_enable(priv);
+			if (ret)
+				pr_err("%s: Unable to enable PHY interrupt\n",
+				       __func__);
+			else
+				priv->plat->phy_intr_en = true;
 		}
 
 		if (priv->plat->phy_intr_en_extn_stm &&
