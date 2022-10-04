@@ -25,6 +25,9 @@
 #include <net/page_pool.h>
 #include <uapi/linux/bpf.h>
 
+#define MARVELL_PHY_ID_88EA1512 0x01410dd4
+#define MARVEL_PHY_ID MARVELL_PHY_ID_88EA1512
+
 struct stmmac_resources {
 	void __iomem *addr;
 	u8 mac[ETH_ALEN];
