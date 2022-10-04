@@ -528,13 +528,13 @@ static int rpmhpd_aggregate_corner(struct rpmhpd *pd, unsigned int corner)
 static int rpmhpd_power_on(struct generic_pm_domain *domain)
 {
 	struct rpmhpd *pd = domain_to_rpmhpd(domain);
-	unsigned int corner;
-	int ret;
+	int ret = 0;
 
 	mutex_lock(&rpmhpd_lock);
 
-	corner = max(pd->corner, pd->enable_corner);
-	ret = rpmhpd_aggregate_corner(pd, corner);
+	if (pd->corner)
+		ret = rpmhpd_aggregate_corner(pd, pd->corner);
+
 	if (!ret)
 		pd->enabled = true;
 
