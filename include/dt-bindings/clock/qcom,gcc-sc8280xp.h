@@ -493,5 +493,6 @@
 #define USB30_PRIM_GDSC					10
 #define USB30_SEC_GDSC					11
 #define USB4_GDSC					12
-
+#define EMAC_0_GDSC					13
+#define EMAC_1_GDSC					14
 #endif
