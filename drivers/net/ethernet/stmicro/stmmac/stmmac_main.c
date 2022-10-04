@@ -3229,7 +3229,12 @@ static void stmmac_mtl_configuration(struct stmmac_priv *priv)
 
 static void stmmac_safety_feat_configuration(struct stmmac_priv *priv)
 {
-	if (priv->dma_cap.asp) {
+    /* TODO: should we define a 0'ed out safety_feat_cfg in the glue driver?
+	 * without the below, or that, this oops'es. I have no idea if a 0'ed
+	 * out structure is appropriate or not though, the fields describe
+	 * very little without documentation.
+	 */
+	if (priv->dma_cap.asp && priv->plat->safety_feat_cfg) {
 		netdev_info(priv->dev, "Enabling Safety Features\n");
 		stmmac_safety_feat_config(priv, priv->ioaddr, priv->dma_cap.asp,
 					  priv->plat->safety_feat_cfg);

@@ -93,8 +93,11 @@
 #define DMA_TBS_DEF_FTOS		(DMA_TBS_FTOS | DMA_TBS_FTOV)
 
 /* Following DMA defines are chanels oriented */
+#define EMAC3_DMA_CHAN_BASE_ADDR		0x00008100
+#define EMAC3_DMA_CHAN_BASE_OFFSET		0x1000
 #define DMA_CHAN_BASE_ADDR		0x00001100
 #define DMA_CHAN_BASE_OFFSET		0x80
+
 #define DMA_CHANX_BASE_ADDR(x)		(DMA_CHAN_BASE_ADDR + \
 					(x * DMA_CHAN_BASE_OFFSET))
 #define DMA_CHAN_REG_NUMBER		17
@@ -118,6 +121,29 @@
 #define DMA_CHAN_CUR_TX_BUF_ADDR(x)	(DMA_CHANX_BASE_ADDR(x) + 0x54)
 #define DMA_CHAN_CUR_RX_BUF_ADDR(x)	(DMA_CHANX_BASE_ADDR(x) + 0x5c)
 #define DMA_CHAN_STATUS(x)		(DMA_CHANX_BASE_ADDR(x) + 0x60)
+
+#define EMAC3_DMA_CHANX_BASE_ADDR(x)		(EMAC3_DMA_CHAN_BASE_ADDR + \
+					(x * EMAC3_DMA_CHAN_BASE_OFFSET))
+
+#define EMAC3_DMA_CHAN_CONTROL(x)		EMAC3_DMA_CHANX_BASE_ADDR(x)
+#define EMAC3_DMA_CHAN_TX_CONTROL(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x4)
+#define EMAC3_DMA_CHAN_RX_CONTROL(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x8)
+#define EMAC3_DMA_CHAN_TX_BASE_ADDR_HI(x)	(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x10)
+#define EMAC3_DMA_CHAN_TX_BASE_ADDR(x)	(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x14)
+#define EMAC3_DMA_CHAN_RX_BASE_ADDR_HI(x)	(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x18)
+#define EMAC3_DMA_CHAN_RX_BASE_ADDR(x)	(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x1c)
+#define EMAC3_DMA_CHAN_TX_END_ADDR(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x20)
+#define EMAC3_DMA_CHAN_RX_END_ADDR(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x28)
+#define EMAC3_DMA_CHAN_TX_RING_LEN(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x2c)
+#define EMAC3_DMA_CHAN_RX_RING_LEN(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x30)
+#define EMAC3_DMA_CHAN_INTR_ENA(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x34)
+#define EMAC3_DMA_CHAN_RX_WATCHDOG(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x38)
+#define EMAC3_DMA_CHAN_SLOT_CTRL_STATUS(x)	(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x3c)
+#define EMAC3_DMA_CHAN_CUR_TX_DESC(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x44)
+#define EMAC3_DMA_CHAN_CUR_RX_DESC(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x4c)
+#define EMAC3_DMA_CHAN_CUR_TX_BUF_ADDR(x)	(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x54)
+#define EMAC3_DMA_CHAN_CUR_RX_BUF_ADDR(x)	(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x5c)
+#define EMAC3_DMA_CHAN_STATUS(x)		(EMAC3_DMA_CHANX_BASE_ADDR(x) + 0x60)
 
 /* DMA Control X */
 #define DMA_CONTROL_SPH			BIT(24)
@@ -220,19 +246,31 @@
 #define DMA_CHAN0_DBG_STAT_RPS_SHIFT	8
 
 int dwmac4_dma_reset(void __iomem *ioaddr);
+void emac3_enable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx);
 void dwmac4_enable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx);
 void dwmac410_enable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx);
+void emac3_disable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx);
 void dwmac4_disable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx);
 void dwmac410_disable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx);
+void emac3_dma_start_tx(void __iomem *ioaddr, u32 chan);
 void dwmac4_dma_start_tx(void __iomem *ioaddr, u32 chan);
+void emac3_dma_stop_tx(void __iomem *ioaddr, u32 chan);
 void dwmac4_dma_stop_tx(void __iomem *ioaddr, u32 chan);
+void emac3_dma_start_rx(void __iomem *ioaddr, u32 chan);
 void dwmac4_dma_start_rx(void __iomem *ioaddr, u32 chan);
+void emac3_dma_stop_rx(void __iomem *ioaddr, u32 chan);
 void dwmac4_dma_stop_rx(void __iomem *ioaddr, u32 chan);
+int emac3_dma_interrupt(void __iomem *ioaddr,
+			 struct stmmac_extra_stats *x, u32 chan, u32 dir);
 int dwmac4_dma_interrupt(void __iomem *ioaddr,
 			 struct stmmac_extra_stats *x, u32 chan, u32 dir);
+void emac3_set_rx_ring_len(void __iomem *ioaddr, u32 len, u32 chan);
 void dwmac4_set_rx_ring_len(void __iomem *ioaddr, u32 len, u32 chan);
+void emac3_set_tx_ring_len(void __iomem *ioaddr, u32 len, u32 chan);
 void dwmac4_set_tx_ring_len(void __iomem *ioaddr, u32 len, u32 chan);
+void emac3_set_rx_tail_ptr(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
 void dwmac4_set_rx_tail_ptr(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
+void emac3_set_tx_tail_ptr(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
 void dwmac4_set_tx_tail_ptr(void __iomem *ioaddr, u32 tail_ptr, u32 chan);
 
 #endif /* __DWMAC4_DMA_H__ */

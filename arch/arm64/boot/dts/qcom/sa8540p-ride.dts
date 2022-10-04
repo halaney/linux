@@ -129,6 +129,13 @@
 		compatible = "qcom,pm8150-rpmh-regulators";
 		qcom,pmic-id = "g";
 
+		vreg_l2g: ldo2 {
+			regulator-name = "vreg_l2g";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2700000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
 		vreg_l3g: ldo3 {
 			regulator-name = "vreg_l3g";
 			regulator-min-microvolt = <1200000>;
@@ -416,5 +423,210 @@
 		function = "qup9";
 		drive-strength = <6>;
 		bias-disable;
+	};
+
+	emac1_defaults: emac1_defaults {
+		emac1_mdc {
+			pins = "gpio97";
+			function = "rgmii_1";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		emac1_mdio {
+			pins = "gpio98";
+			function = "rgmii_1";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		emac1_rgmii_txd0 {
+			pins = "gpio107";
+			function = "rgmii_1";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		emac1_rgmii_txd1 {
+			pins = "gpio108";
+			function = "rgmii_1";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		emac1_rgmii_txd2 {
+			pins = "gpio109";
+			function = "rgmii_1";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		emac1_rgmii_txd3 {
+			pins = "gpio110";
+			function = "rgmii_1";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		emac1_rgmii_txc {
+			pins = "gpio105";
+			function = "rgmii_1";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		emac1_rgmii_tx_ctl {
+			pins = "gpio106";
+			function = "rgmii_1";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		emac1_rgmii_rxd0 {
+			pins = "gpio101";
+			function = "rgmii_1";
+			bias-disable;  /* NO pull */
+			drive-strength = <16>;  /* 16MA */
+		};
+
+		emac1_rgmii_rxd1 {
+			pins = "gpio102";
+			function = "rgmii_1";
+			bias-disable;  /* NO pull */
+			drive-strength = <16>;
+		};
+
+		emac1_rgmii_rxd2 {
+			pins = "gpio103";
+			function = "rgmii_1";
+			bias-disable;	/* NO pull */
+			drive-strength = <16>;
+		};
+
+		emac1_rgmii_rxd3 {
+				pins = "gpio104";
+				function = "rgmii_1";
+				bias-disable;	/* NO pull */
+				drive-strength = <16>;
+		};
+
+		emac1_rgmii_rxc {
+				pins = "gpio99";
+				function = "rgmii_1";
+				bias-disable;	/* NO pull */
+				drive-strength = <16>;
+		};
+
+		emac1_rgmii_rx_ctl {
+			pins = "gpio100";
+			function = "rgmii_1";
+			bias-disable;  /* NO pull */
+			drive-strength = <16>;
+		};
+	};
+};
+
+/* TODO: This needs to be moved to sc8280xp.dtsi and some of it here */
+/* Follow sm8150's example */
+&soc {
+	mtl_rx_setup: rx-queues-config {
+		snps,rx-queues-to-use = <1>;
+		snps,rx-sched-sp;
+
+		queue0 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x0>;
+			snps,route-up;
+			snps,priority = <0x1>;
+		};
+
+		queue1 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x1>;
+			snps,route-ptp;
+		};
+
+		queue2 {
+			snps,avb-algorithm;
+			snps,map-to-dma-channel = <0x2>;
+			snps,route-avcp;
+		};
+
+		queue3 {
+			snps,avb-algorithm;
+			snps,map-to-dma-channel = <0x3>;
+			snps,priority = <0xC>;
+		};
+	};
+
+	mtl_tx_setup: tx-queues-config {
+		snps,tx-queues-to-use = <1>;
+		snps,tx-sched-sp;
+
+		queue0 {
+			snps,dcb-algorithm;
+		};
+
+		queue1 {
+			snps,dcb-algorithm;
+		};
+
+		queue2 {
+			snps,avb-algorithm;
+			snps,send_slope = <0x1000>;
+			snps,idle_slope = <0x1000>;
+			snps,high_credit = <0x3E800>;
+			snps,low_credit = <0xFFC18000>;
+		};
+
+		queue3 {
+			snps,avb-algorithm;
+			snps,send_slope = <0x1000>;
+			snps,idle_slope = <0x1000>;
+			snps,high_credit = <0x3E800>;
+			snps,low_credit = <0xFFC18000>;
+		};
+
+	};
+
+	emac1_hw: qcom,ethernet@23000000 {
+		compatible = "qcom,stmmac-ethqos-emac1";
+		reg = <0x0 0x23000000 0x0 0x10000>,
+			<0x0 0x23016000 0x0 0x100>;
+		reg-names = "stmmaceth", "rgmii";
+		clocks = <&gcc GCC_EMAC1_AXI_CLK>,
+			<&gcc GCC_EMAC1_SLV_AHB_CLK>,
+			<&gcc GCC_EMAC1_PTP_CLK>,
+			<&gcc GCC_EMAC1_RGMII_CLK>;
+		clock-names = "stmmaceth", "pclk", "ptp_ref", "rgmii";
+		snps,ptp-ref-clk-rate = <250000000>;
+		snps,ptp-req-clk-rate = <96000000>;
+		interrupts-extended = <&intc 0 929 4>, <&tlmm 54 2>;
+
+		interrupt-names = "macirq";
+
+		snps,tso;
+		snps,pbl = <32>;
+		rx-fifo-depth = <4096>;
+		tx-fifo-depth = <4096>;
+		snps,mtl-rx-config = <&mtl_rx_setup>;
+		snps,mtl-tx-config = <&mtl_tx_setup>;
+
+		snps,reset-gpios = <&pm8450a_gpios 2 GPIO_ACTIVE_HIGH>;
+		vreg_rgmii-supply = <&vreg_l2g>;
+		power-domains = <&gcc EMAC_1_GDSC>;
+		pinctrl-names = "default";
+
+		pinctrl-0 = <&emac1_defaults>;
+
+		snps,reset-delays-us = <0 11000 70000>;
+		phy-mode = "rgmii";
+
+		iommus = <&apps_smmu 0x40 0xf>;
+
+		fixed-link {
+			speed = <1000>;
+			full-duplex;
+		};
 	};
 };
