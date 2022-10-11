@@ -24,6 +24,9 @@
 #include <linux/reset.h>
 #include <net/page_pool.h>
 
+#define MARVELL_PHY_ID_88EA1512 0x01410dd4
+#define MARVEL_PHY_ID MARVELL_PHY_ID_88EA1512
+
 struct stmmac_resources {
 	void __iomem *addr;
 	u8 mac[ETH_ALEN];
@@ -177,6 +180,7 @@ struct stmmac_priv {
 	u32 tx_coal_frames[MTL_MAX_TX_QUEUES];
 	u32 tx_coal_timer[MTL_MAX_TX_QUEUES];
 	u32 rx_coal_frames[MTL_MAX_TX_QUEUES];
+	bool tx_coal_timer_disable;
 
 	int tx_coalesce;
 	int hwts_tx_en;
@@ -197,6 +201,7 @@ struct stmmac_priv {
 	struct mac_device_info *hw;
 	int (*hwif_quirks)(struct stmmac_priv *priv);
 	struct mutex lock;
+	struct phy_device *phydev;
 
 	/* RX Queue */
 	struct stmmac_rx_queue rx_queue[MTL_MAX_RX_QUEUES];
@@ -308,6 +313,9 @@ enum stmmac_state {
 	STMMAC_SERVICE_SCHED,
 };
 
+#define GET_MEM_PDEV_DEV (priv->plat->stmmac_emb_smmu_ctx.valid ? \
+		&priv->plat->stmmac_emb_smmu_ctx.smmu_pdev->dev : priv->device)
+
 int stmmac_mdio_unregister(struct net_device *ndev);
 int stmmac_mdio_register(struct net_device *ndev);
 int stmmac_mdio_reset(struct mii_bus *mii);
@@ -352,6 +360,7 @@ int stmmac_xsk_wakeup(struct net_device *dev, u32 queue, u32 flags);
 struct timespec64 stmmac_calc_tas_basetime(ktime_t old_base_time,
 					   ktime_t current_time,
 					   u64 cycle_time);
+void stmmac_mac2mac_adjust_link(int speed, struct stmmac_priv *priv);
 
 #if IS_ENABLED(CONFIG_STMMAC_SELFTESTS)
 void stmmac_selftest_run(struct net_device *dev,
