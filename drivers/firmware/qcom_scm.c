@@ -16,6 +16,8 @@
 #include <linux/clk.h>
 #include <linux/reset-controller.h>
 #include <linux/arm-smccc.h>
+#include <linux/miscdevice.h>
+#include <uapi/misc/scmioctl.h>
 
 #include "qcom_scm.h"
 
@@ -79,6 +81,8 @@ static const char *qcom_scm_convention_names[] = {
 };
 
 static struct qcom_scm *__scm;
+
+struct miscdevice *scmdev;
 
 static int qcom_scm_clk_enable(void)
 {
@@ -258,6 +262,80 @@ static bool __qcom_scm_is_call_available(struct device *dev, u32 svc_id,
 	ret = qcom_scm_call(dev, &desc, &res);
 
 	return ret ? false : !!res.result[0];
+}
+static int qcom_scm_open(struct inode *inode, struct file *filp)
+{
+	pr_info("qcom scm open called\n");
+	return 0;
+}
+
+static long scm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+{
+	struct scm_hand_shake scm_data;
+	void __user *ip = (void __user *)arg;
+	struct qcom_scm_desc desc;
+	int id, ret, i, no_of_args;
+	struct qcom_scm_res res;
+
+	if (cmd != SCM_HAND_SHAKE_IOCTL)
+		return -EFAULT;
+
+	if (copy_from_user(&scm_data, ip, sizeof(struct scm_hand_shake)))
+		return -EFAULT;
+
+	no_of_args = scm_data.arginfo & 0x0F;
+
+	if (scm_data.svc == 0x01 || scm_data.svc == 0x02 || scm_data.svc == 0x05
+			|| scm_data.svc == 0x06 || scm_data.svc == 0x0c
+			|| scm_data.svc == 0x0f || scm_data.svc == 0x10
+			|| scm_data.svc == 0x11 || scm_data.svc == 0x13 || scm_data.svc == 0x15) {
+		desc.svc = scm_data.svc;
+		desc.cmd = scm_data.cmd;
+		desc.owner = ARM_SMCCC_OWNER_SIP;
+		desc.arginfo = scm_data.arginfo;
+
+		for (id = 0; id < no_of_args; id++)
+			desc.args[id] = scm_data.args_buffer[id];
+
+		scm_data.ret =  qcom_scm_call(__scm->dev, &desc, &res);
+		pr_info("scm ioctl - ret: %d\n",  scm_data.ret);
+
+		for (i = 0; i < MAX_QCOM_SCM_RETS; i++)
+			scm_data.qcom_scm_res[i] = res.result[i];
+
+		if (copy_to_user(ip, &scm_data, sizeof(struct scm_hand_shake)))
+			return -EFAULT;
+		return 0;
+	} else {
+		pr_err("Unsupported scm service: %d and command:%d  \n", scm_data.svc, scm_data.cmd);
+		return -EFAULT;
+	}
+}
+
+static const struct file_operations qcom_scm_fops = {
+	.open = qcom_scm_open,
+	.unlocked_ioctl = scm_ioctl,
+};
+
+static int qcom_scm_dev_init(struct platform_device *pdev)
+{
+	int err;
+	char *devname = "scmnode";
+	struct device *dev = &pdev->dev;
+
+	scmdev = devm_kzalloc(dev, sizeof(struct miscdevice), GFP_KERNEL);
+	if (!scmdev)
+		return -ENOMEM;
+
+	scmdev->minor = MISC_DYNAMIC_MINOR;
+	scmdev->name = devname;
+	scmdev->fops = &qcom_scm_fops;
+	err = misc_register(scmdev);
+	if (err) {
+		pr_err("scm misc device creation failure: %d \n", err);
+		return err;
+	}
+	return 0;
 }
 
 /**
@@ -1282,6 +1360,8 @@ static int qcom_scm_probe(struct platform_device *pdev)
 	__scm->dev = &pdev->dev;
 
 	__get_convention();
+
+	qcom_scm_dev_init(pdev);
 
 	/*
 	 * If requested enable "download mode", from this point on warmboot
