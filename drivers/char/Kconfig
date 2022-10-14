@@ -455,11 +455,11 @@ config RANDOM_TRUST_BOOTLOADER
 	"random.trust_bootloader=on/off".
 
 config QCOM_ADSPRPC
-        tristate "QTI FastRPC driver"
-        depends on RPMSG && HAS_DMA && CMA && MMU
-        help
-                Provides a communication mechanism that allows clients to
-                make remote method invocations across processor boundary to
-                applications/compute DSP processor.
-                Say M if you want to enable this module.
-	
+	tristate "QTI FastRPC driver"
+	depends on RPMSG && HAS_DMA && CMA && MMU
+	help
+	Provides a communication mechanism that allows clients to
+	make remote method invocations across processor boundary to
+	applications/compute DSP processor.
+	Say M if you want to enable this module.
+
