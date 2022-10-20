@@ -523,10 +523,8 @@ inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
-	struct plat_stmmacenet_data *plat_dat;
 	struct stmmac_resources stmmac_res;
-	const struct ethqos_emac_driver_data *data;
-	struct qcom_ethqos *ethqos;
+	struct qcom_ethqos *ethqos = NULL;
 	int ret;
 	struct net_device *ndev;
 	struct stmmac_priv *priv;
@@ -560,10 +558,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		ret = PTR_ERR(ethqos->rgmii_base);
 		goto err_mem;
 	}
-
-	data = of_device_get_match_data(&pdev->dev);
-	ethqos->por = data->por;
-	ethqos->num_por = data->num_por;
 
 	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_clk)) {
@@ -648,6 +642,9 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 	ret = stmmac_pltfr_remove(pdev);
 	clk_disable_unprepare(ethqos->rgmii_clk);
 	ethqos_disable_regulators(ethqos);
+
+	platform_set_drvdata(pdev, NULL);
+	of_platform_depopulate(&pdev->dev);
 
 	return ret;
 }

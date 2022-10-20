@@ -926,10 +926,7 @@
 		mac2mac-rgmii-speed = <1000>;
 		mac2mac-88Q5072;
 
-		emac1_emb_smmu: emac1_emb_smmu {
-			compatible = "qcom,emac-smmu-embedded";
-			iommus = <&apps_smmu 0x40 0xf>;
-		};
+		iommus = <&apps_smmu 0x40 0xf>;
 	};
 };
 /* PINCTRL */
