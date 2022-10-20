@@ -8,9 +8,6 @@
 #include <linux/phy.h>
 #include <linux/pm_runtime.h>
 
-#include <linux/dma-iommu.h>
-#include <linux/iommu.h>
-
 #include "stmmac.h"
 #include "stmmac_platform.h"
 #include "dwmac-qcom-ethqos.h"
@@ -72,7 +69,6 @@
 #define EMAC_I0_EMAC_CORE_HW_VERSION_RGOFFADDR 0x00000070
 #define EMAC_HW_v3_0_0_RG 0x30000000
 
-struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
 struct plat_stmmacenet_data *plat_dat;
 
 static struct ethqos_emac_por emac_por[] = {
@@ -512,48 +508,8 @@ static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 
 static const struct of_device_id qcom_ethqos_match[] = {
 	{ .compatible = "qcom,stmmac-ethqos-emac1", },
-	{ .compatible = "qcom,emac-smmu-embedded", },
-	{ }
+	{},
 };
-
-static void emac_emb_smmu_exit(void)
-{
-	emac_emb_smmu_ctx.valid = false;
-	emac_emb_smmu_ctx.pdev_master = NULL;
-	emac_emb_smmu_ctx.smmu_pdev = NULL;
-	emac_emb_smmu_ctx.iommu_domain = NULL;
-}
-
-static int emac_emb_smmu_cb_probe(struct platform_device *pdev,
-				  struct plat_stmmacenet_data *plat_dat)
-{
-	int result = 0;
-	struct device *dev = &pdev->dev;
-
-	ETHQOSINFO("EMAC EMB SMMU CB probe: Enter\n");
-
-	emac_emb_smmu_ctx.smmu_pdev = pdev;
-
-	if (dma_set_mask(dev, DMA_BIT_MASK(32)) ||
-	    dma_set_coherent_mask(dev, DMA_BIT_MASK(32))) {
-		ETHQOSERR("DMA set 32bit mask failed\n");
-		return -EOPNOTSUPP;
-	}
-
-	emac_emb_smmu_ctx.valid = true;
-
-	emac_emb_smmu_ctx.iommu_domain =
-		iommu_get_domain_for_dev(&emac_emb_smmu_ctx.smmu_pdev->dev);
-
-	ETHQOSINFO("Successfully attached to IOMMU\n");
-	plat_dat->stmmac_emb_smmu_ctx = emac_emb_smmu_ctx;
-	if (emac_emb_smmu_ctx.pdev_master)
-		goto smmu_probe_done;
-
-smmu_probe_done:
-	emac_emb_smmu_ctx.ret = result;
-	return result;
-}
 
 inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 {
@@ -567,15 +523,14 @@ inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
+	struct plat_stmmacenet_data *plat_dat;
 	struct stmmac_resources stmmac_res;
-	struct qcom_ethqos *ethqos = NULL;
+	const struct ethqos_emac_driver_data *data;
+	struct qcom_ethqos *ethqos;
 	int ret;
 	struct net_device *ndev;
 	struct stmmac_priv *priv;
 
-	if (of_device_is_compatible(pdev->dev.of_node,
-				    "qcom,emac-smmu-embedded"))
-		return emac_emb_smmu_cb_probe(pdev, plat_dat);
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
@@ -605,6 +560,10 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		ret = PTR_ERR(ethqos->rgmii_base);
 		goto err_mem;
 	}
+
+	data = of_device_get_match_data(&pdev->dev);
+	ethqos->por = data->por;
+	ethqos->num_por = data->num_por;
 
 	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_clk)) {
@@ -653,21 +612,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 	ETHQOSINFO(": emac_core_version = 0x%x\n", ethqos->emac_ver);
 
-	if (of_property_read_bool(pdev->dev.of_node, "qcom,arm-smmu")) {
-		emac_emb_smmu_ctx.pdev_master = pdev;
-		ret = of_platform_populate(pdev->dev.of_node,
-					   qcom_ethqos_match,
-					   NULL, &pdev->dev);
-		if (ret)
-			ETHQOSERR("Failed to populate EMAC platform\n");
-		if (emac_emb_smmu_ctx.ret) {
-			ETHQOSERR("smmu probe failed\n");
-			of_platform_depopulate(&pdev->dev);
-			ret = emac_emb_smmu_ctx.ret;
-			emac_emb_smmu_ctx.ret = 0;
-		}
-	}
-
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
 		goto err_clk;
@@ -697,24 +641,13 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 	struct qcom_ethqos *ethqos;
 	int ret;
 
-	if (of_device_is_compatible(pdev->dev.of_node,
-				    "qcom,emac-smmu-embedded")) {
-		of_platform_depopulate(&pdev->dev);
-		return 0;
-	}
-
 	ethqos = get_stmmac_bsp_priv(&pdev->dev);
 	if (!ethqos)
 		return -ENODEV;
 
 	ret = stmmac_pltfr_remove(pdev);
 	clk_disable_unprepare(ethqos->rgmii_clk);
-
-	emac_emb_smmu_exit();
 	ethqos_disable_regulators(ethqos);
-
-	platform_set_drvdata(pdev, NULL);
-	of_platform_depopulate(&pdev->dev);
 
 	return ret;
 }
