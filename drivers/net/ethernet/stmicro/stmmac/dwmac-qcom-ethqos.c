@@ -545,7 +545,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	pm_runtime_forbid(&pdev->dev);
 
 	ethqos_init_reqgulators(ethqos);
-	ethqos_init_gpio(ethqos);
 
 	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	if (IS_ERR(plat_dat)) {
