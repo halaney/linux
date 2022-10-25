@@ -30,6 +30,9 @@ struct ethqos_emac_por {
 struct ethqos_emac_driver_data {
 	struct ethqos_emac_por *por;
 	unsigned int num_por;
+	/* regulators to be requested */
+	const char * const *vreg_list;
+	int num_vregs;
 };
 
 struct qcom_ethqos {
@@ -44,13 +47,8 @@ struct qcom_ethqos {
 	unsigned int num_por;
 	unsigned int emac_ver;
 
-	struct regulator *reg_rgmii;
-	struct regulator *reg_emac_phy;
-	struct regulator *reg_rgmii_io_pads;
+	struct regulator_bulk_data *vregs;
 };
 
-int ethqos_init_reqgulators(struct qcom_ethqos *ethqos);
-void ethqos_disable_regulators(struct qcom_ethqos *ethqos);
-int ethqos_init_gpio(struct qcom_ethqos *ethqos);
 void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos);
 #endif

@@ -7,6 +7,7 @@
 #include <linux/platform_device.h>
 #include <linux/phy.h>
 #include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
@@ -80,9 +81,15 @@ static struct ethqos_emac_por emac_por[] = {
 	{ .offset = RGMII_IO_MACRO_CONFIG2,	.value = 0x0},
 };
 
+static const char * const emac_v3_vreg_l[] = {
+	"vreg_rgmii", "vreg_emac_phy", "vreg_rgmii_io_pads",
+};
+
 static struct ethqos_emac_driver_data emac_por_data = {
 	.por = emac_por,
 	.num_por = ARRAY_SIZE(emac_por),
+	.vreg_list = emac_v3_vreg_l,
+	.num_vregs = ARRAY_SIZE(emac_v3_vreg_l),
 };
 
 static void qcom_ethqos_read_iomacro_por_values(struct qcom_ethqos *ethqos)
@@ -520,6 +527,20 @@ inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
 	return priv;
 }
 
+static int qcom_ethqos_vreg_init(struct qcom_ethqos *ethqos) {
+	int num = emac_por_data.num_vregs;
+	int i;
+
+	ethqos->vregs = devm_kcalloc(&ethqos->pdev->dev, num, sizeof(*ethqos->vregs), GFP_KERNEL);
+	if (!ethqos->vregs)
+		return -ENOMEM;
+
+	for (i = 0; i < num; ++i)
+		ethqos->vregs[i].supply = emac_por_data.vreg_list[i];
+
+	return devm_regulator_bulk_get(&ethqos->pdev->dev, num, ethqos->vregs);
+}
+
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -544,7 +565,15 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 	pm_runtime_forbid(&pdev->dev);
 
-	ethqos_init_reqgulators(ethqos);
+	ret = qcom_ethqos_vreg_init(ethqos);
+	if (ret)
+		goto err_mem;
+
+	ret = regulator_bulk_enable(emac_por_data.num_vregs, ethqos->vregs);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable regulators, err=%d\n", ret);
+		goto err_regulator;
+	}
 
 	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	if (IS_ERR(plat_dat)) {
@@ -623,6 +652,9 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 err_clk:
 	clk_disable_unprepare(ethqos->rgmii_clk);
 
+err_regulator:
+	regulator_bulk_disable(emac_por_data.num_vregs, ethqos->vregs);
+
 err_mem:
 	stmmac_remove_config_dt(pdev, plat_dat);
 
@@ -640,7 +672,7 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	ret = stmmac_pltfr_remove(pdev);
 	clk_disable_unprepare(ethqos->rgmii_clk);
-	ethqos_disable_regulators(ethqos);
+	regulator_bulk_disable(emac_por_data.num_vregs, ethqos->vregs);
 
 	platform_set_drvdata(pdev, NULL);
 	of_platform_depopulate(&pdev->dev);
