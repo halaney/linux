@@ -11,8 +11,15 @@
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
-#include "dwmac-qcom-ethqos.h"
 
+#define RGMII_IO_MACRO_CONFIG		0x0
+#define SDCC_HC_REG_DLL_CONFIG		0x4
+#define SDCC_TEST_CTL			0x8
+#define SDCC_HC_REG_DDR_CONFIG		0xC
+#define SDCC_HC_REG_DLL_CONFIG2		0x10
+#define SDC4_STATUS			0x14
+#define SDCC_USR_CTL			0x18
+#define RGMII_IO_MACRO_CONFIG2		0x1C
 #define RGMII_IO_MACRO_DEBUG1		0x20
 #define EMAC_SYSTEM_LOW_POWER_DEBUG	0x28
 
@@ -69,35 +76,43 @@
 
 #define EMAC_I0_EMAC_CORE_HW_VERSION_RGOFFADDR 0x00000070
 #define EMAC_HW_v3_0_0_RG 0x30000000
+#define EMAC_HW_NONE 0
 
-struct plat_stmmacenet_data *plat_dat;
-
-static struct ethqos_emac_por emac_por[] = {
-	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x0 },
-	{ .offset = SDCC_HC_REG_DLL_CONFIG,	.value = 0x0 },
-	{ .offset = SDCC_HC_REG_DDR_CONFIG,	.value = 0x0 },
-	{ .offset = SDCC_HC_REG_DLL_CONFIG2,	.value = 0x0 },
-	{ .offset = SDCC_USR_CTL,		.value = 0x0 },
-	{ .offset = RGMII_IO_MACRO_CONFIG2,	.value = 0x0},
+struct ethqos_emac_por {
+	unsigned int offset;
+	unsigned int value;
 };
 
-static const char * const emac_v3_vreg_l[] = {
-	"vreg_rgmii", "vreg_emac_phy", "vreg_rgmii_io_pads",
+struct ethqos_emac_driver_data {
+	const struct ethqos_emac_por *por;
+	unsigned int num_por;
+
+	/* regulators to be requested */
+	const char * const *vreg_list;
+	unsigned int num_vregs;
 };
 
-static struct ethqos_emac_driver_data emac_por_data = {
-	.por = emac_por,
-	.num_por = ARRAY_SIZE(emac_por),
-	.vreg_list = emac_v3_vreg_l,
-	.num_vregs = ARRAY_SIZE(emac_v3_vreg_l),
+struct qcom_ethqos {
+	struct platform_device *pdev;
+	void __iomem *rgmii_base;
+
+	unsigned int rgmii_clk_rate;
+	struct clk *rgmii_clk;
+	unsigned int speed;
+
+	/* TODO: return to const struct once i figure out how to undo qcoms read function */
+	struct ethqos_emac_por *por;
+	unsigned int num_por;
+	unsigned int emac_ver;
+
+	struct regulator_bulk_data *vregs;
+	unsigned int num_vregs;
 };
 
+/* TODO: This totally doesn't jive with upstream */
 static void qcom_ethqos_read_iomacro_por_values(struct qcom_ethqos *ethqos)
 {
 	int i;
-
-	ethqos->por = emac_por_data.por;
-	ethqos->num_por = emac_por_data.num_por;
 
 	/* Read to POR values and enable clk */
 	for (i = 0; i < ethqos->num_por; i++)
@@ -181,6 +196,40 @@ static void ethqos_set_func_clk_en(struct qcom_ethqos *ethqos)
 		      RGMII_CONFIG_FUNC_CLK_EN, RGMII_IO_MACRO_CONFIG);
 }
 
+static const struct ethqos_emac_por emac_v2_3_0_por[] = {
+	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x00C01343 },
+	{ .offset = SDCC_HC_REG_DLL_CONFIG,	.value = 0x2004642C },
+	{ .offset = SDCC_HC_REG_DDR_CONFIG,	.value = 0x00000000 },
+	{ .offset = SDCC_HC_REG_DLL_CONFIG2,	.value = 0x00200000 },
+	{ .offset = SDCC_USR_CTL,		.value = 0x00010800 },
+	{ .offset = RGMII_IO_MACRO_CONFIG2,	.value = 0x00002060 },
+};
+
+static const struct ethqos_emac_driver_data emac_v2_3_0_data = {
+	.por = emac_v2_3_0_por,
+	.num_por = ARRAY_SIZE(emac_v2_3_0_por),
+};
+
+static struct ethqos_emac_por emac_v3_0_0_por[] = {
+	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x0 },
+	{ .offset = SDCC_HC_REG_DLL_CONFIG,	.value = 0x0 },
+	{ .offset = SDCC_HC_REG_DDR_CONFIG,	.value = 0x0 },
+	{ .offset = SDCC_HC_REG_DLL_CONFIG2,	.value = 0x0 },
+	{ .offset = SDCC_USR_CTL,		.value = 0x0 },
+	{ .offset = RGMII_IO_MACRO_CONFIG2,	.value = 0x0},
+};
+
+static const char * const emac_v3_0_0_vreg_l[] = {
+	"vreg_rgmii", "vreg_emac_phy", "vreg_rgmii_io_pads",
+};
+
+static struct ethqos_emac_driver_data emac_v3_0_0_data = {
+	.por = emac_v3_0_0_por,
+	.num_por = ARRAY_SIZE(emac_v3_0_0_por),
+	.vreg_list = emac_v3_0_0_vreg_l,
+	.num_vregs = ARRAY_SIZE(emac_v3_0_0_vreg_l),
+};
+
 static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 {
 	unsigned int val;
@@ -209,6 +258,7 @@ static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, SDCC_DLL_CDR_FINE_PHASE,
 			      0, SDCC_HC_REG_DLL_CONFIG);
 	}
+
 	/* Wait for CK_OUT_EN clear */
 	do {
 		val = rgmii_readl(ethqos, SDCC_HC_REG_DLL_CONFIG);
@@ -260,6 +310,16 @@ static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 	return 0;
 }
 
+inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
+{
+	struct platform_device *pdev = ethqos->pdev;
+	struct net_device *dev = platform_get_drvdata(pdev);
+	struct stmmac_priv *priv = netdev_priv(dev);
+
+	return priv;
+}
+
+
 static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 {
 	struct stmmac_priv *priv = qcom_ethqos_get_priv(ethqos);
@@ -286,6 +346,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, RGMII_CONFIG2_DATA_DIVIDE_CLK_SEL,
 			      0, RGMII_IO_MACRO_CONFIG2);
 
+		/* TODO: this certainly isn't the way to indicate this */
 		if (priv->plat->mac2mac_88Q5072)
 			rgmii_updatel(ethqos,
 				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
@@ -450,6 +511,7 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 		      SDCC_DLL_CONFIG_PDN, SDCC_HC_REG_DLL_CONFIG);
 
 	if (ethqos->emac_ver == EMAC_HW_v3_0_0_RG) {
+		/* TODO: this seems not cool */
 		if (ethqos->speed == SPEED_1000) {
 			rgmii_writel(ethqos, 0x1800000, SDCC_TEST_CTL);
 			rgmii_writel(ethqos, 0x2C010800, SDCC_USR_CTL);
@@ -513,39 +575,28 @@ static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 	ethqos_configure(ethqos);
 }
 
-static const struct of_device_id qcom_ethqos_match[] = {
-	{ .compatible = "qcom,stmmac-ethqos-emac1", },
-	{},
-};
-
-inline void *qcom_ethqos_get_priv(struct qcom_ethqos *ethqos)
-{
-	struct platform_device *pdev = ethqos->pdev;
-	struct net_device *dev = platform_get_drvdata(pdev);
-	struct stmmac_priv *priv = netdev_priv(dev);
-
-	return priv;
-}
-
-static int qcom_ethqos_vreg_init(struct qcom_ethqos *ethqos) {
-	int num = emac_por_data.num_vregs;
+static int qcom_ethqos_vreg_init(struct qcom_ethqos *ethqos,
+		const struct ethqos_emac_driver_data *data) {
 	int i;
 
-	ethqos->vregs = devm_kcalloc(&ethqos->pdev->dev, num, sizeof(*ethqos->vregs), GFP_KERNEL);
+	ethqos->vregs = devm_kcalloc(&ethqos->pdev->dev, ethqos->num_vregs, sizeof(*ethqos->vregs), GFP_KERNEL);
+	/* TODO: double check num_vregs == 0 case doesn't cause us issues */
 	if (!ethqos->vregs)
 		return -ENOMEM;
 
-	for (i = 0; i < num; ++i)
-		ethqos->vregs[i].supply = emac_por_data.vreg_list[i];
+	for (i = 0; i < ethqos->num_vregs; ++i)
+		ethqos->vregs[i].supply = data->vreg_list[i];
 
-	return devm_regulator_bulk_get(&ethqos->pdev->dev, num, ethqos->vregs);
+	return devm_regulator_bulk_get(&ethqos->pdev->dev, ethqos->num_vregs, ethqos->vregs);
 }
 
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
+	struct plat_stmmacenet_data *plat_dat;
 	struct stmmac_resources stmmac_res;
-	struct qcom_ethqos *ethqos = NULL;
+	const struct ethqos_emac_driver_data *data;
+	struct qcom_ethqos *ethqos;
 	int ret;
 	struct net_device *ndev;
 	struct stmmac_priv *priv;
@@ -554,37 +605,42 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ethqos = devm_kzalloc(&pdev->dev, sizeof(*ethqos), GFP_KERNEL);
-	if (!ethqos) {
-		ret = -ENOMEM;
-		goto err_mem;
-	}
-	ethqos->pdev = pdev;
-
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_forbid(&pdev->dev);
-
-	ret = qcom_ethqos_vreg_init(ethqos);
-	if (ret)
-		goto err_mem;
-
-	ret = regulator_bulk_enable(emac_por_data.num_vregs, ethqos->vregs);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable regulators, err=%d\n", ret);
-		goto err_regulator;
-	}
-
 	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	if (IS_ERR(plat_dat)) {
 		dev_err(&pdev->dev, "dt configuration failed\n");
 		return PTR_ERR(plat_dat);
 	}
 
+	ethqos = devm_kzalloc(&pdev->dev, sizeof(*ethqos), GFP_KERNEL);
+	if (!ethqos) {
+		ret = -ENOMEM;
+		goto err_mem;
+	}
+
+	ethqos->pdev = pdev;
 	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_base)) {
 		ret = PTR_ERR(ethqos->rgmii_base);
 		goto err_mem;
+	}
+
+	data = of_device_get_match_data(&pdev->dev);
+	ethqos->por = data->por;
+	ethqos->num_por = data->num_por;
+	ethqos->num_vregs = data->num_vregs;
+
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_forbid(&pdev->dev);
+
+	ret = qcom_ethqos_vreg_init(ethqos, data);
+	if (ret)
+		goto err_mem;
+
+	ret = regulator_bulk_enable(ethqos->num_vregs, ethqos->vregs);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to enable regulators, err=%d\n", ret);
+		goto err_regulator;
 	}
 
 	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
@@ -612,11 +668,12 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 				 &plat_dat->mac2mac_rgmii_speed))
 		plat_dat->mac2mac_rgmii_speed = -1;
 	else
-		ETHQOSINFO("mac2mac rgmii speed = %d\n",
-			   plat_dat->mac2mac_rgmii_speed);
+		dev_info(&ethqos->pdev->dev, "mac2mac rgmii speed = %d\n", plat_dat->mac2mac_rgmii_speed);
 	plat_dat->mac2mac_88Q5072 =
 		of_property_read_bool(np, "mac2mac-88Q5072");
 
+	/* TODO: continue to push for answers if older EMAC versions support
+	 * this register read, or if we need to get it from platform info */
 	if (of_property_read_bool(pdev->dev.of_node,
 				  "emac-core-version")) {
 		/* Read emac core version value from dtsi */
@@ -624,7 +681,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 					   "emac-core-version",
 					   &ethqos->emac_ver);
 		if (ret) {
-			ETHQOSDBG(":resource emac-hw-ver! not in dtsi\n");
+			dev_err(&ethqos->pdev->dev, ":resource emac-hw-ver! not in dtsi\n");
 			ethqos->emac_ver = EMAC_HW_NONE;
 			WARN_ON(1);
 		}
@@ -632,7 +689,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		ethqos->emac_ver =
 		rgmii_readl(ethqos, EMAC_I0_EMAC_CORE_HW_VERSION_RGOFFADDR);
 	}
-	ETHQOSINFO(": emac_core_version = 0x%x\n", ethqos->emac_ver);
+	dev_info(&ethqos->pdev->dev, ": emac_core_version = 0x%x\n", ethqos->emac_ver);
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
@@ -653,7 +710,7 @@ err_clk:
 	clk_disable_unprepare(ethqos->rgmii_clk);
 
 err_regulator:
-	regulator_bulk_disable(emac_por_data.num_vregs, ethqos->vregs);
+	regulator_bulk_disable(ethqos->num_vregs, ethqos->vregs);
 
 err_mem:
 	stmmac_remove_config_dt(pdev, plat_dat);
@@ -672,7 +729,7 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	ret = stmmac_pltfr_remove(pdev);
 	clk_disable_unprepare(ethqos->rgmii_clk);
-	regulator_bulk_disable(emac_por_data.num_vregs, ethqos->vregs);
+	regulator_bulk_disable(ethqos->num_vregs, ethqos->vregs);
 
 	platform_set_drvdata(pdev, NULL);
 	of_platform_depopulate(&pdev->dev);
@@ -680,13 +737,18 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 	return ret;
 }
 
+static const struct of_device_id qcom_ethqos_match[] = {
+	{ .compatible = "qcom,qcs404-ethqos", .data = &emac_v2_3_0_data},
+	{ .compatible = "qcom,stmmac-ethqos-emac1", &emac_v3_0_0_data},
+	{ }
+};
 MODULE_DEVICE_TABLE(of, qcom_ethqos_match);
 
 static struct platform_driver qcom_ethqos_driver = {
 	.probe  = qcom_ethqos_probe,
 	.remove = qcom_ethqos_remove,
 	.driver = {
-		.name           = DRV_NAME,
+		.name           = "qcom-ethqos",
 		//.pm		= &stmmac_pltfr_pm_ops,
 		.of_match_table = of_match_ptr(qcom_ethqos_match),
 	},
