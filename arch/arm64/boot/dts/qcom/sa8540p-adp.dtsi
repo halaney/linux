@@ -503,7 +503,7 @@
 		snps,ptp-req-clk-rate = <96000000>;
 		interrupts-extended = <&intc 0 929 4>, <&tlmm 54 2>;
 
-		interrupt-names = "macirq","phy-intr";
+		interrupt-names = "macirq";
 
 		snps,tso;
 		snps,pbl = <32>;
