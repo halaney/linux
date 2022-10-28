@@ -515,7 +515,6 @@
 		snps,reset-gpios = <&pm8150_gpios 2 GPIO_ACTIVE_HIGH>;
 		vreg_rgmii-supply = <&vreg_l2g>;
 		power-domains = <&gcc EMAC_1_GDSC>;
-		qcom,phy-intr-redirect = <&tlmm 54 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 
 		pinctrl-0 = <&emac1_defaults>;
