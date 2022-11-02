@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: BSD-3-Clause
+
+/dts-v1/;
+
+#include "sa8540p-adp-ride.dts"
+
+&pcie3a {
+	status = "disabled";
+};
+
+&pcie3a_phy {
+	status = "disabled";
+};
