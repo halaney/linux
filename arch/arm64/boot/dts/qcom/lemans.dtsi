@@ -1443,6 +1443,7 @@
             interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
             reg = <0x17c23000 0x1000>;
             iommus = <&apps_smmu 0x580 0x0>;
+            qcom,iommu-dma-addr-pool = <0x60002000 0x1FFFE000>;
     	};
 
 	qupv3_id_0: geniqup@9c0000 {
@@ -2961,7 +2962,6 @@
 
 			iommus = <&apps_smmu 0x120 0xf>;
 			qcom,iommu-dma = "fastmap";
-			qcom,iommu-dma-addr-pool = <0x80000000 0x40000000>;
 		};
 	};
 };

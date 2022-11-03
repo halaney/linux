@@ -247,6 +247,12 @@ config VFIO_IOMMU_QCOM
 	 This driver enables a VFIO IOMMU implementation for a VFIO
 	 prototype
 
+config IOMMU_CUSTOM_IOVA
+	tristate "IOMMU_CUSTOM_IOVA"
+	depends on ARCH_QCOM
+	help
+	 This driver helps to map custom iova range for a vfio device
+
 config QCOM_FASTRPC
 	tristate "Qualcomm FastRPC"
 	depends on ARCH_QCOM || COMPILE_TEST
