@@ -1438,6 +1438,13 @@
 		interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
+	vfio_timer@17c23000 {
+            compatible = "qcom,vfio-platform";
+            interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
+            reg = <0x17c23000 0x1000>;
+            iommus = <&apps_smmu 0x580 0x0>;
+    	};
+
 	qupv3_id_0: geniqup@9c0000 {
 		compatible = "qcom,geni-se-qup";
 		reg = <0x9c0000 0x6000>;
