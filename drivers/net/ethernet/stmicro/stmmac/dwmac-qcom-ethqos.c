@@ -90,6 +90,8 @@ struct ethqos_emac_driver_data {
 	/* regulators to be requested */
 	const char * const *vreg_list;
 	unsigned int num_vregs;
+
+	bool has_emac3;
 };
 
 struct qcom_ethqos {
@@ -208,6 +210,7 @@ static const struct ethqos_emac_por emac_v2_3_0_por[] = {
 static const struct ethqos_emac_driver_data emac_v2_3_0_data = {
 	.por = emac_v2_3_0_por,
 	.num_por = ARRAY_SIZE(emac_v2_3_0_por),
+	.has_emac3 = false,
 };
 
 static struct ethqos_emac_por emac_v3_0_0_por[] = {
@@ -228,6 +231,7 @@ static struct ethqos_emac_driver_data emac_v3_0_0_data = {
 	.num_por = ARRAY_SIZE(emac_v3_0_0_por),
 	.vreg_list = emac_v3_0_0_vreg_l,
 	.num_vregs = ARRAY_SIZE(emac_v3_0_0_vreg_l),
+	.has_emac3 = true,
 };
 
 static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
@@ -659,7 +663,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	plat_dat->bsp_priv = ethqos;
 	plat_dat->fix_mac_speed = ethqos_fix_mac_speed;
-	plat_dat->has_gmac4 = 1;
+	plat_dat->has_gmac4 = !data->has_emac3;
+	plat_dat->has_emac3 = data->has_emac3;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
 
