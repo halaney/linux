@@ -181,9 +181,9 @@ static int trace_define_common_fields(void)
 
 	__common_field(unsigned short, type);
 	__common_field(unsigned char, flags);
+	/* Holds both preempt_count and migrate_disable */
 	__common_field(unsigned char, preempt_count);
 	__common_field(int, pid);
-	__common_field(unsigned char, migrate_disable);
 	__common_field(unsigned char, preempt_lazy_count);
 
 	return ret;

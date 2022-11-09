@@ -999,7 +999,6 @@ config CFS_BANDWIDTH
 config RT_GROUP_SCHED
 	bool "Group scheduling for SCHED_RR/FIFO"
 	depends on CGROUP_SCHED
-	depends on !PREEMPT_RT
 	default n
 	help
 	  This feature lets you explicitly allocate real CPU bandwidth
@@ -1529,11 +1528,6 @@ config PRINTK
 	  very difficult to diagnose system problems, saying N here is
 	  strongly discouraged.
 
-config PRINTK_NMI
-	def_bool y
-	depends on PRINTK
-	depends on HAVE_NMI
-
 config HAVE_ATOMIC_CONSOLE
 	bool
 	default n
@@ -1885,7 +1879,6 @@ choice
 
 config SLAB
 	bool "SLAB"
-	depends on !PREEMPT_RT
 	select HAVE_HARDENED_USERCOPY_ALLOCATOR
 	help
 	  The regular slab allocator that is established and known to work
@@ -1906,7 +1899,6 @@ config SLUB
 config SLOB
 	depends on EXPERT
 	bool "SLOB (Simple Allocator)"
-	depends on !PREEMPT_RT
 	help
 	   SLOB replaces the stock allocator with a drastically simpler
 	   allocator. SLOB is generally more space efficient but
