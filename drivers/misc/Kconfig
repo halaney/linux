@@ -231,6 +231,18 @@ config QCOM_COINCELL
 	  to maintain PMIC register and RTC state in the absence of
 	  external power.
 
+config APPS_PINCTRL
+	tristate "APPS_PINCTRL"
+	depends on ARCH_QCOM
+        default m
+	help
+	  Driver to set pinmux for Top Level Mode Multiplexer block (TLMM) pins
+          that cannot be configured from UMD. Set one time pins configuration
+          during the device boot to meet all the user mode driver configuration
+          requirements.
+
+
+
 config KIUMD
 	tristate "QCOM_KIUMD"
 	depends on ARCH_QCOM
