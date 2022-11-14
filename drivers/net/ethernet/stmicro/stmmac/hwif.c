@@ -264,7 +264,7 @@ static const struct stmmac_hwif_entry {
 		},
 		.desc = &dwmac4_desc_ops,
 		.dma = &dwmac410_dma_ops,
-		.mac = &dwmac510_ops,
+		.mac = &emac3_ops,
 		.hwtimestamp = &stmmac_ptp,
 		.mode = &dwmac4_ring_mode_ops,
 		.tc = &dwmac510_tc_ops,
