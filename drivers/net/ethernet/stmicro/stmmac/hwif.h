@@ -619,6 +619,7 @@ struct stmmac_regs_off {
 };
 
 extern const struct stmmac_ops emac3_ops;
+extern const struct stmmac_dma_ops emac3_dma_ops;
 extern const struct stmmac_ops dwmac100_ops;
 extern const struct stmmac_dma_ops dwmac100_dma_ops;
 extern const struct stmmac_ops dwmac1000_ops;

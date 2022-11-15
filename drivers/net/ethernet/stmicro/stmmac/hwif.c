@@ -263,7 +263,7 @@ static const struct stmmac_hwif_entry {
 			.mmc_off = MMC_GMAC4_OFFSET,
 		},
 		.desc = &dwmac4_desc_ops,
-		.dma = &dwmac410_dma_ops,
+		.dma = &emac3_dma_ops,
 		.mac = &emac3_ops,
 		.hwtimestamp = &stmmac_ptp,
 		.mode = &dwmac4_ring_mode_ops,
