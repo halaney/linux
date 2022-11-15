@@ -24,6 +24,11 @@
 
 	reserved_memory: reserved-memory { };
 
+	kaslr_store {
+		compatible = "qcom,kaslr-off-store";
+		reg = <0 0x90880000 0 0x10>;
+	};
+
 	aliases { };
 
 	chosen { };
@@ -347,6 +352,11 @@
 		compatible = "qcom,cmd-db";
 		no-map;
 		reg = <0x0 0x90860000 0x0 0x20000>;
+	};
+
+	kaslr_off_reg: kasr_off_reg@90880000 {
+		reg = <0 0x90880000 0 0x10>;
+		no-map;
 	};
 
 	uefi_log: uefi_log_region@908b0000 {
