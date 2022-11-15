@@ -69,7 +69,6 @@ struct trace_entry {
 	unsigned char		flags;
 	unsigned char		preempt_count;
 	int			pid;
-	unsigned char		migrate_disable;
 	unsigned char		preempt_lazy_count;
 };
 
@@ -159,7 +158,6 @@ static inline void tracing_generic_entry_update(struct trace_entry *entry,
 						unsigned int trace_ctx)
 {
 	entry->preempt_count		= trace_ctx & 0xff;
-	entry->migrate_disable		= (trace_ctx >> 8) & 0xff;
 	entry->preempt_lazy_count	= (trace_ctx >> 16) & 0xff;
 	entry->pid			= current->pid;
 	entry->type			= type;
@@ -174,9 +172,15 @@ enum trace_flag_type {
 	TRACE_FLAG_NEED_RESCHED		= 0x04,
 	TRACE_FLAG_HARDIRQ		= 0x08,
 	TRACE_FLAG_SOFTIRQ		= 0x10,
+#ifdef CONFIG_PREEMPT_LAZY
+	TRACE_FLAG_PREEMPT_RESCHED	= 0x00,
+	TRACE_FLAG_NEED_RESCHED_LAZY	= 0x20,
+#else
+	TRACE_FLAG_NEED_RESCHED_LAZY	= 0x00,
 	TRACE_FLAG_PREEMPT_RESCHED	= 0x20,
+#endif
 	TRACE_FLAG_NMI			= 0x40,
-	TRACE_FLAG_NEED_RESCHED_LAZY	= 0x80,
+	TRACE_FLAG_BH_OFF		= 0x80,
 };
 
 #ifdef CONFIG_TRACE_IRQFLAGS_SUPPORT

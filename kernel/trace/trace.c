@@ -2621,7 +2621,7 @@ EXPORT_SYMBOL_GPL(trace_handle_return);
 
 static unsigned short migration_disable_value(void)
 {
-#if defined(CONFIG_SMP) && defined(CONFIG_PREEMPT_RT)
+#if defined(CONFIG_SMP)
 	return current->migration_disabled;
 #else
 	return 0;
@@ -2641,21 +2641,23 @@ unsigned int tracing_gen_ctx_irq_test(unsigned int irqs_status)
 		trace_flags |= TRACE_FLAG_HARDIRQ;
 	if (in_serving_softirq())
 		trace_flags |= TRACE_FLAG_SOFTIRQ;
+	if (softirq_count() >> (SOFTIRQ_SHIFT + 1))
+		trace_flags |= TRACE_FLAG_BH_OFF;
 
-	if (tif_need_resched())
+	if (tif_need_resched_now())
 		trace_flags |= TRACE_FLAG_NEED_RESCHED;
-	if (test_preempt_need_resched())
-		trace_flags |= TRACE_FLAG_PREEMPT_RESCHED;
-
 #ifdef CONFIG_PREEMPT_LAZY
+	/* Run out of bits. Share the LAZY and PREEMPT_RESCHED */
 	if (need_resched_lazy())
 		trace_flags |= TRACE_FLAG_NEED_RESCHED_LAZY;
+#else
+	if (test_preempt_need_resched())
+		trace_flags |= TRACE_FLAG_PREEMPT_RESCHED;
 #endif
 
-	return (pc & 0xff) |
-		(migration_disable_value() & 0xff) << 8 |
+	return (trace_flags << 24) | (min_t(unsigned int, pc & 0xff, 0xf)) |
 		(preempt_lazy_count() & 0xff) << 16 |
-		(trace_flags << 24);
+		(min_t(unsigned int, migration_disable_value(), 0xf)) << 4;
 }
 
 struct ring_buffer_event *
@@ -4219,7 +4221,7 @@ unsigned long trace_total_entries(struct trace_array *tr)
 static void print_lat_help_header(struct seq_file *m)
 {
 	seq_puts(m, "#                    _--------=> CPU#            \n"
-		    "#                   / _-------=> irqs-off        \n"
+		    "#                   / _-------=> irqs-off/BH-disabled\n"
 		    "#                  | / _------=> need-resched    \n"
 		    "#                  || / _-----=> need-resched-lazy\n"
 		    "#                  ||| / _----=> hardirq/softirq \n"
@@ -4262,7 +4264,7 @@ static void print_func_help_header_irq(struct array_buffer *buf, struct seq_file
 
 	print_event_info(buf, m);
 
-	seq_printf(m, "#                            %.*s  _-------=> irqs-off\n", prec, space);
+	seq_printf(m, "#                            %.*s  _-------=> irqs-off/BH-disabled\n", prec, space);
 	seq_printf(m, "#                            %.*s / _------=> need-resched\n", prec, space);
 	seq_printf(m, "#                            %.*s| / _-----=> need-resched-lazy\n", prec, space);
 	seq_printf(m, "#                            %.*s|| / _----=> hardirq/softirq\n", prec, space);
