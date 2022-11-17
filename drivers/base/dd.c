@@ -32,6 +32,13 @@
 #include "base.h"
 #include "power/power.h"
 
+static int __init fw_devlink_timeout_setup(char *str)
+{
+    printk(KERN_ERR "halaney: %s\n", str);
+	return 1;
+}
+__setup("fw_devlink.timeout=", fw_devlink_timeout_setup);
+
 /*
  * Deferred Probe infrastructure.
  *
