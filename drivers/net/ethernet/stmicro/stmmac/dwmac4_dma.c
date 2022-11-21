@@ -237,7 +237,7 @@ static void _emac3_dump_dma_regs(void __iomem *ioaddr, u32 channel,
 				  u32 *reg_space)
 {
 	reg_space[EMAC3_DMA_CHAN_CONTROL(channel) / 4] =
-		readl(ioaddr + DMA_CHAN_CONTROL(channel));
+		readl(ioaddr + EMAC3_DMA_CHAN_CONTROL(channel));
 	reg_space[EMAC3_DMA_CHAN_TX_CONTROL(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_TX_CONTROL(channel));
 	reg_space[EMAC3_DMA_CHAN_RX_CONTROL(channel) / 4] =
