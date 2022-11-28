@@ -236,39 +236,40 @@ static void dwmac4_dma_init(void __iomem *ioaddr,
 static void _emac3_dump_dma_regs(void __iomem *ioaddr, u32 channel,
 				  u32 *reg_space)
 {
-	reg_space[EMAC3_DMA_CHAN_CONTROL(channel) / 4] =
+	/* Use dwmac4's reg_space offsets to reuse common stmmac_ethtool code */
+	reg_space[DMA_CHAN_CONTROL(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_CONTROL(channel));
-	reg_space[EMAC3_DMA_CHAN_TX_CONTROL(channel) / 4] =
+	reg_space[DMA_CHAN_TX_CONTROL(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_TX_CONTROL(channel));
-	reg_space[EMAC3_DMA_CHAN_RX_CONTROL(channel) / 4] =
+	reg_space[DMA_CHAN_RX_CONTROL(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_RX_CONTROL(channel));
-	reg_space[EMAC3_DMA_CHAN_TX_BASE_ADDR(channel) / 4] =
+	reg_space[DMA_CHAN_TX_BASE_ADDR(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_TX_BASE_ADDR(channel));
-	reg_space[EMAC3_DMA_CHAN_RX_BASE_ADDR(channel) / 4] =
+	reg_space[DMA_CHAN_RX_BASE_ADDR(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_RX_BASE_ADDR(channel));
-	reg_space[EMAC3_DMA_CHAN_TX_END_ADDR(channel) / 4] =
+	reg_space[DMA_CHAN_TX_END_ADDR(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_TX_END_ADDR(channel));
-	reg_space[EMAC3_DMA_CHAN_RX_END_ADDR(channel) / 4] =
+	reg_space[DMA_CHAN_RX_END_ADDR(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_RX_END_ADDR(channel));
-	reg_space[EMAC3_DMA_CHAN_TX_RING_LEN(channel) / 4] =
+	reg_space[DMA_CHAN_TX_RING_LEN(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_TX_RING_LEN(channel));
-	reg_space[EMAC3_DMA_CHAN_RX_RING_LEN(channel) / 4] =
+	reg_space[DMA_CHAN_RX_RING_LEN(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_RX_RING_LEN(channel));
-	reg_space[EMAC3_DMA_CHAN_INTR_ENA(channel) / 4] =
+	reg_space[DMA_CHAN_INTR_ENA(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_INTR_ENA(channel));
-	reg_space[EMAC3_DMA_CHAN_RX_WATCHDOG(channel) / 4] =
+	reg_space[DMA_CHAN_RX_WATCHDOG(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_RX_WATCHDOG(channel));
-	reg_space[EMAC3_DMA_CHAN_SLOT_CTRL_STATUS(channel) / 4] =
+	reg_space[DMA_CHAN_SLOT_CTRL_STATUS(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_SLOT_CTRL_STATUS(channel));
-	reg_space[EMAC3_DMA_CHAN_CUR_TX_DESC(channel) / 4] =
+	reg_space[DMA_CHAN_CUR_TX_DESC(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_CUR_TX_DESC(channel));
-	reg_space[EMAC3_DMA_CHAN_CUR_RX_DESC(channel) / 4] =
+	reg_space[DMA_CHAN_CUR_RX_DESC(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_CUR_RX_DESC(channel));
-	reg_space[EMAC3_DMA_CHAN_CUR_TX_BUF_ADDR(channel) / 4] =
+	reg_space[DMA_CHAN_CUR_TX_BUF_ADDR(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_CUR_TX_BUF_ADDR(channel));
-	reg_space[EMAC3_DMA_CHAN_CUR_RX_BUF_ADDR(channel) / 4] =
+	reg_space[DMA_CHAN_CUR_RX_BUF_ADDR(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_CUR_RX_BUF_ADDR(channel));
-	reg_space[EMAC3_DMA_CHAN_STATUS(channel) / 4] =
+	reg_space[DMA_CHAN_STATUS(channel) / 4] =
 		readl(ioaddr + EMAC3_DMA_CHAN_STATUS(channel));
 }
 
