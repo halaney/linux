@@ -117,10 +117,12 @@ static void qcom_ethqos_read_iomacro_por_values(struct qcom_ethqos *ethqos)
 	int i;
 
 	/* Read to POR values and enable clk */
-	for (i = 0; i < ethqos->num_por; i++)
+	for (i = 0; i < ethqos->num_por; i++) {
 		ethqos->por[i].value =
 			readl_relaxed
 			(ethqos->rgmii_base + ethqos->por[i].offset);
+		dev_err(&ethqos->pdev->dev, "%s: Read from: 0x%x with value of 0x%x\n", __func__, ethqos->por[i].offset, ethqos->por[i].value);
+	}
 }
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
