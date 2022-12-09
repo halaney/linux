@@ -11,7 +11,18 @@
 #define KIUMD_SMMU_UNMAP_BUF	_IOWR('R', 11, struct kiumd_user)
 #define KIUMD_EXPORT_DMABUF		_IOWR('R', 12, struct kiumd_user)
 #define KIUMD_IMPORT_DMABUF		_IOWR('R', 13, struct kiumd_user)
+#define KIUMD_IOVA_MAP_CTRL             _IOWR('R', 14, struct kiumd_user)
 
+enum kiumd_iova_addr_type {
+	KGSL_SMMU_GLOBALPT_FIXED_ADDR_SET,
+	KGSL_SMMU_GLOBALPT_FIXED_ADDR_CLEAR,
+};
+
+struct kiumd_iova {
+	int vfio_fd;
+	enum kiumd_iova_addr_type iova_flag;
+	int iova;
+};
 
 struct kiumd_user {
 	int vfio_fd;

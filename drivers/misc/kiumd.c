@@ -18,6 +18,10 @@
 #include <linux/vfio.h>
 #include <linux/hashtable.h>
 #include <uapi/misc/kiumd.h>
+#include <linux/iommu.h>
+#include <linux/types.h>
+#include <linux/dma-iommu.h>
+#include <linux/iova.h>
 
 /*Global Data structures needed for buffer sharing */
 static DEFINE_MUTEX(g_kiumd_lock);
@@ -36,6 +40,30 @@ struct kiumd_dev {
 	struct miscdevice miscdev;
 	int fd;
 };
+
+enum iommu_dma_cookie_type {
+       IOMMU_DMA_IOVA_COOKIE,
+       IOMMU_DMA_MSI_COOKIE,
+};
+
+
+struct kiumd_iommu_dma_cookie {
+	enum iommu_dma_cookie_type      type;
+	union {
+        struct {
+               struct iova_domain      iovad;
+               struct iova_fq __percpu *fq;    /* Flush queue */
+               atomic64_t              fq_flush_start_cnt;
+               atomic64_t              fq_flush_finish_cnt;
+               struct timer_list       fq_timer;
+               atomic_t                fq_timer_on;
+             };
+               dma_addr_t              msi_iova;
+         };
+         struct list_head                msi_page_list;
+         struct iommu_domain             *fq_domain;
+};
+
 
 int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 {
@@ -205,6 +233,42 @@ int kiumd_dmabuf_fd(struct kiumd_dev *ki_dev, char __user *arg)
 	return 0;
 }
 
+int kiumd_iova_ctrl(struct kiumd_dev *ki_dev, char __user *arg)
+{
+	struct kiumd_iova iovausr;
+	struct file *file;
+	struct vfio_device *vfio_dev;
+	struct iommu_domain *domain = NULL;
+	struct kiumd_iommu_dma_cookie *cookie = NULL;
+	int cookie_type;
+	dma_addr_t iova_usr;
+
+	if (copy_from_user(&iovausr, arg, sizeof(struct kiumd_iova)))
+		return -EFAULT;
+
+	if(iovausr.iova_flag == KGSL_SMMU_GLOBALPT_FIXED_ADDR_CLEAR)
+		cookie_type = 0;
+	else
+		cookie_type = 1;
+
+	if(iovausr.iova_flag == KGSL_SMMU_GLOBALPT_FIXED_ADDR_SET) {
+		cookie_type = 1;
+		iova_usr = iovausr.iova;
+	}
+
+	file = fget(iovausr.vfio_fd);
+	vfio_dev = (struct vfio_device *)file->private_data;
+	domain = iommu_get_dma_domain(vfio_dev->dev);
+	cookie = (struct kiumd_iommu_dma_cookie*)domain->iova_cookie;
+	if(!cookie)	{
+		printk(KERN_INFO "kiumd_iova_ctrl: cookie not found\n");
+		return -ENOMEM;
+	}
+	cookie->type = cookie_type;
+	cookie->msi_iova = iova_usr;
+	return 0;
+}
+
 static int kiumd_open(struct inode *inode, struct file *filp)
 {
 	pr_err("kiumd_open called\n");
@@ -230,6 +294,9 @@ static long kiumd_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case KIUMD_IMPORT_DMABUF:
 		err = kiumd_import_fd(ki_dev, argp);
+		break;
+	case KIUMD_IOVA_MAP_CTRL:
+		err = kiumd_iova_ctrl(ki_dev, argp);
 		break;
 	default:
 		err = -ENOTTY;
