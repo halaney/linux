@@ -484,6 +484,7 @@ MODULE_DEVICE_TABLE(of, video_cc_lemans_match_table);
 static int video_cc_lemans_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	int ret;
 
 	regmap = qcom_cc_map(pdev, &video_cc_lemans_desc);
 	if (IS_ERR(regmap))
@@ -500,7 +501,13 @@ static int video_cc_lemans_probe(struct platform_device *pdev)
 	regmap_update_bits(regmap, 0x80ec, BIT(0), BIT(0));
 	regmap_update_bits(regmap, 0x8128, BIT(0), BIT(0));
 
-	return qcom_cc_really_probe(pdev, &video_cc_lemans_desc, regmap);
+	//return qcom_cc_really_probe(pdev, &video_cc_lemans_desc, regmap);
+	ret = qcom_cc_really_probe(pdev, &video_cc_lemans_desc, regmap);
+	clk_set_rate(video_cc_mvs0_clk.clkr.hw.clk, 560000000);
+	clk_set_rate(video_cc_mvs1c_clk.clkr.hw.clk, 600000000);
+	clk_set_rate(video_cc_mvs1_clk.clkr.hw.clk, 600000000);
+
+	return ret;
 }
 
 static struct platform_driver video_cc_lemans_driver = {
