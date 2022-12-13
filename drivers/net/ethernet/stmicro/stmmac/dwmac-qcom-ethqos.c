@@ -338,7 +338,30 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      0, RGMII_IO_MACRO_CONFIG2);
 
 		/* TODO: this certainly isn't the way to indicate this */
-		if (priv->plat->mac2mac_88Q5072)
+		//if (priv->plat->mac2mac_88Q5072)
+		// test out if this is needed with fixed-link instead of mac2mac
+		// right now, without it at least, im not getting an IP
+		// EDIT: yeah, with this I get an IP.. but i do see a bunch of
+		// dropped packets after pinging 8.8.8.8 for a bit. need to see if that
+		// was always true before the fixed-link change, i don't think it happened
+		// with mac2mac
+		/*
+		[root@dhcp19-243-225 ~]# ip -s link
+		1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
+			link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+			RX:  bytes packets errors dropped  missed   mcast
+					 0       0      0       0       0       0
+			TX:  bytes packets errors dropped carrier collsns
+					 0       0      0       0       0       0
+		2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
+			link/ether 52:ba:aa:79:bf:46 brd ff:ff:ff:ff:ff:ff
+			RX:  bytes packets errors dropped  missed   mcast
+				355370    5204      0    2124       0       0
+			TX:  bytes packets errors dropped carrier collsns
+				 23098     238      0       0       0       0
+		[root@dhcp19-243-225 ~]#
+		*/
+        if (1)
 			rgmii_updatel(ethqos,
 				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
 				      0, RGMII_IO_MACRO_CONFIG2);
