@@ -388,26 +388,6 @@ static void stmmac_lpi_entry_timer_config(struct stmmac_priv *priv, bool en)
 }
 
 /**
- * stmmac_hw_fix_mac_speed - callback for speed selection
- * @priv: driver private structure
- * Description: on some platforms (e.g. ST), some HW system configuration
- * registers have to be set according to the link speed negotiated.
- */
-static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
-{
-	if (likely(priv->plat->fix_mac_speed)) {
-		if (priv->plat->mac2mac_en) {
-			priv->plat->fix_mac_speed(priv->plat->bsp_priv,
-					priv->speed);
-			return;
-		}
-
-		priv->plat->fix_mac_speed(priv->plat->bsp_priv,
-					  SPEED_10);
-	}
-}
-
-/**
  * stmmac_enable_eee_mode - check and enter in LPI mode
  * @priv: driver private structure
  * Description: this function is to verify and enter in LPI mode in case of
@@ -3637,27 +3617,6 @@ static int stmmac_request_irq(struct net_device *dev)
 	return ret;
 }
 
-void stmmac_mac2mac_adjust_link(int speed, struct stmmac_priv *priv)
-{
-	u32 ctrl = readl_relaxed(priv->ioaddr + MAC_CTRL_REG);
-
-	ctrl &= ~priv->hw->link.speed_mask;
-
-	if (speed == SPEED_1000) {
-		ctrl |= priv->hw->link.speed1000;
-		priv->speed = SPEED_1000;
-	} else if (speed == SPEED_100) {
-		ctrl |= priv->hw->link.speed100;
-		priv->speed = SPEED_100;
-	} else {
-		ctrl |= priv->hw->link.speed10;
-		priv->speed = SPEED_10;
-	}
-
-	stmmac_hw_fix_mac_speed(priv);
-	writel_relaxed(ctrl, priv->ioaddr + MAC_CTRL_REG);
-}
-
 /**
  *  stmmac_open - open entry point of the driver
  *  @dev : pointer to the device structure.
@@ -3681,8 +3640,7 @@ int stmmac_open(struct net_device *dev)
 		return ret;
 	}
 
-	if (!priv->plat->mac2mac_en &&
-	    priv->hw->pcs != STMMAC_PCS_TBI &&
+	if (priv->hw->pcs != STMMAC_PCS_TBI &&
 	    priv->hw->pcs != STMMAC_PCS_RTBI &&
 	    (!priv->hw->xpcs ||
 	     xpcs_get_an_mode(priv->hw->xpcs, mode) != DW_AN_C73)) {
@@ -3747,11 +3705,9 @@ int stmmac_open(struct net_device *dev)
 
 	stmmac_init_coalesce(priv);
 
-	if (!priv->plat->mac2mac_en) {
-		phylink_start(priv->phylink);
-		/* We may have called phylink_speed_down before */
-		phylink_speed_up(priv->phylink);
-	}
+	phylink_start(priv->phylink);
+	/* We may have called phylink_speed_down before */
+	phylink_speed_up(priv->phylink);
 
 	ret = stmmac_request_irq(dev);
 	if (ret)
@@ -3760,18 +3716,10 @@ int stmmac_open(struct net_device *dev)
 	stmmac_enable_all_queues(priv);
 	netif_tx_start_all_queues(priv->dev);
 
-	if (priv->plat->mac2mac_en) {
-		stmmac_mac2mac_adjust_link(priv->plat->mac2mac_rgmii_speed,
-					   priv);
-		priv->plat->mac2mac_link = true;
-		netif_carrier_on(dev);
-	}
-
 	return 0;
 
 irq_error:
-	if (!priv->plat->mac2mac_en)
-		phylink_stop(priv->phylink);
+	phylink_stop(priv->phylink);
 	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
 		hrtimer_cancel(&priv->tx_queue[chan].txtimer);
 
@@ -3779,8 +3727,7 @@ irq_error:
 init_error:
 	free_dma_desc_resources(priv);
 dma_desc_error:
-	if (!priv->plat->mac2mac_en)
-		phylink_disconnect_phy(priv->phylink);
+	phylink_disconnect_phy(priv->phylink);
 init_phy_error:
 	pm_runtime_put(priv->device);
 	return ret;
@@ -3807,13 +3754,11 @@ int stmmac_release(struct net_device *dev)
 	struct stmmac_priv *priv = netdev_priv(dev);
 	u32 chan;
 
-	if (device_may_wakeup(priv->device) && !priv->plat->mac2mac_en)
+	if (device_may_wakeup(priv->device))
 		phylink_speed_down(priv->phylink, false);
 	/* Stop and disconnect the PHY */
-	if (!priv->plat->mac2mac_en) {
-		phylink_stop(priv->phylink);
-		phylink_disconnect_phy(priv->phylink);
-	}
+	phylink_stop(priv->phylink);
+	phylink_disconnect_phy(priv->phylink);
 
 	stmmac_disable_all_queues(priv);
 
@@ -5846,8 +5791,7 @@ static int stmmac_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	case SIOCGMIIPHY:
 	case SIOCGMIIREG:
 	case SIOCSMIIREG:
-		if (!priv->plat->mac2mac_en)
-			ret = phylink_mii_ioctl(priv->phylink, rq, cmd);
+		ret = phylink_mii_ioctl(priv->phylink, rq, cmd);
 		break;
 	case SIOCSHWTSTAMP:
 		ret = stmmac_hwtstamp_set(dev, rq);
@@ -7042,8 +6986,7 @@ int stmmac_dvr_probe(struct device *device,
 	pm_runtime_set_active(device);
 	pm_runtime_enable(device);
 
-	if (!priv->plat->mac2mac_en &&
-	    priv->hw->pcs != STMMAC_PCS_TBI &&
+	if (priv->hw->pcs != STMMAC_PCS_TBI &&
 	    priv->hw->pcs != STMMAC_PCS_RTBI) {
 		/* MDIO bus Registration */
 		ret = stmmac_mdio_register(ndev);
@@ -7064,9 +7007,7 @@ int stmmac_dvr_probe(struct device *device,
 			goto error_xpcs_setup;
 	}
 
-	if (!priv->plat->mac2mac_en)
-		ret = stmmac_phy_setup(priv);
-
+	ret = stmmac_phy_setup(priv);
 	if (ret) {
 		netdev_err(ndev, "failed to setup phy (%d)\n", ret);
 		goto error_phy_setup;
@@ -7101,8 +7042,7 @@ int stmmac_dvr_probe(struct device *device,
 error_serdes_powerup:
 	unregister_netdev(ndev);
 error_netdev_register:
-	if (!priv->plat->mac2mac_en)
-		phylink_destroy(priv->phylink);
+	phylink_destroy(priv->phylink);
 error_xpcs_setup:
 error_phy_setup:
 	if (priv->hw->pcs != STMMAC_PCS_TBI &&
@@ -7145,8 +7085,7 @@ int stmmac_dvr_remove(struct device *dev)
 #ifdef CONFIG_DEBUG_FS
 	stmmac_exit_fs(ndev);
 #endif
-	if (!priv->plat->mac2mac_en)
-		phylink_destroy(priv->phylink);
+	phylink_destroy(priv->phylink);
 	if (priv->plat->stmmac_rst)
 		reset_control_assert(priv->plat->stmmac_rst);
 	reset_control_assert(priv->plat->stmmac_ahb_rst);
@@ -7180,8 +7119,7 @@ int stmmac_suspend(struct device *dev)
 	if (!ndev || !netif_running(ndev))
 		return 0;
 
-	if (!priv->plat->mac2mac_en)
-		phylink_mac_change(priv->phylink, false);
+	phylink_mac_change(priv->phylink, false);
 
 	mutex_lock(&priv->lock);
 
@@ -7209,13 +7147,11 @@ int stmmac_suspend(struct device *dev)
 		priv->irq_wake = 1;
 	} else {
 		mutex_unlock(&priv->lock);
-		if (!priv->plat->mac2mac_en) {
-			rtnl_lock();
-			if (device_may_wakeup(priv->device))
-				phylink_speed_down(priv->phylink, false);
-			phylink_stop(priv->phylink);
-			rtnl_unlock();
-		}
+		rtnl_lock();
+		if (device_may_wakeup(priv->device))
+			phylink_speed_down(priv->phylink, false);
+		phylink_stop(priv->phylink);
+		rtnl_unlock();
 		mutex_lock(&priv->lock);
 
 		stmmac_mac_set(priv, priv->ioaddr, false);
@@ -7321,14 +7257,12 @@ int stmmac_resume(struct device *dev)
 			return ret;
 	}
 
-	if (!priv->plat->mac2mac_en) {
-		if (!device_may_wakeup(priv->device) || !priv->plat->pmt) {
-			rtnl_lock();
-			phylink_start(priv->phylink);
-			/* We may have called phylink_speed_down before */
-			phylink_speed_up(priv->phylink);
-			rtnl_unlock();
-		}
+	if (!device_may_wakeup(priv->device) || !priv->plat->pmt) {
+		rtnl_lock();
+		phylink_start(priv->phylink);
+		/* We may have called phylink_speed_down before */
+		phylink_speed_up(priv->phylink);
+		rtnl_unlock();
 	}
 
 	rtnl_lock();
@@ -7350,8 +7284,7 @@ int stmmac_resume(struct device *dev)
 	mutex_unlock(&priv->lock);
 	rtnl_unlock();
 
-	if (!priv->plat->mac2mac_en)
-		phylink_mac_change(priv->phylink, true);
+	phylink_mac_change(priv->phylink, true);
 
 	netif_device_attach(ndev);
 

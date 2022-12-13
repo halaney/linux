@@ -339,29 +339,9 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 
 		/* TODO: this certainly isn't the way to indicate this */
 		//if (priv->plat->mac2mac_88Q5072)
-		// test out if this is needed with fixed-link instead of mac2mac
-		// right now, without it at least, im not getting an IP
-		// EDIT: yeah, with this I get an IP.. but i do see a bunch of
-		// dropped packets after pinging 8.8.8.8 for a bit. need to see if that
-		// was always true before the fixed-link change, i don't think it happened
-		// with mac2mac
-		/*
-		[root@dhcp19-243-225 ~]# ip -s link
-		1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
-			link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-			RX:  bytes packets errors dropped  missed   mcast
-					 0       0      0       0       0       0
-			TX:  bytes packets errors dropped carrier collsns
-					 0       0      0       0       0       0
-		2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc mq state UP mode DEFAULT group default qlen 1000
-			link/ether 52:ba:aa:79:bf:46 brd ff:ff:ff:ff:ff:ff
-			RX:  bytes packets errors dropped  missed   mcast
-				355370    5204      0    2124       0       0
-			TX:  bytes packets errors dropped carrier collsns
-				 23098     238      0       0       0       0
-		[root@dhcp19-243-225 ~]#
-		*/
-        if (1)
+		// Not getting an IP without the if below -- need to figure out if i
+		// need a new dt property to switch thru here or what
+		if (1)
 			rgmii_updatel(ethqos,
 				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
 				      0, RGMII_IO_MACRO_CONFIG2);
@@ -678,15 +658,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
 
-	/* Get rgmii interface speed for mac2c from device tree */
-	if (of_property_read_u32(np, "mac2mac-rgmii-speed",
-				 &plat_dat->mac2mac_rgmii_speed))
-		plat_dat->mac2mac_rgmii_speed = -1;
-	else
-		dev_info(&ethqos->pdev->dev, "mac2mac rgmii speed = %d\n", plat_dat->mac2mac_rgmii_speed);
-	plat_dat->mac2mac_88Q5072 =
-		of_property_read_bool(np, "mac2mac-88Q5072");
-
 	/* TODO: continue to push for answers if older EMAC versions support
 	 * this register read, or if we need to get it from platform info */
 	if (of_property_read_bool(pdev->dev.of_node,
@@ -714,9 +685,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	ndev = dev_get_drvdata(&ethqos->pdev->dev);
 	priv = netdev_priv(ndev);
-
-	if (priv->plat->mac2mac_en)
-		priv->plat->mac2mac_link = 0;
 
 	return ret;
 
