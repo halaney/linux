@@ -197,14 +197,14 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie2a_default>;
 
-	status = "okay";
+	//status = "okay";
 };
 
 &pcie2a_phy {
 	vdda-phy-supply = <&vreg_l11a>;
 	vdda-pll-supply = <&vreg_l3a>;
 
-	status = "okay";
+	//status = "okay";
 };
 
 &pcie3a {
