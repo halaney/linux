@@ -490,7 +490,6 @@
 	emac1_hw: qcom,ethernet@23000000 {
 		compatible = "qcom,stmmac-ethqos-emac1";
 		emac-core-version = <0x30000000>;
-		qcom,arm-smmu;
 		reg = <0x0 0x23000000 0x0 0x10000>,
 			<0x0 0x23016000 0x0 0x100>;
 		reg-names = "stmmaceth", "rgmii";
