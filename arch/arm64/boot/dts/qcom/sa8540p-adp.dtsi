@@ -520,11 +520,18 @@
 
 		snps,reset-delays-us = <0 11000 70000>;
 		phy-mode = "rgmii";
-		mac2mac;
-		mac2mac-rgmii-speed = <1000>;
-		mac2mac-88Q5072;
+
+		//mac2mac;
+		//mac2mac-rgmii-speed = <1000>;
+		//mac2mac-88Q5072;
 
 		iommus = <&apps_smmu 0x40 0xf>;
+
+		fixed-link {
+			speed = <1000>;
+			full-duplex;
+		};
+
 	};
 };
 
