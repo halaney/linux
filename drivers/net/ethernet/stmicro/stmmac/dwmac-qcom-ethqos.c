@@ -104,10 +104,11 @@ struct qcom_ethqos {
 
 	const struct ethqos_emac_por *por;
 	unsigned int num_por;
-	unsigned int emac_ver;
 
 	struct regulator_bulk_data *vregs;
 	unsigned int num_vregs;
+
+	bool has_emac3;
 };
 
 static int rgmii_readl(struct qcom_ethqos *ethqos, unsigned int offset)
@@ -242,7 +243,7 @@ static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 	rgmii_updatel(ethqos, SDCC_DLL_CONFIG_DLL_EN,
 		      SDCC_DLL_CONFIG_DLL_EN, SDCC_HC_REG_DLL_CONFIG);
 
-	if (ethqos->emac_ver != EMAC_HW_v3_0_0_RG) {
+	if (!ethqos->has_emac3) {
 		rgmii_updatel(ethqos, SDCC_DLL_MCLK_GATING_EN,
 			      0, SDCC_HC_REG_DLL_CONFIG);
 
@@ -283,7 +284,7 @@ static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 	rgmii_updatel(ethqos, SDCC_DLL_CONFIG2_DDR_CAL_EN,
 		      SDCC_DLL_CONFIG2_DDR_CAL_EN, SDCC_HC_REG_DLL_CONFIG2);
 
-	if (ethqos->emac_ver != EMAC_HW_v3_0_0_RG) {
+	if (!ethqos->has_emac3) {
 		rgmii_updatel(ethqos, SDCC_DLL_CONFIG2_DLL_CLOCK_DIS,
 			      0, SDCC_HC_REG_DLL_CONFIG2);
 
@@ -358,7 +359,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      RGMII_IO_MACRO_CONFIG2);
 
 		/* Set PRG_RCLK_DLY to 57 for 1.8 ns delay */
-		if (ethqos->emac_ver == EMAC_HW_v3_0_0_RG)
+		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
 				      115, SDCC_HC_REG_DDR_CONFIG);
 		else
@@ -367,7 +368,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_DLY_EN,
 			      SDCC_DDR_CONFIG_PRG_DLY_EN,
 			      SDCC_HC_REG_DDR_CONFIG);
-		if (ethqos->emac_ver == EMAC_HW_v3_0_0_RG)
+		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos, RGMII_CONFIG_LOOPBACK_EN,
 				      0, RGMII_IO_MACRO_CONFIG);
 		else
@@ -396,7 +397,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RSVD_CONFIG15,
 			      0, RGMII_IO_MACRO_CONFIG2);
 
-		if (ethqos->emac_ver == EMAC_HW_v3_0_0_RG)
+		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_IO_MACRO_CONFIG2);
@@ -414,7 +415,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_EN,
 			      SDCC_HC_REG_DDR_CONFIG);
 
-		if (ethqos->emac_ver == EMAC_HW_v3_0_0_RG)
+		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos, RGMII_CONFIG_LOOPBACK_EN,
 				      0, RGMII_IO_MACRO_CONFIG);
 		else
@@ -436,7 +437,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, RGMII_CONFIG2_DATA_DIVIDE_CLK_SEL,
 			      0, RGMII_IO_MACRO_CONFIG2);
 
-		if (ethqos->emac_ver == EMAC_HW_v3_0_0_RG)
+		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos,
 				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
 				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
@@ -450,7 +451,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      RGMII_IO_MACRO_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RSVD_CONFIG15,
 			      0, RGMII_IO_MACRO_CONFIG2);
-		if (ethqos->emac_ver == EMAC_HW_v3_0_0_RG)
+		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_IO_MACRO_CONFIG2);
@@ -466,7 +467,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_EN,
 			      SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_EN,
 			      SDCC_HC_REG_DDR_CONFIG);
-		if (ethqos->emac_ver == EMAC_HW_v3_0_0_RG)
+		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos, RGMII_CONFIG_LOOPBACK_EN,
 				      0, RGMII_IO_MACRO_CONFIG);
 		else
@@ -504,7 +505,7 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 	rgmii_updatel(ethqos, SDCC_DLL_CONFIG_PDN,
 		      SDCC_DLL_CONFIG_PDN, SDCC_HC_REG_DLL_CONFIG);
 
-	if (ethqos->emac_ver == EMAC_HW_v3_0_0_RG) {
+	if (ethqos->has_emac3) {
 		/* TODO: this seems not cool */
 		if (ethqos->speed == SPEED_1000) {
 			rgmii_writel(ethqos, 0x1800000, SDCC_TEST_CTL);
@@ -535,7 +536,7 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 			      SDCC_HC_REG_DLL_CONFIG);
 
 		/* Set USR_CTL bit 26 with mask of 3 bits */
-		if (ethqos->emac_ver != EMAC_HW_v3_0_0_RG)
+		if (!ethqos->has_emac3)
 			rgmii_updatel(ethqos, GENMASK(26, 24), BIT(26),
 				      SDCC_USR_CTL);
 
@@ -622,6 +623,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ethqos->por = data->por;
 	ethqos->num_por = data->num_por;
 	ethqos->num_vregs = data->num_vregs;
+	ethqos->has_emac3 = data->has_emac3;
 
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -657,25 +659,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->has_emac3 = data->has_emac3;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
-
-	/* TODO: continue to push for answers if older EMAC versions support
-	 * this register read, or if we need to get it from platform info */
-	if (of_property_read_bool(pdev->dev.of_node,
-				  "emac-core-version")) {
-		/* Read emac core version value from dtsi */
-		ret = of_property_read_u32(pdev->dev.of_node,
-					   "emac-core-version",
-					   &ethqos->emac_ver);
-		if (ret) {
-			dev_err(&ethqos->pdev->dev, ":resource emac-hw-ver! not in dtsi\n");
-			ethqos->emac_ver = EMAC_HW_NONE;
-			WARN_ON(1);
-		}
-	} else {
-		ethqos->emac_ver =
-		rgmii_readl(ethqos, EMAC_I0_EMAC_CORE_HW_VERSION_RGOFFADDR);
-	}
-	dev_info(&ethqos->pdev->dev, ": emac_core_version = 0x%x\n", ethqos->emac_ver);
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
