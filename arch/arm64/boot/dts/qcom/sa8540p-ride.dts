@@ -23,6 +23,7 @@
 		i2c15 = &i2c15;
 		i2c18 = &i2c18;
 		serial0 = &uart17;
+		spi9 = &spi9;
 	};
 
 	chosen {
@@ -250,6 +251,19 @@
 	status = "okay";
 };
 
+&spi9 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&spi9_default>;
+
+	status = "okay";
+
+	spidevmaster@0 {
+		compatible = "qcom,spidev";
+		reg = <0>;
+		status = "okay";
+	};
+};
+
 &uart17 {
 	compatible = "qcom,geni-debug-uart";
 	status = "okay";
@@ -395,5 +409,12 @@
 			drive-strength = <2>;
 			bias-pull-up;
 		};
+	};
+
+	spi9_default: spi9-default-state {
+		pins = "gpio41", "gpio42", "gpio43", "gpio44";
+		function = "qup9";
+		drive-strength = <6>;
+		bias-disable;
 	};
 };
