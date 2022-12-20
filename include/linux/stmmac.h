@@ -248,6 +248,7 @@ struct plat_stmmacenet_data {
 	struct stmmac_axi *axi;
 	int has_gmac4;
 	bool has_sun8i;
+	bool has_emac3;
 	bool tso_en;
 	int rss_en;
 	int mac_port_sel_speed;
