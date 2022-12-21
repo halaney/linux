@@ -6,6 +6,9 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
+#include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
+
 #include "stmmac.h"
 #include "stmmac_platform.h"
 
@@ -540,6 +543,10 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ethqos->num_por = data->num_por;
 	ethqos->rgmii_config_looback_en = data->rgmii_config_looback_en;
 
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_forbid(&pdev->dev);
+
 	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_clk)) {
 		ret = PTR_ERR(ethqos->rgmii_clk);
@@ -603,7 +610,7 @@ static struct platform_driver qcom_ethqos_driver = {
 	.remove = qcom_ethqos_remove,
 	.driver = {
 		.name           = "qcom-ethqos",
-		.pm		= &stmmac_pltfr_pm_ops,
+		//.pm		= &stmmac_pltfr_pm_ops,
 		.of_match_table = of_match_ptr(qcom_ethqos_match),
 	},
 };
