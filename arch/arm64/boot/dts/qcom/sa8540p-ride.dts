@@ -225,7 +225,7 @@
 	snps,reset-gpio = <&pm8450a_gpios 2 GPIO_ACTIVE_HIGH>;
 	snps,reset-delays-us = <0 11000 70000>;
 
-	vreg_rgmii-supply = <&vreg_l2g>;
+	vreg-rgmii-supply = <&vreg_l2g>;
 
 	phy-mode = "rgmii";
 
