@@ -232,7 +232,7 @@ static const struct ethqos_emac_por emac_v3_0_0_por[] = {
 };
 
 static const char * const emac_v3_0_0_vreg_l[] = {
-	"vreg_rgmii", "vreg_emac_phy", "vreg_rgmii_io_pads",
+	"vreg_rgmii",
 };
 
 static const struct ethqos_emac_driver_data emac_v3_0_0_data = {
@@ -621,8 +621,10 @@ static int qcom_ethqos_vreg_init(struct qcom_ethqos *ethqos,
 		const struct ethqos_emac_driver_data *data) {
 	int i;
 
+	if (!ethqos->num_vregs)
+		return 0;
+
 	ethqos->vregs = devm_kcalloc(&ethqos->pdev->dev, ethqos->num_vregs, sizeof(*ethqos->vregs), GFP_KERNEL);
-	/* TODO: double check num_vregs == 0 case doesn't cause us issues */
 	if (!ethqos->vregs)
 		return -ENOMEM;
 
