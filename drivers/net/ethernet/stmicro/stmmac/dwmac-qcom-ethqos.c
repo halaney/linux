@@ -232,7 +232,7 @@ static const struct ethqos_emac_por emac_v3_0_0_por[] = {
 };
 
 static const char * const emac_v3_0_0_vreg_l[] = {
-	"vreg_rgmii",
+	"vreg-rgmii",
 };
 
 static const struct ethqos_emac_driver_data emac_v3_0_0_data = {
