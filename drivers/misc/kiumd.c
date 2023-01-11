@@ -73,6 +73,7 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 	struct dma_buf *kiumd_dmabuf = NULL;
 	struct dma_buf_attachment *dmabufattach = NULL;
 	struct sg_table *sgt = NULL;
+	int kiumd_dma_direction;
 
 	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
 		return -EFAULT;
@@ -86,6 +87,7 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 	}
 	// struct device st
 	//dma_buf_get (fd ) -> dma_buf*
+
 	kiumd_dmabuf = dma_buf_get(kiusr.dma_buf_fd);
 	if(kiumd_dmabuf == NULL) {
 		pr_err("%s:kiumd_dmabuf is NULL \n",__func__);
@@ -99,8 +101,19 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 		return -ENOTTY;
 	}
 
+	if(kiusr.dma_attr == DMA_ATTR_PRIVILEGED)
+		dmabufattach->dma_map_attrs = kiusr.dma_attr;
+	else
+		dmabufattach->dma_map_attrs = 0;
+
+	printk(KERN_INFO "kiumd_dmabuf_vfio_map: kiusr.dma_attr: %d, dma_map_attrs: %d", kiusr.dma_attr, dmabufattach->dma_map_attrs);
+
+	if(kiusr.dma_direction == 1 )
+		kiumd_dma_direction = kiusr.dma_direction;
+	else
+		kiumd_dma_direction = 0;
 	//dma_buf_map_attachment
-	sgt = dma_buf_map_attachment(dmabufattach, DMA_BIDIRECTIONAL);
+	sgt = dma_buf_map_attachment(dmabufattach, kiumd_dma_direction);
 	if(sgt == NULL) {
 		pr_err("%s:sgt is NULL \n",__func__);
 		return -ENOTTY;

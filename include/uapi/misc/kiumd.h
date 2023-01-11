@@ -13,6 +13,11 @@
 #define KIUMD_IMPORT_DMABUF		_IOWR('R', 13, struct kiumd_user)
 #define KIUMD_IOVA_MAP_CTRL             _IOWR('R', 14, struct kiumd_user)
 
+#define IOMMU_NOEXEC    (1 << 3)
+#define IOMMU_MMIO      (1 << 4)
+#define IOMMU_PRIV      (1 << 5)
+#define DMA_ATTR_PRIVILEGED	(1UL << 9)
+
 enum kiumd_iova_addr_type {
 	KGSL_SMMU_GLOBALPT_FIXED_ADDR_SET,
 	KGSL_SMMU_GLOBALPT_FIXED_ADDR_CLEAR,
@@ -34,6 +39,8 @@ struct kiumd_user {
 	long int dmabufattach;
 	unsigned long dma_addr;
 	int buf_token;
+	int dma_attr;
+	int dma_direction;
 };
 
 #endif /* __KIUMD_H__ */
