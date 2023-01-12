@@ -1,0 +1,11 @@
+ - All the if/else statements on emac3/mac2mac/marvell phy would be nice to
+   clean up. the mac2mac/marvell phy stuff are clearly board properties so
+   a dt-binding would be appropriate, the emac3 general stuff can be hooked
+   into the compatible matching
+ - pm_runtime stuff needs to go away
+ - add emac0
+	- Figure out why phy at 0x8 is reporting phy_id of 0 instead of Marvell's value
+ - overhaul dwmac4 changes again
+	- sneak context into callbacks, sneak in address changes for MTL/DMA
+	  from dwmac-qcom-ethqos
+ - warnings on build about unused priv var

@@ -1,0 +1,332 @@
+# Just a dumping ground of random notes
+
+# Here's some debug info from ER1.2 delivery on SIP2 (SIP1 fails to
+# find the phy even with the 3.1.3 Aurix FW :( )
+    [root@dhcp19-243-111 debug]# dmesg | grep ethernet
+    [    8.719569] qcom-ethqos 20000.qcom,ethernet: IRQ eth_wake_irq not found
+    [    8.719574] qcom-ethqos 20000.qcom,ethernet: IRQ eth_lpi not found
+    [    8.720168] qcom-ethqos 20000.qcom,ethernet:emac0_emb_smmu: Adding to iommu group 6
+    [    8.720424] qcom-ethqos 20000.qcom,ethernet: User ID: 0x20, Synopsys ID: 0x51
+    [    8.720426] qcom-ethqos 20000.qcom,ethernet: 	DWMAC4/5
+    [    8.720430] qcom-ethqos 20000.qcom,ethernet: DMA HW capability register supported
+    [    8.720431] qcom-ethqos 20000.qcom,ethernet: RX Checksum Offload Engine supported
+    [    8.720432] qcom-ethqos 20000.qcom,ethernet: TX Checksum insertion supported
+    [    8.720433] qcom-ethqos 20000.qcom,ethernet: TSO supported
+    [    8.720433] qcom-ethqos 20000.qcom,ethernet: Enable RX Mitigation via HW Watchdog Timer
+    [    8.720437] qcom-ethqos 20000.qcom,ethernet: device MAC address 4e:d8:0c:d9:4f:16
+    [    8.720439] qcom-ethqos 20000.qcom,ethernet: Enabled Flow TC (entries=8)
+    [    8.720440] qcom-ethqos 20000.qcom,ethernet: Enabling HW TC (entries=128, max_off=64)
+    [    8.720442] qcom-ethqos 20000.qcom,ethernet: TSO feature enabled
+    [    8.720442] qcom-ethqos 20000.qcom,ethernet: SPH feature enabled
+    [    8.720443] qcom-ethqos 20000.qcom,ethernet: Using 40 bits DMA width
+    [    8.720453] qcom-ethqos 20000.qcom,ethernet: Unbalanced pm_runtime_enable!
+    [    9.082935] qcom-ethqos 23000000.qcom,ethernet: IRQ eth_wake_irq not found
+    [    9.082937] qcom-ethqos 23000000.qcom,ethernet: IRQ eth_lpi not found
+    [    9.083568] qcom-ethqos 23000000.qcom,ethernet:emac1_emb_smmu: Adding to iommu group 7
+    [    9.083806] qcom-ethqos 23000000.qcom,ethernet: User ID: 0x20, Synopsys ID: 0x51
+    [    9.083808] qcom-ethqos 23000000.qcom,ethernet: 	DWMAC4/5
+    [    9.083812] qcom-ethqos 23000000.qcom,ethernet: DMA HW capability register supported
+    [    9.083813] qcom-ethqos 23000000.qcom,ethernet: RX Checksum Offload Engine supported
+    [    9.083814] qcom-ethqos 23000000.qcom,ethernet: TX Checksum insertion supported
+    [    9.083815] qcom-ethqos 23000000.qcom,ethernet: TSO supported
+    [    9.083815] qcom-ethqos 23000000.qcom,ethernet: Enable RX Mitigation via HW Watchdog Timer
+    [    9.083818] qcom-ethqos 23000000.qcom,ethernet: device MAC address 06:a4:7f:46:a1:e3
+    [    9.083821] qcom-ethqos 23000000.qcom,ethernet: Enabled Flow TC (entries=8)
+    [    9.083823] qcom-ethqos 23000000.qcom,ethernet: Enabling HW TC (entries=128, max_off=64)
+    [    9.083824] qcom-ethqos 23000000.qcom,ethernet: TSO feature enabled
+    [    9.083824] qcom-ethqos 23000000.qcom,ethernet: SPH feature enabled
+    [    9.083825] qcom-ethqos 23000000.qcom,ethernet: Using 40 bits DMA width
+    [    9.083828] qcom-ethqos 23000000.qcom,ethernet: Unbalanced pm_runtime_enable!
+    [   11.010968] qcom-ethqos 20000.qcom,ethernet eth1: PHY [stmmac-0:08] driver [Marvell 88EA1512] (irq=MAC)
+    [   11.011191] qcom-ethqos 20000.qcom,ethernet eth1: stmmac_init_phy config_phy_intr successful
+    [   11.011755] qcom-ethqos 20000.qcom,ethernet eth1: Register MEM_TYPE_PAGE_POOL RxQ-0
+    [   11.022743] qcom-ethqos 20000.qcom,ethernet eth1: No Safety Features support found
+    [   11.022764] qcom-ethqos 20000.qcom,ethernet eth1: IEEE 1588-2008 Advanced Timestamp supported
+    [   11.022860] qcom-ethqos 20000.qcom,ethernet eth1: registered PTP clock
+    [   11.148776] qcom-ethqos 20000.qcom,ethernet eth1: FPE workqueue start
+    [   11.148783] qcom-ethqos 20000.qcom,ethernet eth1: configuring for phy/rgmii link mode
+    [   11.151798] qcom-ethqos 23000000.qcom,ethernet eth2: Register MEM_TYPE_PAGE_POOL RxQ-0
+    [   11.162700] qcom-ethqos 23000000.qcom,ethernet eth2: No Safety Features support found
+    [   11.162720] qcom-ethqos 23000000.qcom,ethernet eth2: IEEE 1588-2008 Advanced Timestamp supported
+    [   11.162800] qcom-ethqos 23000000.qcom,ethernet eth2: registered PTP clock
+    [   11.230602] qcom-ethqos 20000.qcom,ethernet eth1: Link is Up - 1Gbps/Full - flow control off
+    [   11.288758] qcom-ethqos 23000000.qcom,ethernet eth2: FPE workqueue start
+    [root@dhcp19-243-111 debug]# cat eth
+    eth1/ eth2/
+    [root@dhcp19-243-111 debug]# cat eth1/
+    phy_reg_dump    rgmii_reg_dump
+    [root@dhcp19-243-111 debug]# cat eth1/phy_reg_dump
+
+    ************* PHY Reg dump *************
+    MII Register (0x0) = 0x140
+    MII Register (0x1) = 0x14d
+    MII Re[  191.005894] qcom-ethqos read_phy_reg_dump:1428 phy_addr: 8
+    gister (0x2) = 0x141
+    MII Register (0x3) = 0xdd4
+    MII Register ([  191.009452] qcom-ethqos read_phy_reg_dump:1428 phy_addr: 8
+    0x4) = 0x1
+    MII Register (0x5) = 0x0
+    MII Register (0x6) = 0x4
+    MII Register (0x7) = 0x2001
+    MII Register (0x8) = 0x0
+    MII Register (0x9) = 0x0
+    MII Register (0xa) = 0x0
+    MII Register (0xb) = 0x0
+    MII Register (0xc) = 0x0
+    MII Register (0xd) = 0x4007
+    MII Register (0xe) = 0x0
+    MII Register (0xf) = 0xc000
+    MII Register (0x10) = 0x426f
+    MII Register (0x11) = 0xac20
+    MII Register (0x12) = 0x0
+    MII Register (0x13) = 0x0
+    MII Register (0x14) = 0x0
+    MII Register (0x15) = 0x0
+    MII Register (0x16) = 0x1
+    MII Register (0x17) = 0x0
+    MII Register (0x18) = 0x0
+    MII Register (0x19) = 0x0
+    MII Register (0x1a) = 0x42
+    MII Register (0x1b) = 0x0
+    MII Register (0x1c) = 0x0
+    MII Register (0x1d) = 0x0
+    MII Register (0x1e) = 0x0
+    MII Register (0x1f) = 0xb
+    [root@dhcp19-243-111 debug]# cat eth1/rgmii_reg_dump
+
+    ************* RGMII Reg dump *************
+    RGMII_IO_MACRO_CONFIG Register = 0x40c01343
+    SDCC_HC_REG_DLL_CONFIG Register = 0xf642c
+    SDCC_HC_REG_DDR_CONFIG Register = 0x80040873
+    SDCC_HC_REG_DLL_CONFIG2 Register = 0xa001
+    SDC4_STATUS Register = 0x1fe00985
+    SDCC_TEST_CTL Register = 0x1800000
+    SDCC_USR_CTL Register = 0x2c010800
+    RGMII_IO_MACRO_CONFIG2 Register = 0x80
+    RGMII_IO_MACRO_DEBUG1 Register = 0x0
+    EMAC_SYSTEM_LOW_POWER_DEBUG Register = 0x17
+    [root@dhcp19-243-111 debug]# cat eth2/phy_reg_dump
+    cat: eth2/phy_reg_dump: Invalid argument
+    [  202.766184] qcom-ethqos read_phy_reg_dump:1417 NULL Pointer
+    [root@dhcp19-243-111 debug]# cat eth2/rgmii_reg_dump
+
+    ************* RGMII Reg dump *************
+    RGMII_IO_MACRO_CONFIG Register = 0x40c01343
+    SDCC_HC_REG_DLL_CONFIG Register = 0xf642c
+    SDCC_HC_REG_DDR_CONFIG Register = 0x80040873
+    SDCC_HC_REG_DLL_CONFIG2 Register = 0xa001
+    SDC4_STATUS Register = 0x1fe00985
+    SDCC_TEST_CTL Register = 0x1800000
+    SDCC_USR_CTL Register = 0x2c010800
+    RGMII_IO_MACRO_CONFIG2 Register = 0x80
+    RGMII_IO_MACRO_DEBUG1 Register = 0x0
+    EMAC_SYSTEM_LOW_POWER_DEBUG Register = 0x7
+    [root@dhcp19-243-111 debug]#
+
+    ================================================================================================
+
+    Aurix FW output:
+    Aurix Current FW Version: 3.1.3
+    Current Partition: A
+
+    Boot FW Version: 1.1.3
+
+    Info: VIP Main board ID read as 738 (Rev 4)
+
+    Info: Platform type: RIDE 3.0
+    Info: Detected Primary Aurix
+    Info: Aurix pin initialization complete
+    Info: Mission Mode Firmware Init Complete Going to Normal Mode
+    Info: Board id: Main Board ID on ADC 0.2 Mux0:  [662 <= 739 <= 793] = Rev 4
+    Info: Board id: S1 Board ID on ADC 0.2 Mux1:  [312 <= 371 <= 479] = Rev 2
+    Info: Board id: S2 Board ID on ADC 0.2 Mux2:  [312 <= 372 <= 479] = Rev 2
+    Info: Board id: S3 Board ID on ADC 0.2 Mux3:  [480 <= 534 <= 661] = Rev 3
+    Info: Board id: PCIe Board ID on ADC 0.2 Mux4:  [312 <= 369 <= 479] = Rev 2
+    Info: Board id: Video In Board ID on ADC 0.2 Mux5:  [312 <= 375 <= 479] = Rev 2
+    Info: Board id: Video Out Board ID on ADC 0.2 Mux6:  [312 <= 375 <= 479] = Rev 2
+    Info: Board id: Unused Board ID on ADC 0.2 Mux7:  [480 <= 558 <= 661] = Rev 3
+    Info: Board id: S2 SIP Board ID on ADC 4.2 Mux0:  [1293 <= 1312 <= 1377] = Rev 12
+    Info: Board id: S1 SIP Board ID on ADC 4.2 Mux1:  [1293 <= 1318 <= 1377] = Rev 12
+    Info: Initialization of Fans RIDE 3.0
+    Info: Detected Fan at Slave address 0x19
+    Info: Detected Fan at Slave address 0x4c
+    Info: Initializing Platform Fans ... COMPLETED
+    Info: QSPI SPI (Master) 3, SOC1 APSS (Slave) interface initialization complete
+    Info: QSPI SPI (Master) 4, SOC2 APSS (Slave) interface initialization complete
+    Info: ASCLIN SPI (Master) (6), SOC1 SMSS (Slave) interface initialization complete
+    Info: ASCLIN SPI (Master) (7), SOC2 SMSS (Slave) interface initialization complete
+
+    Info: Configuring CAN XCVRs(1-6)...
+
+    Info: Configuring CAN XCVRs(1-6)...Completed
+    Info: Configuring CAN XCVRs .......PASSED
+
+    Info: CAN Module and Node Initialization
+    Info: Initializaing CAN Module 0
+    Info: Initializaing CAN Module 1
+    Info: Initializaing CAN Module 2
+    Info: Initializaing CAN Nodes Completed
+
+    Info: CAN Module and Node Initialization -- Completed
+    Info: Enabled Main 5.0V Supply and verified PG is asserted...PASSED
+    Info: Enabled Main 3.3V Supply and verified PG is asserted...PASSED
+    Info: Enabled Main 1.8V Supply and verified PG is asserted...PASSED
+    Info: Enabled Camera Power Supply and verified PG is asserted...PASSED
+    Info: Enabled TI9702 1.1V Supply and verified PG is asserted...PASSED
+    Info: Enabled 10Gb Ethernet Supply and verified PG is asserted...PASSED
+    Info: Enabled PCIe Switch Supply and verified PG is asserted...PASSED
+    Info: Enabled Display Supply and verified PG is asserted...PASSED
+
+    Info: SOC3 Board ID read as 535 (Rev 3)
+    Info: SOC3 QAM9000Pv2.1 card....Detected
+    Info: Enabled SOC3 3.3V Supply and verified PG is asserted...PASSED
+    Info: Using standard PON sequence for SOC3
+    Info: Turned on SOC3 3.3V supply
+    Info: SOC3 PS_HOLD went high
+
+    Info: De-asserting RST_N to PCIe switch
+
+    Info: SOC2 Board ID read as 373 (Rev 2)
+    Info: SOC SA8540P SIP carrier card v1....Detected
+    Info: Enabled SOC2 3.3V Supply and verified PG is asserted...PASSED
+    Info: Detected MAX25320 at I2C Address 0x3c
+    Info: Enabled SOC2 SMSS Supply and verified PG is asserted...PASSED
+    Info: soc_safety_pon_sequence called for Makena platforms
+
+    Info: Attempt # 0 < Retry Count 1
+    Info: Cold Boot or Equivalent: Calling soc_pon_sequence
+    Info: Using standard PON sequence for SOC2
+    Info: PG of SOC2 3.3V Supply is asserted...PASSED
+    Info: Turned on SOC2 3.3V supply
+    Info: SOC2 PS_HOLD went high
+
+    Info: SM_ERR2 BOOT DE_ASSERTION check, ...PASSED
+
+    Info: SM_ERR2 Assertion Test
+    Info: SM_ERR2 Diagnostic TEST ....... PASSED
+
+    Info: SM_ERR2 De-Assertion Test
+    Info: SM_ERR2 Diagnostic TEST ....... PASSED
+
+    Info: SMMX rail selected in set_voltage
+    Info: SMMX/CX set_voltage: 824 mV
+    Info: SMCX rail selected in set_voltage
+    Info: SMMX/CX set_voltage: 824 mV
+
+    Info: Reset safety sequence number and safety polling to 25msec for SOC:2
+    Info: INIT_ERROR_PIN
+
+    Info: SOC1 Board ID read as 372 (Rev 2)
+    Info: SOC SA8540P SIP carrier card v1....Detected
+    Info: Enabled SOC1 3.3V Supply and verified PG is asserted...PASSED
+    Info: Detected MAX25320 at I2C Address 0x3c
+    Info: Enabled SOC1 SMSS Supply and verified PG is asserted...PASSED
+    Info: soc_safety_pon_sequence called for Makena platforms
+
+    Info: Attempt # 0 < Retry Count 1
+    Info: Cold Boot or Equivalent: Calling soc_pon_sequence
+    Info: Using standard PON sequence for SOC1
+    Info: PG of SOC1 3.3V Supply is asserted...PASSED
+    Info: Turned on SOC1 3.3V supply
+    Info: SOC1 PS_HOLD went high
+
+    Info: SM_ERR2 BOOT DE_ASSERTION check, ...PASSED
+
+    Info: SM_ERR2 Assertion Test
+    Info: SM_ERR2 Diagnostic TEST ....... PASSED
+
+    Info: SM_ERR2 De-Assertion Test
+    Info: SM_ERR2 Diagnostic TEST ....... PASSED
+
+    Info: SMMX rail selected in set_voltage
+    Info: SMMX/CX set_voltage: 824 mV
+    Info: SMCX rail selected in set_voltage
+    Info: SMMX/CX set_voltage: 824 mV
+
+    Info: Reset safety sequence number and safety polling to 25msec for SOC:1
+    Info: INIT_ERROR_PIN
+
+    Info: Deasserting Ethernet Subsystem Resets
+    Info: Ethernet switches and phys de-assertion: PASSED
+    Info: Found device at phy add 1
+    Info: Found device at phy add 2
+    Info: Found device at phy add 3
+    Info: Ethernet switches and phys de-assertion: PASSED
+    Info: 88Q5072_1 Status: 0xd00 / 88Q5072_2 Status: 0xe07
+    Info: Ethernet switches and phys de-assertion: PASSED
+    Info: 88Q5072_1 Status: 0xe07 / 88Q5072_2 Status: 0xe07
+
+    Info: Initializing Platform Temp Sensors
+    Manufacturer's ID: 0x55
+
+    Manufacturer's ID: 0x55
+
+    Manufacturer's ID: 0x55
+
+    Manufacturer's ID: 0x55
+
+    Info: Initializing ADC Based Thermisters DC control range
+
+    Info: Initializing Platform Temp Sensor... COMPLETED
+
+    Info: Voltage Monitor Initialization
+    0       15      1       1700.000000     1800.000000     1900.000000     VDDPX_8-S1_SCR10
+    1       16      1       1700.000000     1800.000000     1900.000000     VDDPX_16-S1_SCR11
+    2       63      1       1700.000000     1800.000000     1900.000000     VDD_QFPROM_SP-S1_SCR27
+    3       24      1       1700.000000     1800.000000     1950.000000     LPDDR4X_VDD
+    4       65      1       800.000000      850.000000      900.000000      VDD_RGMIIxREF_0P85-S1_SCR29
+    5       31      1       1125.000000     1250.000000     1350.000000     VDD_QREFS_1P25-S1_SCR26
+    6       30      1       570.000000      600.000000      650.000000      VDD_IO_EBI
+    7       22      1       1700.000000     1800.000000     1950.000000     VDDPX_3-S1_SCR17
+    8       11      1       1700.000000     1800.000000     1900.000000     VDDPX_0-S1_SCR6
+    9       7       1       1060.000000     1128.000000     1170.000000     LPDDR4X_VDD2/VDDPX_1-S1_SCR2
+    10      9       1       830.000000      880.000000      920.000000      VDD_A_CSI_0P9-S1_SCR4
+    11      17      1       1150.000000     1200.000000     1250.000000     VDD_A_CSI_1P2-S1_SCR12
+    12      10      1       1700.000000     1800.000000     1900.000000     VDDPX_11-S1_SCR5
+    13      13      1       1150.000000     1200.000000     1250.000000     VDD_A_REFGEN_EBI_1P2-S1_SCR8
+    14      18      1       830.000000      880.000000      920.000000      VDD_A_DSI_0_0P9-S1_SCR13
+    15      12      1       830.000000      880.000000      920.000000      VDD_A_DP2_0P9-S1_SCR7
+    16      17      1       1150.000000     1200.000000     1250.000000     VDD_A_CSI_0_1P2-S1_SCR12
+    17      29      1       774.000000      832.000000      1025.000000     VDDMX_C-S1_SCR24
+    18      23      1       830.000000      892.000000      1025.000000     VDD_A_EBI_0P9-S1_SCR18
+    19      21      1       900.000000      968.000000      1025.000000     VDD_APC0-S1_SCR16
+    20      20      1       900.000000      968.000000      1025.000000     VDD_APC1-S1_SCR15
+    21      26      1       841.000000      904.000000      1045.000000     VDD_NSP-S1_SCR21
+    22      28      1       774.000000      832.000000      1025.000000     VDDMX-S1_SCR23
+    23      25      1       841.000000      904.000000      1025.000000     VDDCX-S1_SCR20
+    24      27      1       700.000000      752.000000      1045.000000     VDDMM-S1_SCR22
+    25      44      1       1700.000000     1800.000000     1900.000000     VDDPX_8-S2_SCR10
+    26      45      1       1700.000000     1800.000000     1900.000000     VDDPX_16-S2_SCR11
+    27      67      1       1700.000000     1800.000000     1900.000000     VDD_QFPROM_SP-S2_SCR27
+    28      53      1       1700.000000     1800.000000     1950.000000     LPDDR4X_VDD
+    29      69      1       800.000000      850.000000      900.000000      VDD_RGMIIxREF_0P85-S2_SCR29
+    30      60      1       1125.000000     1250.000000     1350.000000     VDD_QREFS_1P25-S2_SCR26
+    31      59      1       570.000000      600.000000      650.000000      VDD_IO_EBI
+    32      51      1       1700.000000     1800.000000     1950.000000     VDDPX_3-S2_SCR17
+    33      40      1       1700.000000     1800.000000     1900.000000     VDDPX_0-S2_SCR6
+    34      36      1       1060.000000     1128.000000     1170.000000     LPDDR4X_VDD2/VDDPX_1-S2_SCR2
+    35      38      1       830.000000      880.000000      920.000000      VDD_A_CSI_0P9-S2_SCR4
+    36      46      1       1150.000000     1200.000000     1250.000000     VDD_A_CSI_1P2-S2_SCR12
+    37      39      1       1700.000000     1800.000000     1900.000000     VDDPX_11-S2_SCR5
+    38      42      1       1150.000000     1200.000000     1250.000000     VDD_A_REFGEN_EBI_1P2-S2_SCR8
+    39      47      1       830.000000      880.000000      920.000000      VDD_A_DSI_0_0P9-S2_SCR13
+    40      41      1       830.000000      880.000000      920.000000      VDD_A_DP2_0P9-S2_SCR7
+    41      46      1       1150.000000     1200.000000     1250.000000     VDD_A_CSI_0_1P2-S2_SCR12
+    42      58      1       774.000000      832.000000      1025.000000     VDDMX_C-S2_SCR24
+    43      52      1       830.000000      892.000000      1025.000000     VDD_A_EBI_0P9-S2_SCR18
+    44      50      1       900.000000      968.000000      1025.000000     VDD_APC0-S2_SCR16
+    45      49      1       900.000000      968.000000      1025.000000     VDD_APC1-S2_SCR15
+    46      55      1       841.000000      904.000000      1045.000000     VDD_NSP-S2_SCR21
+    47      57      1       774.000000      832.000000      1025.000000     VDDMX-S2_SCR23
+    48      54      1       841.000000      904.000000      1025.000000     VDDCX-S2_SCR20
+    49      56      1       700.000000      752.000000      1045.000000     VDDMM-S2_SCR22
+
+    Info: 1sec for Recovery Mode[Firmware Upgrade]
+    Info: Initializing Alpaca Handler Pins
+    Info: Safety Application Starts
+
+    Info: Alpaca Handler Starts
+    Waiting to parse safety messages...
+
+    Info:SOC1[T:1]
+
