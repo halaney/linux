@@ -1,0 +1,11 @@
+ - mac2mac_88Q5072 CLK_SHIFT_PHASE_EN disable stuff looks particularly yuck
+ - pm_runtime stuff
+ - add emac0
+ - overhaul dwmac4 changes again
+ - safety_feat_cfg
+    - original behavior (see jira) was to enable all features
+      safety_feat_cfg added to allow a subset to be enabled but was not
+      added to all platforms
+    - either return to original behavior if !safety_feat_cfg, or keep
+      behavior or "supported in hardware but not in software"
+ - warnings on build about unused priv var

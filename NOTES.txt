@@ -1,0 +1,125 @@
+# Just a dumping ground of random notes
+
+# Here's some debug info from ER1.2 delivery on SIP2 (SIP1 fails to
+# find the phy even with the 3.1.3 Aurix FW :( )
+    [root@dhcp19-243-111 debug]# dmesg | grep ethernet
+    [    8.719569] qcom-ethqos 20000.qcom,ethernet: IRQ eth_wake_irq not found
+    [    8.719574] qcom-ethqos 20000.qcom,ethernet: IRQ eth_lpi not found
+    [    8.720168] qcom-ethqos 20000.qcom,ethernet:emac0_emb_smmu: Adding to iommu group 6
+    [    8.720424] qcom-ethqos 20000.qcom,ethernet: User ID: 0x20, Synopsys ID: 0x51
+    [    8.720426] qcom-ethqos 20000.qcom,ethernet: 	DWMAC4/5
+    [    8.720430] qcom-ethqos 20000.qcom,ethernet: DMA HW capability register supported
+    [    8.720431] qcom-ethqos 20000.qcom,ethernet: RX Checksum Offload Engine supported
+    [    8.720432] qcom-ethqos 20000.qcom,ethernet: TX Checksum insertion supported
+    [    8.720433] qcom-ethqos 20000.qcom,ethernet: TSO supported
+    [    8.720433] qcom-ethqos 20000.qcom,ethernet: Enable RX Mitigation via HW Watchdog Timer
+    [    8.720437] qcom-ethqos 20000.qcom,ethernet: device MAC address 4e:d8:0c:d9:4f:16
+    [    8.720439] qcom-ethqos 20000.qcom,ethernet: Enabled Flow TC (entries=8)
+    [    8.720440] qcom-ethqos 20000.qcom,ethernet: Enabling HW TC (entries=128, max_off=64)
+    [    8.720442] qcom-ethqos 20000.qcom,ethernet: TSO feature enabled
+    [    8.720442] qcom-ethqos 20000.qcom,ethernet: SPH feature enabled
+    [    8.720443] qcom-ethqos 20000.qcom,ethernet: Using 40 bits DMA width
+    [    8.720453] qcom-ethqos 20000.qcom,ethernet: Unbalanced pm_runtime_enable!
+    [    9.082935] qcom-ethqos 23000000.qcom,ethernet: IRQ eth_wake_irq not found
+    [    9.082937] qcom-ethqos 23000000.qcom,ethernet: IRQ eth_lpi not found
+    [    9.083568] qcom-ethqos 23000000.qcom,ethernet:emac1_emb_smmu: Adding to iommu group 7
+    [    9.083806] qcom-ethqos 23000000.qcom,ethernet: User ID: 0x20, Synopsys ID: 0x51
+    [    9.083808] qcom-ethqos 23000000.qcom,ethernet: 	DWMAC4/5
+    [    9.083812] qcom-ethqos 23000000.qcom,ethernet: DMA HW capability register supported
+    [    9.083813] qcom-ethqos 23000000.qcom,ethernet: RX Checksum Offload Engine supported
+    [    9.083814] qcom-ethqos 23000000.qcom,ethernet: TX Checksum insertion supported
+    [    9.083815] qcom-ethqos 23000000.qcom,ethernet: TSO supported
+    [    9.083815] qcom-ethqos 23000000.qcom,ethernet: Enable RX Mitigation via HW Watchdog Timer
+    [    9.083818] qcom-ethqos 23000000.qcom,ethernet: device MAC address 06:a4:7f:46:a1:e3
+    [    9.083821] qcom-ethqos 23000000.qcom,ethernet: Enabled Flow TC (entries=8)
+    [    9.083823] qcom-ethqos 23000000.qcom,ethernet: Enabling HW TC (entries=128, max_off=64)
+    [    9.083824] qcom-ethqos 23000000.qcom,ethernet: TSO feature enabled
+    [    9.083824] qcom-ethqos 23000000.qcom,ethernet: SPH feature enabled
+    [    9.083825] qcom-ethqos 23000000.qcom,ethernet: Using 40 bits DMA width
+    [    9.083828] qcom-ethqos 23000000.qcom,ethernet: Unbalanced pm_runtime_enable!
+    [   11.010968] qcom-ethqos 20000.qcom,ethernet eth1: PHY [stmmac-0:08] driver [Marvell 88EA1512] (irq=MAC)
+    [   11.011191] qcom-ethqos 20000.qcom,ethernet eth1: stmmac_init_phy config_phy_intr successful
+    [   11.011755] qcom-ethqos 20000.qcom,ethernet eth1: Register MEM_TYPE_PAGE_POOL RxQ-0
+    [   11.022743] qcom-ethqos 20000.qcom,ethernet eth1: No Safety Features support found
+    [   11.022764] qcom-ethqos 20000.qcom,ethernet eth1: IEEE 1588-2008 Advanced Timestamp supported
+    [   11.022860] qcom-ethqos 20000.qcom,ethernet eth1: registered PTP clock
+    [   11.148776] qcom-ethqos 20000.qcom,ethernet eth1: FPE workqueue start
+    [   11.148783] qcom-ethqos 20000.qcom,ethernet eth1: configuring for phy/rgmii link mode
+    [   11.151798] qcom-ethqos 23000000.qcom,ethernet eth2: Register MEM_TYPE_PAGE_POOL RxQ-0
+    [   11.162700] qcom-ethqos 23000000.qcom,ethernet eth2: No Safety Features support found
+    [   11.162720] qcom-ethqos 23000000.qcom,ethernet eth2: IEEE 1588-2008 Advanced Timestamp supported
+    [   11.162800] qcom-ethqos 23000000.qcom,ethernet eth2: registered PTP clock
+    [   11.230602] qcom-ethqos 20000.qcom,ethernet eth1: Link is Up - 1Gbps/Full - flow control off
+    [   11.288758] qcom-ethqos 23000000.qcom,ethernet eth2: FPE workqueue start
+    [root@dhcp19-243-111 debug]# cat eth
+    eth1/ eth2/
+    [root@dhcp19-243-111 debug]# cat eth1/
+    phy_reg_dump    rgmii_reg_dump
+    [root@dhcp19-243-111 debug]# cat eth1/phy_reg_dump
+
+    ************* PHY Reg dump *************
+    MII Register (0x0) = 0x140
+    MII Register (0x1) = 0x14d
+    MII Re[  191.005894] qcom-ethqos read_phy_reg_dump:1428 phy_addr: 8
+    gister (0x2) = 0x141
+    MII Register (0x3) = 0xdd4
+    MII Register ([  191.009452] qcom-ethqos read_phy_reg_dump:1428 phy_addr: 8
+    0x4) = 0x1
+    MII Register (0x5) = 0x0
+    MII Register (0x6) = 0x4
+    MII Register (0x7) = 0x2001
+    MII Register (0x8) = 0x0
+    MII Register (0x9) = 0x0
+    MII Register (0xa) = 0x0
+    MII Register (0xb) = 0x0
+    MII Register (0xc) = 0x0
+    MII Register (0xd) = 0x4007
+    MII Register (0xe) = 0x0
+    MII Register (0xf) = 0xc000
+    MII Register (0x10) = 0x426f
+    MII Register (0x11) = 0xac20
+    MII Register (0x12) = 0x0
+    MII Register (0x13) = 0x0
+    MII Register (0x14) = 0x0
+    MII Register (0x15) = 0x0
+    MII Register (0x16) = 0x1
+    MII Register (0x17) = 0x0
+    MII Register (0x18) = 0x0
+    MII Register (0x19) = 0x0
+    MII Register (0x1a) = 0x42
+    MII Register (0x1b) = 0x0
+    MII Register (0x1c) = 0x0
+    MII Register (0x1d) = 0x0
+    MII Register (0x1e) = 0x0
+    MII Register (0x1f) = 0xb
+    [root@dhcp19-243-111 debug]# cat eth1/rgmii_reg_dump
+
+    ************* RGMII Reg dump *************
+    RGMII_IO_MACRO_CONFIG Register = 0x40c01343
+    SDCC_HC_REG_DLL_CONFIG Register = 0xf642c
+    SDCC_HC_REG_DDR_CONFIG Register = 0x80040873
+    SDCC_HC_REG_DLL_CONFIG2 Register = 0xa001
+    SDC4_STATUS Register = 0x1fe00985
+    SDCC_TEST_CTL Register = 0x1800000
+    SDCC_USR_CTL Register = 0x2c010800
+    RGMII_IO_MACRO_CONFIG2 Register = 0x80
+    RGMII_IO_MACRO_DEBUG1 Register = 0x0
+    EMAC_SYSTEM_LOW_POWER_DEBUG Register = 0x17
+    [root@dhcp19-243-111 debug]# cat eth2/phy_reg_dump
+    cat: eth2/phy_reg_dump: Invalid argument
+    [  202.766184] qcom-ethqos read_phy_reg_dump:1417 NULL Pointer
+    [root@dhcp19-243-111 debug]# cat eth2/rgmii_reg_dump
+
+    ************* RGMII Reg dump *************
+    RGMII_IO_MACRO_CONFIG Register = 0x40c01343
+    SDCC_HC_REG_DLL_CONFIG Register = 0xf642c
+    SDCC_HC_REG_DDR_CONFIG Register = 0x80040873
+    SDCC_HC_REG_DLL_CONFIG2 Register = 0xa001
+    SDC4_STATUS Register = 0x1fe00985
+    SDCC_TEST_CTL Register = 0x1800000
+    SDCC_USR_CTL Register = 0x2c010800
+    RGMII_IO_MACRO_CONFIG2 Register = 0x80
+    RGMII_IO_MACRO_DEBUG1 Register = 0x0
+    EMAC_SYSTEM_LOW_POWER_DEBUG Register = 0x7
+    [root@dhcp19-243-111 debug]#
+
