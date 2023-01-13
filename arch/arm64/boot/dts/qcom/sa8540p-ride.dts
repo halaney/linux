@@ -95,6 +95,13 @@
 		compatible = "qcom,pm8150-rpmh-regulators";
 		qcom,pmic-id = "a";
 
+		vreg_l2a: ldo2 {
+			regulator-name = "vreg_l2a";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2700000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
 		vreg_l3a: ldo3 {
 			regulator-name = "vreg_l3a";
 			regulator-min-microvolt = <1200000>;
@@ -218,10 +225,111 @@
 	};
 };
 
+&ethernet0 {
+	snps,mtl-rx-config = <&mtl_rx_setup>;
+	snps,mtl-tx-config = <&mtl_tx_setup>;
+
+	/*
+	// TODO: should this be reset-active-low and GPIO_ACTIVE_LOW like the sa8155-adp example?
+	// likewise, i think downstream does some hacks instead of using snps,reset-active-low
+	ahalaney@halaney-x13s ~/git/redhat/stmmac (git)-[stmmac] % git show e68078f43804b6f957e920c7d91f722bfbc8bf9c
+	commit e68078f43804b6f957e920c7d91f722bfbc8bf9c
+	Author: Andrew Halaney <ahalaney@redhat.com>
+	Date:   Wed Oct 26 08:52:38 2022 -0500
+
+		HACK: Clean up the mdio reset gpio hacks
+
+		Qualcomm made their reset gpio usage active low always via ifdefery,
+		but upstream has some stuff for that already (snps,reset-active-low).
+
+		I'm honestly surprised that exists, I thought GPIO_ACTIVE_LOW
+		in the reset gpio description would suffice.
+
+		They use gpiod_set_value_cansleep() which says:
+
+			Set the logical value of the GPIO, i.e. taking its ACTIVE_LOW status into
+			account
+
+		Remember to take this into account when adding emac0 back, emac1 doesn't
+		touch this code at all since mac2mac_en shortcuts the route from
+		stmmac_main
+
+		Signed-off-by: Andrew Halaney <ahalaney@redhat.com>
+	*/
+	snps,reset-gpio = <&pm8450a_gpios 1 GPIO_ACTIVE_HIGH>;
+	snps,reset-delays-us = <0 11000 70000>;
+
+	vreg-rgmii-supply = <&vreg_l2a>;
+
+	phy-mode = "rgmii";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&ethernet0_defaults>;
+
+	status = "okay";
+
+	/* TODO: figure out if this is really board specific, and if
+	so it would be good to define at the board level and use in the driver
+	instead of the current if/else chains I have on has_emac3.
+
+	Downstream has this setup for both emac0 and emac1, i based my work
+	on early emac1 stuff so its not included in the current state of things.
+	*/
+	rgmii-io-macro-info {
+		prg-rclk-dly = <904>;
+		config-cdr-en = <1>;
+		mclk-gating-en = <1>;
+		cdr-fine-phase = <1>;
+		skip-calc-traffic = <1>;
+		data-divide-clk-sel = <0>;
+		loopback-en = <0>;
+		rx-prog-swap = <1>;
+		tx-clk-phase-shift-en = <0>;
+		dll-clock-dis = <0>;
+		mclk-freq-calc = <0x28>;
+		ddr-traffic-init-sel = <0>;
+		ddr-traffic-init-sw = <0>;
+		ddr-cal-en = <1>;
+		tcx0-cycles-dly-line = <64>;
+		tcx0-cycles-cnt = <4>;
+		test-ctl = <0xC1800000>;
+		usr-ctl = <0x2C010800>;
+		l3-master-dev = <1>;
+		ipv6-wq = <0>;
+	};
+
+	/* TODO: this is ripped from sa8155p-adp and im hacking it up */
+	mdio {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		compatible = "snps,dwmac-mdio";
+
+		/* TODO: name our phy, what's the addr?! */
+		/* Micrel KSZ9031RNZ PHY this is not it */
+		/* Marvell 88EA1512 */
+		rgmii_phy: phy@8 {
+			// Omitting the below should cause the bus to be scanned for a phy
+			reg = <0x8>;
+
+			interrupt-parent = <&tlmm>;
+			interrupts-extended = <&tlmm 127 IRQ_TYPE_EDGE_FALLING>; /* phy-intr */
+			device_type = "ethernet-phy";
+			/* confused about this compatible */
+			/* datasheet i found make it sound like it supports clause 22 and 45... */
+			compatible = "ethernet-phy-ieee802.3-c22";
+		};
+	};
+
+};
+
 &ethernet1 {
 	snps,mtl-rx-config = <&mtl_rx_setup>;
 	snps,mtl-tx-config = <&mtl_tx_setup>;
 
+	// TODO: is this even used? whats this connected to? I think this is for the phy and
+	// we don't have one here...
+	// likewise, i think downstream does some hacks instead of using snps,reset-active-low
 	snps,reset-gpio = <&pm8450a_gpios 2 GPIO_ACTIVE_HIGH>;
 	snps,reset-delays-us = <0 11000 70000>;
 
@@ -418,6 +526,36 @@
 /* PINCTRL */
 
 &tlmm {
+	ethernet0_defaults: ethernet0-defaults-state {
+		mdc-pins {
+			pins = "gpio175";
+			function = "rgmii_0";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		mdio-pins {
+			pins = "gpio176";
+			function = "rgmii_0";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		rgmii-tx-pins {
+			pins = "gpio183", "gpio184", "gpio185", "gpio186", "gpio187", "gpio188";
+			function = "rgmii_0";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		rgmii-rx-pins {
+			pins = "gpio177", "gpio178", "gpio179", "gpio180", "gpio181", "gpio182";
+			function = "rgmii_0";
+			bias-disable;
+			drive-strength = <16>;
+		};
+	};
+
 	ethernet1_defaults: ethernet1-defaults-state {
 		mdc-pins {
 			pins = "gpio97";

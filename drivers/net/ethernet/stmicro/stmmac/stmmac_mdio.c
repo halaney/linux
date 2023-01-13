@@ -504,12 +504,14 @@ int stmmac_mdio_register(struct net_device *ndev)
 		}
 	}
 
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	if (priv->plat->phy_node || mdio_node)
 		goto bus_register_done;
 
 	found = 0;
 	for (addr = 0; addr < max_addr; addr++) {
 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
+		printk(KERN_ERR "%s: %d: searching... addr: %d\n", __func__, __LINE__, addr);
 
 		if (!phydev)
 			continue;
@@ -544,6 +546,7 @@ int stmmac_mdio_register(struct net_device *ndev)
 
 bus_register_done:
 	priv->mii = new_bus;
+	printk(KERN_ERR "%s: %d phy_addr: %d\n", __func__, __LINE__, priv->plat->phy_addr);
 
 	return 0;
 

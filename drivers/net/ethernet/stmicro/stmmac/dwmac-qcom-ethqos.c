@@ -621,6 +621,7 @@ static int qcom_ethqos_vreg_init(struct qcom_ethqos *ethqos,
 		const struct ethqos_emac_driver_data *data) {
 	int i;
 
+
 	if (!ethqos->num_vregs)
 		return 0;
 

@@ -71,22 +71,28 @@ int mdiobus_register_device(struct mdio_device *mdiodev)
 {
 	int err;
 
+    printk(KERN_ERR "%s: %d mdiodev->addr: %d\n", __func__, __LINE__, mdiodev->addr);
 	if (mdiodev->bus->mdio_map[mdiodev->addr])
 		return -EBUSY;
 
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	if (mdiodev->flags & MDIO_DEVICE_FLAG_PHY) {
+        printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		err = mdiobus_register_gpiod(mdiodev);
 		if (err)
 			return err;
 
+        printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		err = mdiobus_register_reset(mdiodev);
 		if (err)
 			return err;
+        printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 
 		/* Assert the reset signal */
 		mdio_device_reset(mdiodev, 1);
 	}
 
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	mdiodev->bus->mdio_map[mdiodev->addr] = mdiodev;
 
 	return 0;

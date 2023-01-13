@@ -67,11 +67,13 @@ int fwnode_mdiobus_phy_device_register(struct mii_bus *mdio,
 	/* Don't wait forever if the IRQ provider doesn't become available,
 	 * just fall back to poll mode
 	 */
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	if (rc == -EPROBE_DEFER)
 		rc = driver_deferred_probe_check_state(&phy->mdio.dev);
 	if (rc == -EPROBE_DEFER)
 		return rc;
 
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	if (rc > 0) {
 		phy->irq = rc;
 		mdio->irq[addr] = rc;
@@ -96,14 +98,16 @@ int fwnode_mdiobus_phy_device_register(struct mii_bus *mdio,
 	/* All data is now stored in the phy struct;
 	 * register it
 	 */
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	rc = phy_device_register(phy);
 	if (rc) {
 		device_set_node(&phy->mdio.dev, NULL);
 		fwnode_handle_put(child);
 		return rc;
 	}
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 
-	dev_dbg(&mdio->dev, "registered phy %p fwnode at address %i\n",
+	dev_info(&mdio->dev, "registered phy %p fwnode at address %i\n",
 		child, addr);
 	return 0;
 }
@@ -134,10 +138,16 @@ int fwnode_mdiobus_register_phy(struct mii_bus *bus,
 	if (rc >= 0)
 		is_c45 = true;
 
-	if (is_c45 || fwnode_get_phy_id(child, &phy_id))
+	if (is_c45 || fwnode_get_phy_id(child, &phy_id)) {
+        printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		phy = get_phy_device(bus, addr, is_c45);
-	else
+        printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
+    }
+	else {
+        printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		phy = phy_device_create(bus, addr, phy_id, 0, NULL);
+        printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
+    }
 	if (IS_ERR(phy)) {
 		rc = PTR_ERR(phy);
 		goto clean_mii_ts;
@@ -159,6 +169,7 @@ int fwnode_mdiobus_register_phy(struct mii_bus *bus,
 			goto clean_phy;
 		}
 	} else if (is_of_node(child)) {
+        printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		rc = fwnode_mdiobus_phy_device_register(bus, phy, child, addr);
 		if (rc)
 			goto clean_phy;

@@ -951,9 +951,11 @@ int phy_device_register(struct phy_device *phydev)
 {
 	int err;
 
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	err = mdiobus_register_device(&phydev->mdio);
 	if (err)
 		return err;
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 
 	/* Deassert the reset signal */
 	phy_device_reset(phydev, 0);
@@ -964,12 +966,14 @@ int phy_device_register(struct phy_device *phydev)
 		phydev_err(phydev, "failed to initialize\n");
 		goto out;
 	}
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 
 	err = device_add(&phydev->mdio.dev);
 	if (err) {
 		phydev_err(phydev, "failed to add\n");
 		goto out;
 	}
+    printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 
 	return 0;
 
