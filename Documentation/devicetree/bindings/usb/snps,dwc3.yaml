@@ -81,15 +81,26 @@ properties:
 
   phys:
     minItems: 1
-    maxItems: 2
+    maxItems: 8
 
   phy-names:
     minItems: 1
-    maxItems: 2
-    items:
-      enum:
-        - usb2-phy
-        - usb3-phy
+    maxItems: 8
+    oneOf:
+    - items:
+        enum:
+          - usb2-phy
+          - usb3-phy
+    - items:
+        enum:
+          - usb2-phy_port0
+          - usb2-phy_port1
+          - usb2-phy_port2
+          - usb2-phy_port3
+          - usb3-phy_port0
+          - usb3-phy_port1
+          - usb3-phy_port2
+          - usb3-phy_port3
 
   resets:
     minItems: 1
@@ -360,6 +371,22 @@ properties:
     description:
       Enable USB remote wakeup.
 
+  num-ports:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      This property indicates the number of ports present on the target that
+      are to be serviced by the DWC3 controller.
+    minimum: 1
+    maximum: 4
+
+  num-ss-ports:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description:
+      This property indicates the number of SS capable ports present on the
+      target that are to be serviced by the DWC3 controller.
+    minimum: 1
+    maximum: 4
+
 unevaluatedProperties: false
 
 required:
@@ -385,6 +412,20 @@ examples:
       clock-names = "bus_early", "ref", "suspend";
       phys = <&usb2_phy>, <&usb3_phy>;
       phy-names = "usb2-phy", "usb3-phy";
+      snps,dis_u2_susphy_quirk;
+      snps,dis_enblslpm_quirk;
+    };
+  - |
+    usb@4a000000 {
+      compatible = "snps,dwc3";
+      reg = <0x4a000000 0xcfff>;
+      interrupts = <0 92 4>;
+      clocks = <&clk 1>, <&clk 2>, <&clk 3>;
+      clock-names = "bus_early", "ref", "suspend";
+      num-ports = <2>;
+      num-ss-ports = <1>;
+      phys = <&usb2_phy0>, <&usb3_phy0>, <&usb2_phy1>;
+      phy-names = "usb2-phy_port0", "usb3-phy_port0", "usb2-phy_port1";
       snps,dis_u2_susphy_quirk;
       snps,dis_enblslpm_quirk;
     };
