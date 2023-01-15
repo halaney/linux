@@ -35,6 +35,9 @@
 
 #define DWC3_MSG_MAX	500
 
+/* Number of ports supported by a multiport controller */
+#define MAX_PORTS_SUPPORTED	4
+
 /* Global constants */
 #define DWC3_PULL_UP_TIMEOUT	500	/* ms */
 #define DWC3_BOUNCE_SIZE	1024	/* size of a superspeed bulk */
@@ -1023,8 +1026,10 @@ struct dwc3_scratchpad_array {
  * @usb_psy: pointer to power supply interface.
  * @usb2_phy: pointer to USB2 PHY
  * @usb3_phy: pointer to USB3 PHY
- * @usb2_generic_phy: pointer to USB2 PHY
- * @usb3_generic_phy: pointer to USB3 PHY
+ * @num_ports: Indicates number of usb ports supported by the controller.
+ * @num_ss_ports: Indicates number of ss capable ports supported by controller
+ * @usb2_generic_phy: pointer to array of USB2 PHY's
+ * @usb3_generic_phy: pointer to array of USB3 PHY's
  * @phys_ready: flag to indicate that PHYs are ready
  * @ulpi: pointer to ulpi interface
  * @ulpi_ready: flag to indicate that ULPI is initialized
@@ -1157,8 +1162,10 @@ struct dwc3 {
 	struct usb_phy		*usb2_phy;
 	struct usb_phy		*usb3_phy;
 
-	struct phy		*usb2_generic_phy;
-	struct phy		*usb3_generic_phy;
+	u32			num_ports;
+	u32			num_ss_ports;
+	struct phy		*usb2_generic_phy[MAX_PORTS_SUPPORTED];
+	struct phy		*usb3_generic_phy[MAX_PORTS_SUPPORTED];
 
 	bool			phys_ready;
 
