@@ -871,9 +871,12 @@ static void dwc3_clk_disable(struct dwc3 *dwc)
 
 static void dwc3_core_exit(struct dwc3 *dwc)
 {
-	int i;
+	int		i;
+	unsigned int	hw_mode;
 
-	dwc3_event_buffers_cleanup(dwc);
+	hw_mode = DWC3_GHWPARAMS0_MODE(dwc->hwparams.hwparams0);
+	if (hw_mode != DWC3_GHWPARAMS0_MODE_HOST)
+		dwc3_event_buffers_cleanup(dwc);
 
 	usb_phy_set_suspend(dwc->usb2_phy, 1);
 	usb_phy_set_suspend(dwc->usb3_phy, 1);
@@ -1246,10 +1249,12 @@ static int dwc3_core_init(struct dwc3 *dwc)
 		}
 	}
 
-	ret = dwc3_event_buffers_setup(dwc);
-	if (ret) {
-		dev_err(dwc->dev, "failed to setup event buffers\n");
-		goto err4;
+	if (hw_mode != DWC3_GHWPARAMS0_MODE_HOST) {
+		ret = dwc3_event_buffers_setup(dwc);
+		if (ret) {
+			dev_err(dwc->dev, "failed to setup event buffers\n");
+			goto err4;
+		}
 	}
 
 	/*
@@ -1886,7 +1891,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	struct resource		*res, dwc_res;
 	struct dwc3		*dwc;
 	int			ret, i;
-
+	unsigned int		hw_mode;
 	void __iomem		*regs;
 
 	dwc = devm_kzalloc(dev, sizeof(*dwc), GFP_KERNEL);
@@ -2063,7 +2068,9 @@ static int dwc3_probe(struct platform_device *pdev)
 err5:
 	dwc3_debugfs_exit(dwc);
 
-	dwc3_event_buffers_cleanup(dwc);
+	hw_mode = DWC3_GHWPARAMS0_MODE(dwc->hwparams.hwparams0);
+	if (hw_mode != DWC3_GHWPARAMS0_MODE_HOST)
+		dwc3_event_buffers_cleanup(dwc);
 
 	usb_phy_set_suspend(dwc->usb2_phy, 1);
 	usb_phy_set_suspend(dwc->usb3_phy, 1);
