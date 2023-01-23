@@ -676,6 +676,18 @@
 		qcom,bcm-voters = <&apps_bcm_voter>;
 	};
 
+	dummy_icc: dummy-icc {
+		compatible = "qcom,lemans-dummy";
+		interconnects = <&nspa_noc MASTER_CDSP_PROC 0 &mc_virt SLAVE_EBI1 0>,
+				<&mmss_noc MASTER_MDP0 0 &gem_noc SLAVE_LLCC 0>,
+				<&mmss_noc MASTER_MDP1 0 &gem_noc SLAVE_LLCC 0>,
+				<&mc_virt MASTER_LLCC 0 &mc_virt SLAVE_EBI1 0>,
+				<&mmss_noc MASTER_MDP_CORE1_0 0 &gem_noc SLAVE_LLCC 0>,
+				<&mmss_noc MASTER_MDP_CORE1_1 0 &gem_noc SLAVE_LLCC 0>,
+				<&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_DISPLAY_CFG 0>,
+				<&gem_noc MASTER_APPSS_PROC 0 &config_noc SLAVE_DISPLAY1_CFG 0>;
+	};
+
 	psci {
 		compatible = "arm,psci-1.0";
 		method = "smc";
