@@ -266,6 +266,27 @@
 	status = "okay";
 };
 
+&i2c12 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c12_state>;
+
+	status = "okay";
+
+	vdd_gfx: regulator@39 {
+		compatible = "maxim,max20411";
+		reg = <0x39>;
+
+		regulator-name = "vdd_gfx";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <968750>;
+
+		enable-gpios = <&pmm8540a_gpios 2 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&vdd_gfx_enable_state>;
+	};
+};
+
 &mdss0 {
 	status = "okay";
 };
@@ -476,6 +497,10 @@
 	status = "okay";
 };
 
+&qup1 {
+	status = "okay";
+};
+
 &qup2 {
 	status = "okay";
 };
@@ -636,7 +661,23 @@
 
 /* PINCTRL */
 
+&pmm8540a_gpios {
+	vdd_gfx_enable_state: vdd-gfx-enable-state {
+		pins = "gpio2";
+		function = "normal";
+		output-enable;
+	};
+};
+
 &tlmm {
+	i2c12_state: i2c12-state {
+		pins = "gpio0", "gpio1";
+		function = "qup12";
+
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+
 	pcie2a_default: pcie2a-default-state {
 		clkreq-n-pins {
 			pins = "gpio142";
