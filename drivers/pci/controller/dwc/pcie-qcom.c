@@ -1201,7 +1201,10 @@ static int qcom_pcie_get_resources_2_7_0(struct qcom_pcie *pcie)
 	}
 
 	res->pipe_clk = devm_clk_get(dev, "pipe");
-	return PTR_ERR_OR_ZERO(res->pipe_clk);
+	if (IS_ERR(res->pipe_clk))
+		return PTR_ERR(res->pipe_clk);
+
+	return 0;
 }
 
 static int qcom_pcie_init_2_7_0(struct qcom_pcie *pcie)
@@ -1218,9 +1221,19 @@ static int qcom_pcie_init_2_7_0(struct qcom_pcie *pcie)
 		return ret;
 	}
 
+/* FixMe: Need to set phy_pipe_clk as paret of pipe_clk_src */
+#if 0
 	/* Set TCXO as clock source for pcie_pipe_clk_src */
 	if (pcie->cfg->pipe_clk_need_muxing)
 		clk_set_parent(res->pipe_clk_src, res->ref_clk_src);
+#else
+	/* Set pipe clock as clock source for pcie_pipe_clk_src */
+	if (pcie->cfg->pipe_clk_need_muxing)
+	{
+		dev_info(dev, "%s - setting phy pipe clock as pipe clock src\n", __func__);
+		clk_set_parent(res->pipe_clk_src, res->phy_pipe_clk);
+	}
+#endif
 
 	ret = clk_bulk_prepare_enable(res->num_clks, res->clks);
 	if (ret < 0)
@@ -1240,11 +1253,14 @@ static int qcom_pcie_init_2_7_0(struct qcom_pcie *pcie)
 		goto err_disable_clocks;
 	}
 
+/* FixMe: pipe_clk voting already done from phy driver */
+#if 0
 	ret = clk_prepare_enable(res->pipe_clk);
 	if (ret) {
 		dev_err(dev, "cannot prepare/enable pipe clock\n");
 		goto err_disable_clocks;
 	}
+#endif
 
 	/* Wait for reset to complete, required on SM8450 */
 	usleep_range(1000, 1500);
@@ -1294,6 +1310,8 @@ static void qcom_pcie_deinit_2_7_0(struct qcom_pcie *pcie)
 
 static int qcom_pcie_post_init_2_7_0(struct qcom_pcie *pcie)
 {
+/* FixMe: post init is already covered in init */
+#if 0
 	struct qcom_pcie_resources_2_7_0 *res = &pcie->res.v2_7_0;
 
 	/* Set pipe clock as clock source for pcie_pipe_clk_src */
@@ -1301,13 +1319,18 @@ static int qcom_pcie_post_init_2_7_0(struct qcom_pcie *pcie)
 		clk_set_parent(res->pipe_clk_src, res->phy_pipe_clk);
 
 	return clk_prepare_enable(res->pipe_clk);
+#else
+	return 0;
+#endif
 }
 
 static void qcom_pcie_post_deinit_2_7_0(struct qcom_pcie *pcie)
 {
+#if 0
 	struct qcom_pcie_resources_2_7_0 *res = &pcie->res.v2_7_0;
 
 	clk_disable_unprepare(res->pipe_clk);
+#endif
 }
 
 static int qcom_pcie_link_up(struct dw_pcie *pci)
@@ -1661,6 +1684,7 @@ static int qcom_pcie_probe(struct platform_device *pdev)
 	pci->dev = dev;
 	pci->ops = &dw_pcie_ops;
 	pp = &pci->pp;
+	pp->num_vectors = MAX_MSI_IRQS;
 
 	pcie->pci = pci;
 
@@ -1701,24 +1725,23 @@ static int qcom_pcie_probe(struct platform_device *pdev)
 	pp->ops = &qcom_pcie_dw_ops;
 
 	ret = phy_init(pcie->phy);
-	if (ret) {
-		pm_runtime_disable(&pdev->dev);
+	if (ret)
 		goto err_pm_runtime_put;
-	}
 
 	platform_set_drvdata(pdev, pcie);
 
 	ret = dw_pcie_host_init(pp);
+
 	if (ret) {
 		dev_err(dev, "cannot initialize host\n");
-		pm_runtime_disable(&pdev->dev);
-		goto err_pm_runtime_put;
+		goto err_phy_exit;
 	}
 
 	qcom_pcie_icc_update(pcie);
-
 	return 0;
 
+err_phy_exit:
+	phy_exit(pcie->phy);
 err_pm_runtime_put:
 	pm_runtime_put(dev);
 	pm_runtime_disable(dev);
