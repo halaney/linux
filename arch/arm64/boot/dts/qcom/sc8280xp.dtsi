@@ -761,6 +761,36 @@
 		ranges = <0 0 0 0 0x10 0>;
 		dma-ranges = <0 0 0 0 0x10 0>;
 
+		ethernet0: ethernet@00020000 {
+			//compatible = "qcom,stmmac-ethqos-emac0";
+			compatible = "qcom,stmmac-ethqos-emac1";
+			// TODO: full hex addresses?
+			reg = <0x0 0x20000 0x0 0x10000>,
+				<0x0 0x36000 0x0 0x100>;
+			reg-names = "stmmaceth", "rgmii";
+			clocks = <&gcc GCC_EMAC0_AXI_CLK>,
+				<&gcc GCC_EMAC0_SLV_AHB_CLK>,
+				<&gcc GCC_EMAC0_PTP_CLK>,
+				<&gcc GCC_EMAC0_RGMII_CLK>;
+			clock-names = "stmmaceth", "pclk", "ptp_ref", "rgmii";
+			// TODO: dropped the phy-intr.. hopefully polling is fine for link changes
+			// TODO: also assess (again) what phy-intr-redirect is vs phy-intr
+			//interrupts-extended = <&intc 0 946 4>, <&tlmm 127 2>;
+			//interrupt-names = "macirq","phy-intr";
+			//qcom,phy-intr-redirect = <&tlmm 127 GPIO_ACTIVE_LOW>;
+			interrupts = <GIC_SPI 946 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq";
+			power-domains = <&gcc EMAC_0_GDSC>;
+			iommus = <&apps_smmu 0x4c0 0xf>;
+
+			snps,tso;
+			snps,pbl = <32>;
+			rx-fifo-depth = <4096>;
+			tx-fifo-depth = <4096>;
+
+			status = "disabled";
+		};
+
 		ethernet1: ethernet@23000000 {
 			compatible = "qcom,stmmac-ethqos-emac1";
 			reg = <0x0 0x23000000 0x0 0x10000>,
