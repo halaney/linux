@@ -94,6 +94,13 @@
 		compatible = "qcom,pm8150-rpmh-regulators";
 		qcom,pmic-id = "a";
 
+		vreg_l2a: ldo2 {
+			regulator-name = "vreg_l2a";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2700000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
 		vreg_l3a: ldo3 {
 			regulator-name = "vreg_l3a";
 			regulator-min-microvolt = <1200000>;
@@ -213,6 +220,82 @@
 			regulator-min-microvolt = <880000>;
 			regulator-max-microvolt = <880000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+};
+
+&ethernet0 {
+	snps,mtl-rx-config = <&mtl_rx_setup>;
+	snps,mtl-tx-config = <&mtl_tx_setup>;
+
+	vreg-rgmii-supply = <&vreg_l2a>;
+
+	phy-handle = <&rgmii_phy>;
+	phy-mode = "rgmii-txid";
+	max-speed = <1000>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&ethernet0_defaults>;
+
+	status = "okay";
+
+	/* TODO: figure out if this is really board specific, and if
+	so it would be good to define at the board level and use in the driver
+	instead of the current if/else chains I have on has_emac3.
+
+	Downstream has this setup for both emac0 and emac1, i based my work
+	on early emac1 stuff so its not included in the current state of things.
+	*/
+	rgmii-io-macro-info {
+		prg-rclk-dly = <904>;
+		config-cdr-en = <1>;
+		mclk-gating-en = <1>;
+		cdr-fine-phase = <1>;
+		skip-calc-traffic = <1>;
+		data-divide-clk-sel = <0>;
+		loopback-en = <0>;
+		rx-prog-swap = <1>;
+		tx-clk-phase-shift-en = <0>;
+		dll-clock-dis = <0>;
+		mclk-freq-calc = <0x28>;
+		ddr-traffic-init-sel = <0>;
+		ddr-traffic-init-sw = <0>;
+		ddr-cal-en = <1>;
+		tcx0-cycles-dly-line = <64>;
+		tcx0-cycles-cnt = <4>;
+		test-ctl = <0xC1800000>;
+		usr-ctl = <0x2C010800>;
+		l3-master-dev = <1>;
+		ipv6-wq = <0>;
+	};
+
+	mdio {
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		compatible = "snps,dwmac-mdio";
+
+		/* Marvell 88EA1512 */
+		rgmii_phy: phy@8 {
+			reg = <0x8>;
+
+			interrupt-parent = <&tlmm>;
+			interrupts-extended = <&tlmm 127 IRQ_TYPE_EDGE_FALLING>; /* phy-intr */
+
+			reset-gpios = <&pmm8540c_gpios 1 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <11000>;
+			reset-deassert-us = <70000>;
+
+			device_type = "ethernet-phy";
+
+			/* Set to RGMII_SGMII mode and soft reset. Turn off auto-negotiation
+			 * from userspace to talk to the switch on the SGMII side of things
+			 */
+			marvell,reg-init =
+				/* Set MODE[2:0] to RGMII_SGMII */
+				<0x12 0x14 0xfff8 0x4>,
+				/* Soft reset required after changing MODE[2:0] */
+				<0x12 0x14 0x7fff 0x8000>;
 		};
 	};
 };
@@ -401,6 +484,36 @@
 /* PINCTRL */
 
 &tlmm {
+	ethernet0_defaults: ethernet0-defaults-state {
+		mdc-pins {
+			pins = "gpio175";
+			function = "rgmii_0";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		mdio-pins {
+			pins = "gpio176";
+			function = "rgmii_0";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		rgmii-tx-pins {
+			pins = "gpio183", "gpio184", "gpio185", "gpio186", "gpio187", "gpio188";
+			function = "rgmii_0";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+
+		rgmii-rx-pins {
+			pins = "gpio177", "gpio178", "gpio179", "gpio180", "gpio181", "gpio182";
+			function = "rgmii_0";
+			bias-disable;
+			drive-strength = <16>;
+		};
+	};
+
 	ethernet1_defaults: ethernet1-defaults-state {
 		mdc-pins {
 			pins = "gpio97";
