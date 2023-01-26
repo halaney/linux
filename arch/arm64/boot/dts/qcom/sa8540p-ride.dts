@@ -222,9 +222,6 @@
 	snps,mtl-rx-config = <&mtl_rx_setup>;
 	snps,mtl-tx-config = <&mtl_tx_setup>;
 
-	snps,reset-gpio = <&pm8450a_gpios 2 GPIO_ACTIVE_HIGH>;
-	snps,reset-delays-us = <0 11000 70000>;
-
 	vreg-rgmii-supply = <&vreg_l2g>;
 
 	phy-mode = "rgmii";
