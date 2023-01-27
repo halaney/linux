@@ -509,7 +509,7 @@ bool stmmac_eee_init(struct stmmac_priv *priv)
 					true);
 	}
 
-	if (priv->plat->has_gmac4 && priv->tx_lpi_timer <= STMMAC_ET_MAX) {
+	if ((priv->plat->has_gmac4 || priv->plat->has_emac3) && priv->tx_lpi_timer <= STMMAC_ET_MAX) {
 		del_timer_sync(&priv->eee_ctrl_timer);
 		priv->tx_path_in_lpi_mode = false;
 		stmmac_lpi_entry_timer_config(priv, 1);
@@ -585,7 +585,7 @@ static void stmmac_get_rx_hwtstamp(struct stmmac_priv *priv, struct dma_desc *p,
 	if (!priv->hwts_rx_en)
 		return;
 	/* For GMAC4, the valid timestamp is from CTX next desc. */
-	if (priv->plat->has_gmac4 || priv->plat->has_xgmac)
+	if (priv->plat->has_gmac4 || priv->plat->has_emac3 || priv->plat->has_xgmac)
 		desc = np;
 
 	/* Check if timestamp is available */
@@ -833,7 +833,7 @@ static int stmmac_hwtstamp_get(struct net_device *dev, struct ifreq *ifr)
  */
 int stmmac_init_tstamp_counter(struct stmmac_priv *priv, u32 systime_flags)
 {
-	bool xmac = priv->plat->has_gmac4 || priv->plat->has_xgmac;
+	bool xmac = priv->plat->has_gmac4 || priv->plat->has_emac3 || priv->plat->has_xgmac;
 	struct timespec64 now;
 	u32 sec_inc = 0;
 	u64 temp = 0;
@@ -881,7 +881,7 @@ EXPORT_SYMBOL_GPL(stmmac_init_tstamp_counter);
  */
 static int stmmac_init_ptp(struct stmmac_priv *priv)
 {
-	bool xmac = priv->plat->has_gmac4 || priv->plat->has_xgmac;
+	bool xmac = priv->plat->has_gmac4 || priv->plat->has_emac3 || priv->plat->has_xgmac;
 	int ret;
 
 	if (priv->plat->ptp_clk_freq_config)
@@ -1205,7 +1205,7 @@ static int stmmac_phy_setup(struct stmmac_priv *priv)
 	if (!max_speed || max_speed >= 1000)
 		priv->phylink_config.mac_capabilities |= MAC_1000;
 
-	if (priv->plat->has_gmac4) {
+	if (priv->plat->has_gmac4 || priv->plat->has_emac3) {
 		if (!max_speed || max_speed >= 2500)
 			priv->phylink_config.mac_capabilities |= MAC_2500FD;
 	} else if (priv->plat->has_xgmac) {
@@ -4341,7 +4341,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (skb_is_gso(skb) && priv->tso) {
 		if (gso & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6))
 			return stmmac_tso_xmit(skb, dev);
-		if (priv->plat->has_gmac4 && (gso & SKB_GSO_UDP_L4))
+		if ((priv->plat->has_gmac4 || priv->plat->has_emac3) && (gso & SKB_GSO_UDP_L4))
 			return stmmac_tso_xmit(skb, dev);
 	}
 
@@ -5719,7 +5719,7 @@ static void stmmac_common_interrupt(struct stmmac_priv *priv)
 	u32 queue;
 	bool xmac;
 
-	xmac = priv->plat->has_gmac4 || priv->plat->has_xgmac;
+	xmac = priv->plat->has_gmac4 || priv->plat->has_emac3 || priv->plat->has_xgmac;
 	queues_count = (rx_cnt > tx_cnt) ? rx_cnt : tx_cnt;
 
 	if (priv->irq_wake)
@@ -7158,7 +7158,7 @@ int stmmac_dvr_probe(struct device *device,
 
 	if ((priv->plat->tso_en) && (priv->dma_cap.tsoen)) {
 		ndev->hw_features |= NETIF_F_TSO | NETIF_F_TSO6;
-		if (priv->plat->has_gmac4)
+		if (priv->plat->has_gmac4 || priv->plat->has_emac3)
 			ndev->hw_features |= NETIF_F_GSO_UDP_L4;
 		priv->tso = true;
 		dev_info(priv->device, "TSO feature enabled\n");
