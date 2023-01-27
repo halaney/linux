@@ -170,6 +170,20 @@
 	pinctrl-0 = <&i2c12_default>;
 
 	status = "okay";
+
+	vdd_gfx: regulator@39 {
+		compatible = "maxim,max20411";
+		reg = <0x39>;
+
+		regulator-name = "vdd_gfx";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <968750>;
+
+		enable-gpios = <&pmm8540a_gpios 2 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&vdd_gfx_enable_state>;
+	};
 };
 
 &i2c15 {
@@ -314,6 +328,15 @@
 };
 
 /* PINCTRL */
+
+&pmm8540a_gpios {
+	vdd_gfx_enable_state: vdd-gfx-enable-state {
+		pins = "gpio2";
+		function = "normal";
+		output-enable;
+	};
+};
+
 
 &tlmm {
 	i2c0_default: i2c0-default-state {
