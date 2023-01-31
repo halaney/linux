@@ -873,8 +873,8 @@
 		clock-names = "stmmaceth", "pclk", "ptp_ref", "rgmii";
 		snps,ptp-ref-clk-rate = <250000000>;
 		snps,ptp-req-clk-rate = <96000000>;
-		interrupts-extended = <&intc 0 946 4>, <&tlmm 127 2>;
-		interrupt-names = "macirq","phy-intr";
+		interrupts-extended = <&intc 0 946 4>;
+		interrupt-names = "macirq";
 
 		snps,tso;
 		snps,pbl = <32>;
@@ -886,7 +886,7 @@
 		snps,reset-gpios = <&pm8150_gpios 1 GPIO_ACTIVE_HIGH>;
 		vreg_rgmii-supply = <&vreg_l2a>;
 		power-domains = <&gcc EMAC_0_GDSC>;
-		qcom,phy-intr-redirect = <&tlmm 127 GPIO_ACTIVE_LOW>;
+		//qcom,phy-intr-redirect = <&tlmm 127 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "dev-emac-mdc",
 			"dev-emac-mdio",
 			"dev-emac-rgmii_txd0_state",

@@ -402,10 +402,6 @@ static inline void stmmac_hw_fix_mac_speed(struct stmmac_priv *priv)
 			return;
 		}
 
-		if (priv->phydev->link)
-			priv->plat->fix_mac_speed(priv->plat->bsp_priv,
-						  priv->speed);
-		else
 			priv->plat->fix_mac_speed(priv->plat->bsp_priv,
 						  SPEED_10);
 	}
@@ -1025,9 +1021,6 @@ static void stmmac_validate(struct phylink_config *config,
 		xpcs_validate(priv->hw->xpcs, supported, state);
 
 	if (priv->plat->phy_fixed_link) {
-		state->link = 1;
-		state->duplex = DUPLEX_FULL;
-		state->speed = SPEED_1000;
 		if (priv->phydev)
 			priv->phydev->autoneg = AUTONEG_DISABLE;
 	}
@@ -1233,38 +1226,10 @@ static int stmmac_init_phy(struct net_device *dev)
 		}
 
 		phy_id = priv->phydev->phy_id & priv->phydev->drv->phy_id_mask;
-		if (phy_id == MARVEL_PHY_ID && !priv->plat->phy_intr_en) {
-			pr_info(" %s phy_id = %#x, phy_id_mask = %#x\n",
-				__func__, priv->phydev->phy_id,
-				priv->phydev->drv->phy_id_mask);
-			ret = priv->plat->phy_intr_enable(priv);
-			if (ret)
-				pr_err("%s: Unable to enable PHY interrupt\n",
-				       __func__);
-			else
-				priv->plat->phy_intr_en = true;
-		}
-
-		if (priv->plat->phy_intr_en_extn_stm &&
-		    priv->plat->phy_intr_en) {
-			priv->phydev->irq = PHY_MAC_INTERRUPT;
-			priv->phydev->interrupts =  PHY_INTERRUPT_ENABLED;
-		}
 		ret = phylink_connect_phy(priv->phylink, priv->phydev);
 
-		if (priv->plat->phy_intr_en_extn_stm &&
-		    priv->plat->phy_intr_en) {
-			if (priv->phydev->drv &&
-			    priv->phydev->drv->config_intr &&
-			    !priv->phydev->drv->config_intr(priv->phydev))
-				netdev_info(priv->dev,
-					    "%s config_phy_intr successful\n",
-					    __func__);
-		} else {
-			netdev_info(priv->dev, "stmmac phy polling mode\n");
-			priv->phydev->irq = PHY_POLL;
+		netdev_info(priv->dev, "stmmac phy polling mode\n");
 		}
-	}
 
 	if (!priv->plat->pmt) {
 		struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };

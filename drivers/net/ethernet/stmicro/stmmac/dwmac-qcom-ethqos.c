@@ -78,32 +78,6 @@
 #define EMAC_I0_EMAC_CORE_HW_VERSION_RGOFFADDR 0x00000070
 #define EMAC_HW_v3_0_0_RG 0x30000000
 
-#define MII_BUSY 0x00000001
-#define MII_WRITE 0x00000002
-
-/* GMAC4 defines */
-#define MII_GMAC4_GOC_SHIFT		2
-#define MII_GMAC4_WRITE			BIT(MII_GMAC4_GOC_SHIFT)
-#define MII_GMAC4_READ			(3 << MII_GMAC4_GOC_SHIFT)
-
-#define MII_BUSY 0x00000001
-#define MII_WRITE 0x00000002
-
-#define LINK_UP 1
-#define LINK_DOWN 0
-
-#define LINK_DOWN_STATE 0x800
-#define LINK_UP_STATE 0x400
-
-#define DWC_ETH_QOS_PHY_INTR_STATUS 0x0013
-#define DWC_ETH_QOS_BASIC_STATUS    0x0001
-#define LINK_STATE_MASK 0x4
-#define AUTONEG_STATE_MASK 0x20
-
-#define MARVEL_PHY_INTCS 0x13
-#define MARVEL_PHY_STATUS 0x11
-#define MARVEL_LINK_UP_STATUS BIT(10)
-
 struct emac_emb_smmu_cb_ctx emac_emb_smmu_ctx = {0};
 struct plat_stmmacenet_data *plat_dat;
 
@@ -552,143 +526,8 @@ static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 	ethqos_configure(ethqos);
 }
 
-static int ethqos_mdio_read(struct stmmac_priv  *priv, int phyaddr, int phyreg)
-{
-	unsigned int mii_address = priv->hw->mii.addr;
-	unsigned int mii_data = priv->hw->mii.data;
-	u32 v;
-	int data;
-	u32 value = MII_BUSY;
 
-	value |= (phyaddr << priv->hw->mii.addr_shift)
-		& priv->hw->mii.addr_mask;
-	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
-	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
-		& priv->hw->mii.clk_csr_mask;
-	if (priv->plat->has_gmac4)
-		value |= MII_GMAC4_READ;
 
-	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
-			       100, 10000))
-		return -EBUSY;
-
-	writel_relaxed(value, priv->ioaddr + mii_address);
-
-	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
-			       100, 10000))
-		return -EBUSY;
-
-	/* Read the data from the MII data register */
-	data = (int)readl_relaxed(priv->ioaddr + mii_data);
-
-	return data;
-}
-
-static int ethqos_phy_intr_config(struct qcom_ethqos *ethqos)
-{
-	int ret = 0;
-
-	ethqos->phy_intr = platform_get_irq_byname(ethqos->pdev, "phy-intr");
-
-	if (ethqos->phy_intr < 0) {
-		if (ethqos->phy_intr != -EPROBE_DEFER)
-			ETHQOSERR("PHY IRQ configuration information not found\n");
-		ret = 1;
-	}
-
-	return ret;
-}
-
-static void ethqos_handle_phy_interrupt(struct qcom_ethqos *ethqos)
-{
-	int phy_intr_status = 0;
-	struct platform_device *pdev = ethqos->pdev;
-
-	struct net_device *dev = platform_get_drvdata(pdev);
-	struct stmmac_priv *priv = netdev_priv(dev);
-	int marvel_intr_status = 0;
-	int marvel_status = 0;
-	int phy_id = 0;
-
-	if (!priv->phydev)
-		return;
-
-	phy_id = priv->phydev->phy_id & priv->phydev->drv->phy_id_mask;
-
-	if (phy_id == MARVEL_PHY_ID) {
-		marvel_intr_status =
-			ethqos_mdio_read(priv,
-					 priv->plat->phy_addr,
-					 MARVEL_PHY_INTCS);
-		marvel_status = ethqos_mdio_read(priv,
-						 priv->plat->phy_addr,
-						 MARVEL_PHY_STATUS);
-
-		/* Interrupt received for link state change */
-		phy_intr_status = ethqos_mdio_read(priv,
-						   priv->plat->phy_addr,
-						   DWC_ETH_QOS_BASIC_STATUS);
-		ETHQOSDBG("Basic Status Reg (%#x) = %#x\n",
-			  DWC_ETH_QOS_BASIC_STATUS, phy_intr_status);
-
-		if (phy_intr_status & LINK_STATE_MASK) {
-			if (marvel_status & MARVEL_LINK_UP_STATUS)
-				ETHQOSDBG("Intr for link UP state\n");
-			phy_mac_interrupt(priv->phydev);
-		} else if (!(phy_intr_status & LINK_STATE_MASK)) {
-			ETHQOSDBG("Intr for link DOWN state\n");
-			phy_mac_interrupt(priv->phydev);
-		} else if (!(phy_intr_status & AUTONEG_STATE_MASK)) {
-			ETHQOSDBG("Intr for link down with auto-neg err\n");
-		}
-	} else {
-		phy_intr_status =
-			ethqos_mdio_read(priv, priv->plat->phy_addr,
-					 DWC_ETH_QOS_PHY_INTR_STATUS);
-
-		if ((phy_intr_status & LINK_UP_STATE) ||
-		    (phy_intr_status & LINK_DOWN_STATE))
-			phy_mac_interrupt(priv->phydev);
-	}
-}
-
-static void ethqos_defer_phy_isr_work(struct work_struct *work)
-{
-	struct qcom_ethqos *ethqos =
-		container_of(work, struct qcom_ethqos, emac_phy_work);
-
-	ethqos_handle_phy_interrupt(ethqos);
-}
-
-static irqreturn_t ETHQOS_PHY_ISR(int irq, void *dev_data)
-{
-	struct qcom_ethqos *ethqos = (struct qcom_ethqos *)dev_data;
-
-	queue_work(system_wq, &ethqos->emac_phy_work);
-	return IRQ_HANDLED;
-}
-
-static int ethqos_phy_intr_enable(void *priv_n)
-{
-	int ret = 0;
-	struct stmmac_priv *priv = priv_n;
-	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
-
-	ret = ethqos_phy_intr_config(ethqos);
-	if (ret)
-		return ret;
-
-	INIT_WORK(&ethqos->emac_phy_work, ethqos_defer_phy_isr_work);
-	ret = request_irq(ethqos->phy_intr, ETHQOS_PHY_ISR,
-			  IRQF_SHARED, "stmmac", ethqos);
-	if (ret) {
-		ETHQOSERR("Unable to register PHY IRQ %d\n",
-			  ethqos->phy_intr);
-		return ret;
-	}
-	priv->plat->phy_intr_en_extn_stm = true;
-	return ret;
-}
 
 static const struct of_device_id qcom_ethqos_match[] = {
 	{ .compatible = "qcom,stmmac-ethqos-emac0", },
@@ -806,7 +645,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->has_gmac4 = 1;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
-	plat_dat->phy_intr_enable = ethqos_phy_intr_enable;
 
 	/* Get rgmii interface speed for mac2c from device tree */
 	if (of_property_read_u32(np, "mac2mac-rgmii-speed",
@@ -897,11 +735,6 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	ret = stmmac_pltfr_remove(pdev);
 	clk_disable_unprepare(ethqos->rgmii_clk);
-
-	if (priv->plat->phy_intr_en_extn_stm) {
-		cancel_work_sync(&ethqos->emac_phy_work);
-		free_irq(ethqos->phy_intr, ethqos);
-	}
 
 	ethqos_free_gpios(ethqos);
 	emac_emb_smmu_exit();
