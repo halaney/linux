@@ -6,7 +6,6 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
-#include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 
 #include "stmmac.h"
@@ -683,10 +682,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ethqos->num_vregs = data->num_vregs;
 	ethqos->has_emac3 = data->has_emac3;
 
-	pm_runtime_set_active(&pdev->dev);
-	pm_runtime_enable(&pdev->dev);
-	pm_runtime_forbid(&pdev->dev);
-
 	ret = qcom_ethqos_vreg_init(ethqos, data);
 	if (ret)
 		goto err_mem;
@@ -770,7 +765,7 @@ static struct platform_driver qcom_ethqos_driver = {
 	.remove = qcom_ethqos_remove,
 	.driver = {
 		.name           = "qcom-ethqos",
-		//.pm		= &stmmac_pltfr_pm_ops,
+		.pm		= &stmmac_pltfr_pm_ops,
 		.of_match_table = of_match_ptr(qcom_ethqos_match),
 	},
 };
