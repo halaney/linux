@@ -1446,6 +1446,65 @@
             qcom,iommu-dma-addr-pool = <0x60002000 0x1FFFE000>;
     	};
 
+
+// GFX changes starts
+	vfio_kgsl@3d00000 {
+		name = "vfio_kgsl";
+		compatible = "qcom,vfio-platform";
+
+		reg = <0x03d00000 0x69000>,
+				<0x03d69000 0x97000>,
+				<0x0b210000 0x400000>,
+				<0x00780188 0x1000>,
+				<0x01fc8000 0x1000>,
+				<0x01fc0000 0x30000>;
+		reg-names = "gpu_reg", "gmu_reg",
+					"rpmh_pdc", "qfprom_reg",
+					"tcsr_hwver_reg", "tcsr_tcsr_reg";
+
+		interrupts = <0 300 IRQ_TYPE_LEVEL_HIGH>,
+						<0 304 IRQ_TYPE_LEVEL_HIGH>,
+						<0 305 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "kgsl_3d0_irq", "kgsl_hfi_irq",
+							"kgsl_gmu_irq";
+
+		iommus = <&kgsl_smmu 0x0 0xc00>;
+		qcom,iommu-dma = "disabled";
+		qcom,iommu-dma-addr-pool = <0x0 0x7FFF0000>;
+		dma-coherent;
+	};
+
+	vfio_gmu {
+		compatible = "qcom,vfio-platform";
+		iommus = <&kgsl_smmu 0x5 0xc00>;
+		qcom,iommu-dma = "disabled";
+		dma-coherent;
+	};
+
+	vfio_gmu_db {
+		compatible = "qcom,vfio-platform";
+		iommus = <&kgsl_smmu 0x4 0xc00>;
+		qcom,iommu-dma = "disabled";
+		dma-coherent;
+	};
+
+	vfio_kgsl_secure {
+		compatible = "qcom,vfio-platform";
+		// switch to secure CB once ready
+		iommus = <&kgsl_smmu 0x7 0xc00>;
+		qcom,iommu-dma-addr-pool = <0x0 0x7FFF0000>;
+		qcom,iommu-dma = "disabled";
+		dma-coherent;
+	};
+
+	vfio_kgsl_lpac {
+		compatible = "qcom,vfio-platform";
+		iommus = <&kgsl_smmu 0x1 0xc00>;
+		qcom,iommu-dma = "disabled";
+		dma-coherent;
+	};
+// GFX changes Ends
+
 	qupv3_id_0: geniqup@9c0000 {
 		compatible = "qcom,geni-se-qup";
 		reg = <0x9c0000 0x6000>;
