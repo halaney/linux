@@ -543,6 +543,7 @@ static int m88e1121_config_aneg_rgmii_delays(struct phy_device *phydev)
 {
 	int mscr;
 
+	printk(KERN_ERR "%s: %d: Made it here...\n", __func__, __LINE__);
 	if (phydev->interface == PHY_INTERFACE_MODE_RGMII_ID)
 		mscr = MII_88E1121_PHY_MSCR_RX_DELAY |
 		       MII_88E1121_PHY_MSCR_TX_DELAY;
@@ -1189,6 +1190,34 @@ static int m88e1318_config_init(struct phy_device *phydev)
 	return marvell_config_init(phydev);
 }
 
+#define MII_88EA1512_PHY_MSCR_TX_DELAY 0x50
+#define MII_88EA1512_PHY_MSCR_DELAY_MASK       GENMASK(6, 4)
+#define MII_88EA1512_PHY_SET_DISABLE_AUTOREG   0x8140
+#define MII_88EA1512_PHY_DISABLE_AUTOREG_MASK  GENMASK(15, 6)
+
+static int m88ea1512_config_rgmii_tx_delays(struct phy_device *phydev)
+{
+	int err = 0;
+
+	/* set reg 21_2.4(TX delay) and 21_2.6(speed 1000M) */
+	err = phy_modify_paged(phydev, MII_MARVELL_MSCR_PAGE,
+			      MII_88E1121_PHY_MSCR_REG,
+			      MII_88EA1512_PHY_MSCR_DELAY_MASK,
+			      MII_88EA1512_PHY_MSCR_TX_DELAY);
+       if (err < 0)
+	       return err;
+	/* do soft reset from page 0 after modification */
+	err = marvell_set_page(phydev, MII_MARVELL_COPPER_PAGE);
+	if (err < 0)
+	       return err;
+
+	err = genphy_soft_reset(phydev);
+	if (err < 0)
+	       return err;
+
+	return 0;
+}
+
 static int m88e1510_config_init(struct phy_device *phydev)
 {
 	static const struct {
@@ -1201,7 +1230,9 @@ static int m88e1510_config_init(struct phy_device *phydev)
 	};
 	int err;
 	int i;
+	u16 mode;
 
+#if 0
 	/* As per Marvell Release Notes - Alaska 88E1510/88E1518/88E1512/
 	 * 88E1514 Rev A0, Errata Section 5.1:
 	 * If EEE is intended to be used, the following register writes
@@ -1229,18 +1260,29 @@ static int m88e1510_config_init(struct phy_device *phydev)
 	err = marvell_set_page(phydev, MII_MARVELL_COPPER_PAGE);
 	if (err < 0)
 		return err;
+#endif
 
-	/* SGMII-to-Copper mode initialization */
-	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) {
+	/* TODO: qualcomm sets rgmii delays here */
+	m88ea1512_config_rgmii_tx_delays(phydev);
+
+	/* SGMII-to-Copper and RGMII-to-SGMII mode initializations */
+	if (phydev->interface == PHY_INTERFACE_MODE_SGMII
+		|| phy_interface_is_rgmii(phydev)) {
 		/* Select page 18 */
 		err = marvell_set_page(phydev, 18);
 		if (err < 0)
 			return err;
 
-		/* In reg 20, write MODE[2:0] = 0x1 (SGMII to Copper) */
+		/* In reg 20, write MODE[2:0] as SGMII to Copper or RGMII to SGMII */
+		if (phydev->interface == PHY_INTERFACE_MODE_SGMII)
+			mode = MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII;
+		else {
+			printk(KERN_ERR "%s: %d: Writing RGMII-to-SGMII mode\n", __func__, __LINE__);
+			mode = MII_88E1510_GEN_CTRL_REG_1_MODE_RGMII_SGMII;
+		}
 		err = phy_modify(phydev, MII_88E1510_GEN_CTRL_REG_1,
 				 MII_88E1510_GEN_CTRL_REG_1_MODE_MASK,
-				 MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII);
+				 mode);
 		if (err < 0)
 			return err;
 
@@ -1250,14 +1292,32 @@ static int m88e1510_config_init(struct phy_device *phydev)
 		if (err < 0)
 			return err;
 
+		/* TODO: qualcomm goes back to fiber page after this... */
 		/* Reset page selection */
-		err = marvell_set_page(phydev, MII_MARVELL_COPPER_PAGE);
+		err = marvell_set_page(phydev, MII_MARVELL_FIBER_PAGE);
+		//err = marvell_set_page(phydev, MII_MARVELL_COPPER_PAGE);
 		if (err < 0)
 			return err;
 	}
+	/* TODO: Qualcomm does this */
+	/* Set an disable, speed 1000M, duplex full and soft reset */
+	if (phy_interface_is_rgmii(phydev))
+		err = phy_modify(phydev, MII_BMCR,
+			/* GENMASK(15, 6) */
+			MII_88EA1512_PHY_DISABLE_AUTOREG_MASK,
+			/* 0x8140 */
+			MII_88EA1512_PHY_SET_DISABLE_AUTOREG);
+
+	err = phy_read(phydev, MII_M1011_PHY_STATUS);
+	phydev_err(phydev, "%s: reg [17_1] value = 0x%x\n", __func__, err);
+
+
+#if 0
+	/* TODO: qualcomm doesn't do the downshift thing */
 	err = m88e1011_set_downshift(phydev, 3);
 	if (err < 0)
 		return err;
+#endif
 
 	return m88e1318_config_init(phydev);
 }
@@ -1645,10 +1705,12 @@ static int marvell_read_status_page(struct phy_device *phydev, int page)
 	int fiber;
 	int err;
 
+	//phydev_err(phydev, "%s: %d\n", __func__, __LINE__);
 	status = phy_read(phydev, MII_M1011_PHY_STATUS);
 	if (status < 0)
 		return status;
 
+	//phydev_err(phydev, "%s: %d\n", __func__, __LINE__);
 	/* Use the generic register for copper link status,
 	 * and the PHY status register for fiber link status.
 	 */
@@ -2836,6 +2898,8 @@ static int marvell_probe(struct phy_device *phydev)
 {
 	struct marvell_priv *priv;
 
+	phydev_err(phydev, "%s: Disabling autoneg, should probably check later\n", __func__);
+	phydev->autoneg = AUTONEG_DISABLE;
 	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
@@ -3163,30 +3227,34 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id = MARVELL_PHY_ID_88E1510,
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1510",
-		.driver_data = DEF_MARVELL_HWMON_OPS(m88e1510_hwmon_ops),
+		//.driver_data = DEF_MARVELL_HWMON_OPS(m88e1510_hwmon_ops),
 		.features = PHY_GBIT_FIBRE_FEATURES,
-		.flags = PHY_POLL_CABLE_TEST,
-		.probe = m88e1510_probe,
+		//.flags = PHY_POLL_CABLE_TEST,
+		.probe = marvell_probe,
+		//.probe = m88e1510_probe,
 		.config_init = m88e1510_config_init,
-		.config_aneg = m88e1510_config_aneg,
+		//.config_aneg = m88e1510_config_aneg,
+		.config_aneg = marvell_config_aneg,
 		.read_status = marvell_read_status,
 		.config_intr = marvell_config_intr,
-		.handle_interrupt = marvell_handle_interrupt,
+		//.handle_interrupt = marvell_handle_interrupt,
 		.get_wol = m88e1318_get_wol,
 		.set_wol = m88e1318_set_wol,
-		.resume = marvell_resume,
-		.suspend = marvell_suspend,
+		//.resume = marvell_resume,
+		//.suspend = marvell_suspend,
+		.resume = &genphy_resume,
+		.suspend = &genphy_suspend,
 		.read_page = marvell_read_page,
 		.write_page = marvell_write_page,
 		.get_sset_count = marvell_get_sset_count,
 		.get_strings = marvell_get_strings,
 		.get_stats = marvell_get_stats,
-		.set_loopback = m88e1510_loopback,
-		.get_tunable = m88e1011_get_tunable,
-		.set_tunable = m88e1011_set_tunable,
-		.cable_test_start = marvell_vct7_cable_test_start,
-		.cable_test_tdr_start = marvell_vct5_cable_test_tdr_start,
-		.cable_test_get_status = marvell_vct7_cable_test_get_status,
+		//.set_loopback = m88e1510_loopback,
+		//.get_tunable = m88e1011_get_tunable,
+		//.set_tunable = m88e1011_set_tunable,
+		//.cable_test_start = marvell_vct7_cable_test_start,
+		//.cable_test_tdr_start = marvell_vct5_cable_test_tdr_start,
+		//.cable_test_get_status = marvell_vct7_cable_test_get_status,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1540,
