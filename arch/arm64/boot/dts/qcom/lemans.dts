@@ -22,6 +22,7 @@
 		ufshc1  = &ufs_mem_hc;
 		i2c18   = &i2c18;
 		spi16   = &spi16;
+		i2c4 = &i2c11;
 	};
 
 	chosen {
@@ -251,11 +252,17 @@
 	spidevmaster@0 {
 		compatible = "qcom,spidev";
 		reg = <0>;
+		spi-max-frequency = <10000000>;
+		spi-cpha;
 		status = "okay";
 	};
 };
 
 &i2c18 {
+	status = "okay";
+};
+
+&i2c11 {
 	status = "okay";
 };
 
