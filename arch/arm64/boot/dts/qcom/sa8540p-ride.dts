@@ -239,7 +239,7 @@
 	vreg-rgmii-supply = <&vreg_l2a>;
 
 	phy-handle = <&rgmii_phy>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-txid";
 	max-speed = <1000>;
 
 	pinctrl-names = "default";
