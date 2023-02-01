@@ -1232,7 +1232,6 @@ static int m88e1510_config_init(struct phy_device *phydev)
 	int i;
 	u16 mode;
 
-#if 0
 	/* As per Marvell Release Notes - Alaska 88E1510/88E1518/88E1512/
 	 * 88E1514 Rev A0, Errata Section 5.1:
 	 * If EEE is intended to be used, the following register writes
@@ -1260,7 +1259,6 @@ static int m88e1510_config_init(struct phy_device *phydev)
 	err = marvell_set_page(phydev, MII_MARVELL_COPPER_PAGE);
 	if (err < 0)
 		return err;
-#endif
 
 	/* TODO: qualcomm sets rgmii delays here */
 	m88ea1512_config_rgmii_tx_delays(phydev);
@@ -1705,12 +1703,10 @@ static int marvell_read_status_page(struct phy_device *phydev, int page)
 	int fiber;
 	int err;
 
-	//phydev_err(phydev, "%s: %d\n", __func__, __LINE__);
 	status = phy_read(phydev, MII_M1011_PHY_STATUS);
 	if (status < 0)
 		return status;
 
-	//phydev_err(phydev, "%s: %d\n", __func__, __LINE__);
 	/* Use the generic register for copper link status,
 	 * and the PHY status register for fiber link status.
 	 */
@@ -3227,34 +3223,32 @@ static struct phy_driver marvell_drivers[] = {
 		.phy_id = MARVELL_PHY_ID_88E1510,
 		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1510",
-		//.driver_data = DEF_MARVELL_HWMON_OPS(m88e1510_hwmon_ops),
+		.driver_data = DEF_MARVELL_HWMON_OPS(m88e1510_hwmon_ops),
 		.features = PHY_GBIT_FIBRE_FEATURES,
-		//.flags = PHY_POLL_CABLE_TEST,
+		.flags = PHY_POLL_CABLE_TEST,
 		.probe = marvell_probe,
 		//.probe = m88e1510_probe,
 		.config_init = m88e1510_config_init,
-		//.config_aneg = m88e1510_config_aneg,
+		// TODO: I think this sets the wrong RGMII TX stuff for us .config_aneg = m88e1510_config_aneg,
 		.config_aneg = marvell_config_aneg,
 		.read_status = marvell_read_status,
 		.config_intr = marvell_config_intr,
-		//.handle_interrupt = marvell_handle_interrupt,
+		.handle_interrupt = marvell_handle_interrupt,
 		.get_wol = m88e1318_get_wol,
 		.set_wol = m88e1318_set_wol,
-		//.resume = marvell_resume,
-		//.suspend = marvell_suspend,
-		.resume = &genphy_resume,
-		.suspend = &genphy_suspend,
+		.resume = marvell_resume,
+		.suspend = marvell_suspend,
 		.read_page = marvell_read_page,
 		.write_page = marvell_write_page,
 		.get_sset_count = marvell_get_sset_count,
 		.get_strings = marvell_get_strings,
 		.get_stats = marvell_get_stats,
-		//.set_loopback = m88e1510_loopback,
-		//.get_tunable = m88e1011_get_tunable,
-		//.set_tunable = m88e1011_set_tunable,
-		//.cable_test_start = marvell_vct7_cable_test_start,
-		//.cable_test_tdr_start = marvell_vct5_cable_test_tdr_start,
-		//.cable_test_get_status = marvell_vct7_cable_test_get_status,
+		.set_loopback = m88e1510_loopback,
+		.get_tunable = m88e1011_get_tunable,
+		.set_tunable = m88e1011_set_tunable,
+		.cable_test_start = marvell_vct7_cable_test_start,
+		.cable_test_tdr_start = marvell_vct5_cable_test_tdr_start,
+		.cable_test_get_status = marvell_vct7_cable_test_get_status,
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1540,

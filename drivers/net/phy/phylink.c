@@ -606,9 +606,6 @@ void phylink_generic_validate(struct phylink_config *config,
 			      unsigned long *supported,
 			      struct phylink_link_state *state)
 {
-	printk(KERN_ERR "Qualcomm hacks\n");
-	state->link = 1;
-	state->duplex = DUPLEX_FULL;
 	phylink_validate_mask_caps(supported, state, config->mac_capabilities);
 }
 EXPORT_SYMBOL_GPL(phylink_generic_validate);
