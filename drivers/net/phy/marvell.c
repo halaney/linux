@@ -731,8 +731,19 @@ static int m88e1510_config_aneg(struct phy_device *phydev)
 	if (err < 0)
 		goto error;
 
+	/* TODO: this comment is wrong, sgmii->copper is right */
+	/* commit introducing it:
+	 *  net: phy: marvell: avoid configuring fiber page for SGMII-to-Copper
+
+		When in SGMII-to-Copper mode, the fiber page is used for the MAC facing
+		link, and does not require configuration of the fiber auto-negotiation
+		settings.  Avoid trying.
+
+		TODO: update comment. Also figure out how to say also not to touch when in
+		RGMII_SGMII
+	*/
 	/* Do not touch the fiber page if we're in copper->sgmii mode */
-	if (phydev->interface == PHY_INTERFACE_MODE_SGMII)
+	if (phydev->interface == PHY_INTERFACE_MODE_SGMII || true /* RGMII_SGMII*/ )
 		return 0;
 
 	/* Then the fiber link */
@@ -1199,6 +1210,7 @@ static int m88ea1512_config_rgmii_tx_delays(struct phy_device *phydev)
 {
 	int err = 0;
 
+	/*  MAC Specific Control Register 2 : register 21 on page 2 (21_2) */
 	/* set reg 21_2.4(TX delay) and 21_2.6(speed 1000M) */
 	err = phy_modify_paged(phydev, MII_MARVELL_MSCR_PAGE,
 			      MII_88E1121_PHY_MSCR_REG,
@@ -1261,7 +1273,7 @@ static int m88e1510_config_init(struct phy_device *phydev)
 		return err;
 
 	/* TODO: qualcomm sets rgmii delays here */
-	m88ea1512_config_rgmii_tx_delays(phydev);
+	//m88ea1512_config_rgmii_tx_delays(phydev);
 
 	/* SGMII-to-Copper and RGMII-to-SGMII mode initializations */
 	if (phydev->interface == PHY_INTERFACE_MODE_SGMII
@@ -1271,13 +1283,12 @@ static int m88e1510_config_init(struct phy_device *phydev)
 		if (err < 0)
 			return err;
 
+		/* page 18, register 20 (20_18), General Control Register 1 */
 		/* In reg 20, write MODE[2:0] as SGMII to Copper or RGMII to SGMII */
 		if (phydev->interface == PHY_INTERFACE_MODE_SGMII)
 			mode = MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII;
-		else {
-			printk(KERN_ERR "%s: %d: Writing RGMII-to-SGMII mode\n", __func__, __LINE__);
+		else
 			mode = MII_88E1510_GEN_CTRL_REG_1_MODE_RGMII_SGMII;
-		}
 		err = phy_modify(phydev, MII_88E1510_GEN_CTRL_REG_1,
 				 MII_88E1510_GEN_CTRL_REG_1_MODE_MASK,
 				 mode);
@@ -1291,31 +1302,36 @@ static int m88e1510_config_init(struct phy_device *phydev)
 			return err;
 
 		/* TODO: qualcomm goes back to fiber page after this... */
-		/* Reset page selection */
 		err = marvell_set_page(phydev, MII_MARVELL_FIBER_PAGE);
-		//err = marvell_set_page(phydev, MII_MARVELL_COPPER_PAGE);
+
+		/* TODO: Qualcomm does this */
+		/* Page 1, register 0, fiber control register */
+		/* Set an disable, speed 1000M, duplex full and soft reset */
+		if (phy_interface_is_rgmii(phydev))
+			err = phy_modify(phydev, MII_BMCR,
+				/* GENMASK(15, 6) */
+				MII_88EA1512_PHY_DISABLE_AUTOREG_MASK,
+				/* 0x8140 */
+				MII_88EA1512_PHY_SET_DISABLE_AUTOREG);
+
+		/* TODO: remove me */
+		err = phy_read(phydev, MII_M1011_PHY_STATUS);
+		phydev_err(phydev, "%s: reg [17_1] value = 0x%x\n", __func__, err);
+
+		/* Reset page selection */
+		err = marvell_set_page(phydev, MII_MARVELL_COPPER_PAGE);
 		if (err < 0)
 			return err;
 	}
-	/* TODO: Qualcomm does this */
-	/* Set an disable, speed 1000M, duplex full and soft reset */
-	if (phy_interface_is_rgmii(phydev))
-		err = phy_modify(phydev, MII_BMCR,
-			/* GENMASK(15, 6) */
-			MII_88EA1512_PHY_DISABLE_AUTOREG_MASK,
-			/* 0x8140 */
-			MII_88EA1512_PHY_SET_DISABLE_AUTOREG);
 
 	err = phy_read(phydev, MII_M1011_PHY_STATUS);
 	phydev_err(phydev, "%s: reg [17_1] value = 0x%x\n", __func__, err);
 
 
-#if 0
 	/* TODO: qualcomm doesn't do the downshift thing */
 	err = m88e1011_set_downshift(phydev, 3);
 	if (err < 0)
 		return err;
-#endif
 
 	return m88e1318_config_init(phydev);
 }
@@ -3229,7 +3245,8 @@ static struct phy_driver marvell_drivers[] = {
 		.probe = m88e1510_probe,
 		.config_init = m88e1510_config_init,
 		// TODO: I think this sets the wrong RGMII TX stuff for us .config_aneg = m88e1510_config_aneg,
-		.config_aneg = marvell_config_aneg,
+		.config_aneg = m88e1510_config_aneg,
+		//.config_aneg = marvell_config_aneg,
 		.read_status = marvell_read_status,
 		.config_intr = marvell_config_intr,
 		.handle_interrupt = marvell_handle_interrupt,
