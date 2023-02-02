@@ -658,6 +658,8 @@ static int marvell_config_aneg_fiber(struct phy_device *phydev)
 	adv = linkmode_adv_to_fiber_adv_t(phydev->advertising);
 
 	/* Setup fiber advertisement */
+	/* Should not touch this if RGMII_SGMII mode */
+	phydev_err(phydev,  "%s: Touching MII_ADVERTISE when we shouldn't\n", __func__);
 	err = phy_modify_changed(phydev, MII_ADVERTISE,
 				 ADVERTISE_1000XHALF | ADVERTISE_1000XFULL |
 				 ADVERTISE_1000XPAUSE | ADVERTISE_1000XPSE_ASYM,
@@ -667,6 +669,7 @@ static int marvell_config_aneg_fiber(struct phy_device *phydev)
 	if (err > 0)
 		changed = 1;
 
+	phydev_err(phydev,  "%s: calling genphy_check_and_restart_aneg\n", __func__);
 	return genphy_check_and_restart_aneg(phydev, changed);
 }
 
@@ -740,10 +743,11 @@ static int m88e1510_config_aneg(struct phy_device *phydev)
 		settings.  Avoid trying.
 
 		TODO: update comment. Also figure out how to say also not to touch when in
-		RGMII_SGMII
+		RGMII_SGMII. We actually do need to go here for AUTONEG_DISABLE, but not for
+		AUTONEG_ENABLE (the register is RO).
 	*/
 	/* Do not touch the fiber page if we're in copper->sgmii mode */
-	if (phydev->interface == PHY_INTERFACE_MODE_SGMII || true /* RGMII_SGMII*/ )
+	if (phydev->interface == PHY_INTERFACE_MODE_SGMII) //|| true )/* RGMII_SGMII*/ )
 		return 0;
 
 	/* Then the fiber link */
@@ -1304,6 +1308,7 @@ static int m88e1510_config_init(struct phy_device *phydev)
 		/* TODO: qualcomm goes back to fiber page after this... */
 		err = marvell_set_page(phydev, MII_MARVELL_FIBER_PAGE);
 
+#if 0
 		/* TODO: Qualcomm does this */
 		/* Page 1, register 0, fiber control register */
 		/* Set an disable, speed 1000M, duplex full and soft reset */
@@ -1313,13 +1318,32 @@ static int m88e1510_config_init(struct phy_device *phydev)
 				MII_88EA1512_PHY_DISABLE_AUTOREG_MASK,
 				/* 0x8140 */
 				MII_88EA1512_PHY_SET_DISABLE_AUTOREG);
+#endif
 
 		/* TODO: remove me */
 		err = phy_read(phydev, MII_M1011_PHY_STATUS);
 		phydev_err(phydev, "%s: reg [17_1] value = 0x%x\n", __func__, err);
 
+		/* TODO: remove me. */
+		/* Read 0_1.12 (page 1, reg 0, bit 12) to confirm auto negotiation
+		 * is on
+		 */
+		/* likewise, turn on auto-negotiation bypass mode in case the
+		 * receiving side (be it system or media) doesn't do auto-negotiation
+		 * This is determined by page 1 reg 26 bit 6 && with the above reg
+		 */
+		/* TODO: this all is probably stomped on by config_aneg callback */
+		err = marvell_set_page(phydev, MII_MARVELL_FIBER_PAGE);
+		err = phy_read(phydev, 0);
+		phydev_err(phydev, "%s: reg [0_1] value = 0x%x\n", __func__, err);
+		err = phy_read(phydev, 26);
+		phydev_err(phydev, "%s: reg [26_1] value = 0x%x\n", __func__, err);
+		err = phy_read(phydev, MII_M1011_PHY_STATUS);
+		phydev_err(phydev, "%s: reg [17_1] value = 0x%x\n", __func__, err);
+
 		/* Reset page selection */
 		err = marvell_set_page(phydev, MII_MARVELL_COPPER_PAGE);
+
 		if (err < 0)
 			return err;
 	}
@@ -1328,7 +1352,6 @@ static int m88e1510_config_init(struct phy_device *phydev)
 	phydev_err(phydev, "%s: reg [17_1] value = 0x%x\n", __func__, err);
 
 
-	/* TODO: qualcomm doesn't do the downshift thing */
 	err = m88e1011_set_downshift(phydev, 3);
 	if (err < 0)
 		return err;
@@ -2910,8 +2933,6 @@ static int marvell_probe(struct phy_device *phydev)
 {
 	struct marvell_priv *priv;
 
-	phydev_err(phydev, "%s: Disabling autoneg, should probably check later\n", __func__);
-	phydev->autoneg = AUTONEG_DISABLE;
 	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;

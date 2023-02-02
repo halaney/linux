@@ -2074,6 +2074,7 @@ int genphy_setup_forced(struct phy_device *phydev)
 	phydev->pause = 0;
 	phydev->asym_pause = 0;
 
+	phydev_err(phydev, "%s: Forcing speed: %d, duplex: %d\n", __func__, phydev->speed, phydev->duplex);
 	ctl = mii_bmcr_encode_fixed(phydev->speed, phydev->duplex);
 
 	return phy_modify(phydev, MII_BMCR,
