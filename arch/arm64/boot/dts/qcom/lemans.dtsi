@@ -2081,6 +2081,23 @@
             qcom,iommu-dma-addr-pool = <0x60002000 0x1FFFE000>;
     	};
 
+	dpu_00@ae00000 {
+		compatible = "qcom,vfio-platform";
+		interrupts = <0 92 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0xae00000 0x200000>;
+		iommus = <&apps_smmu 0x1000 0x402>;
+		qcom,iommu-dma-addr-pool = <0x00000000 0xffffffff>;
+		dma-coherent;
+	};
+
+	dpu_10@22000000 {
+		compatible = "qcom,vfio-platform";
+		interrupts = <0 865 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x22000000 0x200000>;
+		iommus = <&apps_smmu 0x1800 0x402>;
+		qcom,iommu-dma-addr-pool = <0x00000000 0xffffffff>;
+		dma-coherent;
+	};
 
 // GFX changes starts
 	vfio_kgsl@3d00000 {
