@@ -2157,6 +2157,24 @@
 	};
 // GFX changes Ends
 
+	vidc@aa00000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x0aa00000 0xF0000>;
+		interrupts = <GIC_SPI 174 IRQ_TYPE_LEVEL_HIGH>;
+
+		/* MMU: non_secure_cb */
+		iommus = <&apps_smmu 0x0880 0x0400>;
+		qcom,iommu-dma-addr-pool = <0x25800000 0xba800000>;
+		dma-coherent;
+	};
+
+	vidc_non_secure_pixel_cb {
+		compatible = "qcom,vfio-platform";
+		iommus = <&apps_smmu 0x0887 0x0400>;
+		qcom,iommu-dma-addr-pool = <0x00100000 0xdff00000>;
+		dma-coherent;
+	};
+
 	qupv3_id_0: geniqup@9c0000 {
 		compatible = "qcom,geni-se-qup";
 		reg = <0x9c0000 0x6000>;
