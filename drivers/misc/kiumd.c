@@ -22,6 +22,16 @@
 #include <linux/types.h>
 #include <linux/dma-iommu.h>
 #include <linux/iova.h>
+#include <linux/adreno-smmu-priv.h>
+#include <linux/io-pgtable.h>
+#include <linux/kernel.h>
+#include <linux/kvm_host.h>
+#include <linux/cdev.h>
+#include <linux/qcom_scm.h>
+
+#include "../../drivers/iommu/arm/arm-smmu/arm-smmu.h"
+
+extern int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie, const struct io_pgtable_cfg *pgtbl_cfg);
 
 /*Global Data structures needed for buffer sharing */
 static DEFINE_MUTEX(g_kiumd_lock);
@@ -46,7 +56,6 @@ enum iommu_dma_cookie_type {
        IOMMU_DMA_MSI_COOKIE,
 };
 
-
 struct kiumd_iommu_dma_cookie {
 	enum iommu_dma_cookie_type      type;
 	union {
@@ -64,6 +73,192 @@ struct kiumd_iommu_dma_cookie {
          struct iommu_domain             *fq_domain;
 };
 
+static void _tlb_flush_all(void *cookie)
+{
+}
+
+static void _tlb_flush_walk(unsigned long iova, size_t size,
+		size_t granule, void *cookie)
+{
+}
+
+static void _tlb_add_page(struct iommu_iotlb_gather *gather,
+		unsigned long iova, size_t granule, void *cookie)
+{
+}
+
+static const struct iommu_flush_ops kgsl_iopgtbl_tlb_ops = {
+	.tlb_flush_all = _tlb_flush_all,
+	.tlb_flush_walk = _tlb_flush_walk,
+	.tlb_add_page = _tlb_add_page,
+};
+
+int kiumd_perprocess_set_user_context(struct kiumd_dev *ki_dev, char __user *arg)
+{
+	struct kiumd_smmu_user kismmu_pproc;
+	struct file *file;
+	struct vfio_device *vfio_dev;
+	struct io_pgtable_cfg cfg;
+	struct arm_smmu_domain *smmu_dom;
+	struct io_pgtable *pgtable;
+	struct iommu_domain *iommu_dom;
+	int cbindx, ret;
+	void *cookie;
+
+	if (copy_from_user(&kismmu_pproc, arg, sizeof(struct kiumd_smmu_user)))
+		return -EFAULT;
+
+	file = fget(kismmu_pproc.vfio_fd);
+	vfio_dev = (struct vfio_device *)file->private_data;
+	if(vfio_dev == NULL) {
+		pr_err("%s:vfio_dev is NULL \n",__func__);
+		return -ENOTTY;
+	}
+
+	iommu_dom = iommu_get_dma_domain(vfio_dev->dev);
+	smmu_dom = container_of(iommu_dom, struct arm_smmu_domain, domain);
+	if(smmu_dom->pgtbl_ops == NULL){
+		pr_err("%s:pagetable ops is NULL \n",__func__);
+		return 0;
+	}
+
+	pgtable = io_pgtable_ops_to_pgtable(smmu_dom->pgtbl_ops);
+	if(pgtable == NULL)
+		pr_err("%s:pagetable is NULL \n",__func__);
+
+	cbindx = smmu_dom->cfg.cbndx;
+	memcpy(&cfg, &pgtable->cfg, sizeof(struct io_pgtable_cfg));
+	cfg.quirks &= ~IO_PGTABLE_QUIRK_ARM_TTBR1;
+	cfg.tlb = &kgsl_iopgtbl_tlb_ops;
+	/*Allocate a default pagetable for TTBR0 in case per process allocation fails*/
+	kismmu_pproc.pgtbl_ops_ptr = (long int)alloc_io_pgtable_ops(ARM_64_LPAE_S1, &cfg, NULL);
+	cookie = (void*)smmu_dom;
+	qcom_adreno_smmu_set_ttbr0_cfg(cookie, &cfg);
+	ret = qcom_scm_kgsl_set_smmu_aperture(cbindx);
+	if (ret == -EBUSY)
+		ret = qcom_scm_kgsl_set_smmu_aperture(cbindx);
+
+	if (ret) {
+		pr_err("%s:Setting smmu aperture error \n",__func__);
+		return 0;
+	}
+
+	return 0;
+}
+
+int kiumd_perprocess_pt_alloc(struct kiumd_dev *ki_dev, char __user *arg)
+{
+	struct kiumd_smmu_user kismmu_pproc;
+	struct file *file;
+	struct vfio_device *vfio_dev;
+	struct io_pgtable_cfg cfg;
+	struct arm_smmu_domain *smmu_dom;
+	struct io_pgtable *pgtable;
+	struct iommu_domain *iommu_dom;
+
+	if (copy_from_user(&kismmu_pproc, arg, sizeof(struct kiumd_smmu_user)))
+		return -EFAULT;
+
+	file = fget(kismmu_pproc.vfio_fd);
+	vfio_dev = (struct vfio_device *)file->private_data;
+	if(vfio_dev == NULL) {
+		pr_err("%s:vfio_dev is NULL \n",__func__);
+		return -ENOTTY;
+	}
+
+	iommu_dom = iommu_get_dma_domain(vfio_dev->dev);
+	smmu_dom = container_of(iommu_dom, struct arm_smmu_domain, domain);
+	if(smmu_dom->pgtbl_ops == NULL) {
+		pr_err("%s:pagetable ops is NULL \n",__func__);
+		return 0;
+	}
+
+	pgtable = io_pgtable_ops_to_pgtable(smmu_dom->pgtbl_ops);
+	if(pgtable == NULL) {
+		pr_err("%s:pagetable is NULL \n",__func__);
+		return 0;
+	}
+
+	memcpy(&cfg, &pgtable->cfg, sizeof(struct io_pgtable_cfg));
+	cfg.quirks &= ~IO_PGTABLE_QUIRK_ARM_TTBR1;
+	cfg.tlb = &kgsl_iopgtbl_tlb_ops;
+	kismmu_pproc.asid = smmu_dom->cfg.asid;
+	kismmu_pproc.pgtbl_ops_ptr = (long int)alloc_io_pgtable_ops(ARM_64_LPAE_S1, &cfg, NULL);
+	kismmu_pproc.ttbr0 = cfg.arm_lpae_s1_cfg.ttbr;
+	copy_to_user(arg, &kismmu_pproc, sizeof(kismmu_pproc));
+	return 0;
+}
+
+int kiumd_perprocess_pgtble_set(struct kiumd_dev *ki_dev, char __user *arg)
+{
+	struct kiumd_smmu_user kismmu_pproc;
+	struct file *file;
+	struct vfio_device *vfio_dev;
+	struct vfio_group *vfio_grp;
+	struct iommu_domain *iommu_dom;
+	struct arm_smmu_domain *smmu_dom;
+	struct io_pgtable_ops *ki_pgtbl_ops;
+	struct arm_smmu_cb *cb;
+	struct arm_smmu_cfg *smmu_cfg;
+
+	if (copy_from_user(&kismmu_pproc, arg, sizeof(struct kiumd_smmu_user)))
+		return -EFAULT;
+
+	file = fget(kismmu_pproc.vfio_fd);
+	vfio_dev = (struct vfio_device *)file->private_data;
+	if(vfio_dev == NULL) {
+		pr_err("%s:vfio_dev is NULL \n",__func__);
+		return -ENOTTY;
+	}
+
+	iommu_dom = iommu_get_dma_domain(vfio_dev->dev);
+	if(iommu_dom == NULL) {
+		pr_err("%s:IOMMU domain is NULL \n",__func__);
+		return -ENOTTY;
+	}
+
+	smmu_dom = container_of(iommu_dom, struct arm_smmu_domain, domain);
+	if(smmu_dom == NULL) {
+		pr_err("%s:SMMU domain is NULL \n",__func__);
+		return -ENOTTY;
+	}
+
+	/*Debug changes to validate per process mappings in test case.*/
+/*	smmu_cfg = &smmu_dom->cfg;
+	cb = &smmu_dom->smmu->cbs[smmu_cfg->cbndx];
+	cb->ttbr[0] = kismmu_pproc.ttbr0;
+	arm_smmu_write_context_bank(smmu_dom->smmu, cb->cfg->cbndx);*/
+	ki_pgtbl_ops = (struct io_pgtable_ops*)kismmu_pproc.pgtbl_ops_ptr;
+	smmu_dom->pgtbl_ops = ki_pgtbl_ops;
+	return 0;
+}
+
+int kiumd_perprocess_pgtble_free(struct kiumd_dev *ki_dev, char __user *arg)
+{
+        struct kiumd_smmu_user kismmu_pproc;
+        struct file *file;
+        struct vfio_device *vfio_dev;
+        struct io_pgtable_ops *ki_pgtbl_ops;
+
+        if (copy_from_user(&kismmu_pproc, arg, sizeof(struct kiumd_smmu_user)))
+                return -EFAULT;
+
+        file = fget(kismmu_pproc.vfio_fd);
+        vfio_dev = (struct vfio_device *)file->private_data;
+        if(vfio_dev == NULL) {
+                pr_err("%s:vfio_dev is NULL \n",__func__);
+                return -ENOTTY;
+        }
+
+        ki_pgtbl_ops = (struct io_pgtable_ops*)kismmu_pproc.pgtbl_ops_ptr;
+        if(ki_pgtbl_ops == NULL) {
+                pr_err("%s:pagegetable ops is NULL \n",__func__);
+                return -ENOTTY;
+        }
+
+        free_io_pgtable_ops(ki_pgtbl_ops);
+        return 0;
+}
 
 int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 {
@@ -106,7 +301,6 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 	else
 		dmabufattach->dma_map_attrs = 0;
 
-	printk(KERN_INFO "kiumd_dmabuf_vfio_map: kiusr.dma_attr: %d, dma_map_attrs: %d", kiusr.dma_attr, dmabufattach->dma_map_attrs);
 
 	if(kiusr.dma_direction == 1 )
 		kiumd_dma_direction = kiusr.dma_direction;
@@ -241,8 +435,6 @@ int kiumd_dmabuf_fd(struct kiumd_dev *ki_dev, char __user *arg)
 		pr_err("%s: copy_to_user failed... \n",__func__);
 		return -EFAULT;
 	}
-
-
 	return 0;
 }
 
@@ -284,7 +476,6 @@ int kiumd_iova_ctrl(struct kiumd_dev *ki_dev, char __user *arg)
 
 static int kiumd_open(struct inode *inode, struct file *filp)
 {
-	pr_err("kiumd_open called\n");
 	return 0;
 }
 
@@ -294,7 +485,6 @@ static long kiumd_ioctl(struct file *file, unsigned int cmd,
 	struct kiumd_dev *ki_dev = (struct kiumd_dev *)file->private_data;
 	char __user *argp = (char __user *)arg;
 	int err;
-	pr_err("kiumd_ioctl called\n");
 	switch (cmd) {
 	case KIUMD_SMMU_MAP_BUF:
 		err = kiumd_dmabuf_vfio_map(ki_dev, argp);
@@ -310,6 +500,18 @@ static long kiumd_ioctl(struct file *file, unsigned int cmd,
 		break;
 	case KIUMD_IOVA_MAP_CTRL:
 		err = kiumd_iova_ctrl(ki_dev, argp);
+		break;
+	case KIUMD_SET_USER_CONTEXT:
+		err = kiumd_perprocess_set_user_context(ki_dev, argp);
+		break;
+	case KIUMD_PER_PROCESS_ALLOC:
+		err = kiumd_perprocess_pt_alloc(ki_dev, argp);
+		break;
+        case KIUMD_PER_PROCESS_SET:
+                err = kiumd_perprocess_pgtble_set(ki_dev, argp);
+                break;
+	case KIUMD_PER_PROCESS_FREE:
+		err = kiumd_perprocess_pgtble_free(ki_dev, argp);
 		break;
 	default:
 		err = -ENOTTY;

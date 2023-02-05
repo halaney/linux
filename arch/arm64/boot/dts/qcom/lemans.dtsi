@@ -2558,8 +2558,7 @@
             compatible = "qcom,vfio-platform";
             interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
             reg = <0x17c23000 0x1000>;
-            iommus = <&apps_smmu 0x580 0x0>;
-            qcom,iommu-dma-addr-pool = <0x60002000 0x1FFFE000>;
+            iommus = <&kgsl_smmu 0x7 0x0>;
     	};
 
 	vfio_titan_base@ac00000 {
@@ -2659,7 +2658,6 @@
 
 		iommus = <&kgsl_smmu 0x0 0xc00>;
 		qcom,iommu-dma = "disabled";
-		qcom,iommu-dma-addr-pool = <0x0 0x7FFF0000>;
 		dma-coherent;
 	};
 
@@ -4068,7 +4066,7 @@
         };
 
 	kgsl_smmu: kgsl-smmu@3da0000 {
-                compatible = "qcom,sa8755p-v500", "arm,mmu-500";
+	        compatible = "arm,mmu-500", "qcom,adreno-smmu";
                 reg = <0x3da0000 0x20000>,
                         <0x3dca000 0x28>;
                 reg-names = "base", "tcu-base";
