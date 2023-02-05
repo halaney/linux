@@ -78,6 +78,13 @@ struct vhost_hab_config {
 	__u8 vm_name[32];
 };
 
+struct vhost_config {
+        __u32 offset;
+        __u32 size;
+        __u32 flags;
+        __u8 *data;
+};
+
 #define HAB_IOC_TYPE 0x0A
 
 #define IOCTL_HAB_SEND \
@@ -106,5 +113,7 @@ struct vhost_hab_config {
 
 #define IOCTL_HAB_VC_QUERY \
 	_IOWR(HAB_IOC_TYPE, 0xA, struct hab_info)
+
+#define VHOST_SET_CONFIG _IOW(VHOST_VIRTIO, 0x70, struct vhost_config)
 
 #endif /* _HAB_IOCTL_H */

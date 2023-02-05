@@ -831,7 +831,8 @@ static void hab_mem_dma_buf_release(struct dma_buf *dmabuf)
 	pages_list_put(pglist);
 }
 
-static int hab_mem_dma_buf_vmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
+static int hab_mem_dma_buf_vmap(struct dma_buf *dmabuf,
+				struct iosys_map *map)
 {
 	struct pages_list *pglist = dmabuf->priv;
 
@@ -843,11 +844,13 @@ static int hab_mem_dma_buf_vmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
 		if (!pglist->vmapping)
 			return -ENOMEM;
 	}
-	dma_buf_map_set_vaddr(map, pglist->vmapping);
+	iosys_map_set_vaddr(map, pglist->vmapping);
+
 	return 0;
 }
 
-static void hab_mem_dma_buf_vunmap(struct dma_buf *dmabuf, struct dma_buf_map *map)
+static void hab_mem_dma_buf_vunmap(struct dma_buf *dmabuf,
+				   struct iosys_map *map)
 {
 	struct pages_list *pglist = dmabuf->priv;
 

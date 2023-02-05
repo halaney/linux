@@ -110,7 +110,9 @@ static char hab_area_names[HABCFG_MMID_AREA_MAX + 1][HAB_AREA_NAME_MAX] = {
 	[MM_BUFFERQ_START / 100] = "bufferq",
 	[MM_DATA_START / 100] = "network",
 	[MM_HSI2S_START / 100] = "hsi2s",
-	[MM_XVM_START / 100] = "xvm"
+	[MM_XVM_START / 100] = "xvm",
+	[MM_VNW_START / 100] = "vnm",
+	[MM_EXT_START /100] = "ext"
 };
 
 static int rx_worker(struct vhost_hab_pchannel *vh_pchan);
@@ -303,7 +305,8 @@ static int vhost_hab_open(struct inode *inode, struct file *f)
 	}
 
 	vhost_dev_init(&vh_dev->dev, vqs, VHOST_HAB_PCHAN_VQ_MAX * num_pchan,
-			UIO_MAXIOV, VHOST_HAB_PKT_WEIGHT, VHOST_HAB_WEIGHT);
+			UIO_MAXIOV, VHOST_HAB_PKT_WEIGHT,
+			VHOST_HAB_WEIGHT, true, NULL);
 
 	list_for_each_entry(vh_pchan, &vh_dev->vh_pchan_list, node) {
 		vhost_work_init(&vh_pchan->rx_send_work, do_rx_send_work);
@@ -367,8 +370,7 @@ static void vhost_hab_flush(struct vhost_hab_dev *vh_dev)
 				vh_pchan->vqs + VHOST_HAB_PCHAN_TX_VQ);
 		vhost_hab_flush_vq(vh_dev,
 				vh_pchan->vqs + VHOST_HAB_PCHAN_RX_VQ);
-		vhost_work_flush(&vh_dev->dev, &vh_pchan->rx_send_work);
-		vhost_work_flush(&vh_dev->dev, &vh_pchan->tx_recv_work);
+		vhost_work_dev_flush(&vh_dev->dev);
 	}
 }
 
@@ -429,7 +431,7 @@ static long vhost_hab_ready_check(struct vhost_hab_dev *vh_dev)
 			goto err;
 		}
 
-		if (vq->call_ctx == NULL) {
+		if (vq->call_ctx.ctx == NULL) {
 			r = -EFAULT;
 			goto err;
 		}
@@ -521,7 +523,8 @@ exit:
 static long vhost_hab_reset_owner(struct vhost_hab_dev *vh_dev)
 {
 	long err;
-	struct vhost_umem *umem;
+	struct vhost_iotlb *umem;
+
 
 	mutex_lock(&vh_dev->dev.mutex);
 	err = vhost_dev_check_owner(&vh_dev->dev);
@@ -1171,7 +1174,7 @@ static int add_hab_device_to_cdev(uint32_t mmid, struct hab_device *habdev)
 			break;
 		}
 
-	if (i >= HABCFG_MMID_NUM) {
+	if (i >= /*HABCFG_MMID_NUM*/ hab_driver.ndevices) {
 		pr_err("too many hab devices created\n");
 		return -EINVAL;
 	}
@@ -1315,7 +1318,10 @@ static void stat_worker(struct work_struct *work)
 	struct vhost_virtqueue *vq_tx;
 	struct vhost_virtqueue *vq_rx;
 	int i;
+#ifdef CONFIG_SET_FS
 	mm_segment_t oldfs;
+#endif
+
 
 	mutex_lock(&g_vh.pchan_mutex);
 	for (i = 0; i < stat_work->pchan_count; i++) {
@@ -1328,16 +1334,20 @@ static void stat_worker(struct work_struct *work)
 		vq_tx = vh_pchan->vqs + VHOST_HAB_PCHAN_TX_VQ;
 		vq_rx = vh_pchan->vqs + VHOST_HAB_PCHAN_RX_VQ;
 
+#ifdef CONFIG_SET_FS
 		oldfs = get_fs();
 
 		set_fs(USER_DS);
-		use_mm(vq_tx->dev->mm);
+#endif
+		kthread_use_mm(vq_tx->dev->mm);
 
 		vh_pchan->tx_empty = vhost_vq_avail_empty(vq_tx->dev, vq_tx);
 		vh_pchan->rx_empty = vhost_vq_avail_empty(vq_rx->dev, vq_rx);
 
-		unuse_mm(vq_tx->dev->mm);
+		kthread_unuse_mm(vq_tx->dev->mm);
+#ifdef CONFIG_SET_FS
 		set_fs(oldfs);
+#endif
 
 		pr_info("%s mmid %d vq tx num %d empty %d vq rx num %d empty %d\n",
 			vh_pchan->pchan->name, vh_pchan->pchan->habdev->id, vq_tx->num,
