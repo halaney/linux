@@ -1795,6 +1795,7 @@ MODULE_DEVICE_TABLE(of, cam_cc_lemans_match_table);
 static int cam_cc_lemans_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	int ret;
 
 	regmap = qcom_cc_map(pdev, &cam_cc_lemans_desc);
 	if (IS_ERR(regmap))
@@ -1812,7 +1813,30 @@ static int cam_cc_lemans_probe(struct platform_device *pdev)
 	 */
 	regmap_update_bits(regmap, 0x131ec, BIT(0), BIT(0));
 
-	return qcom_cc_really_probe(pdev, &cam_cc_lemans_desc, regmap);
+	//return qcom_cc_really_probe(pdev, &cam_cc_lemans_desc, regmap);
+	ret = qcom_cc_really_probe(pdev, &cam_cc_lemans_desc, regmap);
+	clk_set_rate(cam_cc_ipe_clk.clkr.hw.clk, 600000000);
+	clk_set_rate(cam_cc_csid_clk.clkr.hw.clk, 400000000);
+	clk_set_rate(cam_cc_ipe_ahb_clk.clkr.hw.clk, 80000000);
+	clk_set_rate(cam_cc_ipe_fast_ahb_clk.clkr.hw.clk, 400000000);
+	clk_set_rate(cam_cc_icp_clk.clkr.hw.clk, 600000000);
+	clk_set_rate(cam_cc_ife_lite_clk.clkr.hw.clk, 480000000);
+	clk_set_rate(cam_cc_ife_lite_csid_clk.clkr.hw.clk, 400000000);
+	clk_set_rate(cam_cc_ife_lite_cphy_rx_clk.clkr.hw.clk, 400000000);
+	clk_set_rate(cam_cc_sfe_lite_1_clk.clkr.hw.clk, 600000000);
+	clk_set_rate(cam_cc_sfe_lite_0_clk.clkr.hw.clk, 600000000);
+	clk_set_rate(cam_cc_csi0phytimer_clk.clkr.hw.clk, 400000000);
+	clk_set_rate(cam_cc_csi1phytimer_clk.clkr.hw.clk, 400000000);
+	clk_set_rate(cam_cc_csi2phytimer_clk.clkr.hw.clk, 400000000);
+	clk_set_rate(cam_cc_csi3phytimer_clk.clkr.hw.clk, 400000000);
+	clk_set_rate(cam_cc_camnoc_axi_clk.clkr.hw.clk, 400000000);
+	clk_set_rate(cam_cc_cci_0_clk.clkr.hw.clk, 37500000);
+	clk_set_rate(cam_cc_cci_1_clk.clkr.hw.clk, 37500000);
+	clk_set_rate(cam_cc_cci_2_clk.clkr.hw.clk, 37500000);
+	clk_set_rate(cam_cc_cci_3_clk.clkr.hw.clk, 37500000);
+
+	return ret;
+
 }
 
 static struct platform_driver cam_cc_lemans_driver = {
