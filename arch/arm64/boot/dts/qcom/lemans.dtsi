@@ -3866,6 +3866,10 @@
 		phys = <&pcie0_lane>;
 		phy-names = "pciephy";
 
+		iommus = <&pcie_smmu 0x0000 0x1>;
+		iommu-map = <0x0 &pcie_smmu 0x0000 0x1>,
+			<0x100 &pcie_smmu 0x0001 0x1>;
+
 		perst-gpios = <&tlmm 2 GPIO_ACTIVE_LOW>;
 		wake-gpios = <&tlmm 0 GPIO_ACTIVE_HIGH>;
 
@@ -3975,6 +3979,10 @@
 
 		phys = <&pcie1_lane>;
 		phy-names = "pciephy";
+
+		iommus = <&pcie_smmu 0x0080 0x1>;
+		iommu-map = <0x0 &pcie_smmu 0x0080 0x1>,
+			<0x100 &pcie_smmu 0x0081 0x1>;
 
 		perst-gpios = <&tlmm 4 GPIO_ACTIVE_LOW>;
 		wake-gpios = <&tlmm 5 GPIO_ACTIVE_HIGH>;
