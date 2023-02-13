@@ -228,14 +228,6 @@
 	snps,mtl-rx-config = <&mtl_rx_setup>;
 	snps,mtl-tx-config = <&mtl_tx_setup>;
 
-	/* TODO: Looks like this is deprecated and putting it in the phy node is preferred.
-	 * As is, this doesn't do anything anyways since dwmac-qcom-ethqos doesn't set
-	 * needs_reset
-	 */
-	snps,reset-gpio = <&pmm8540c_gpios 1 GPIO_ACTIVE_LOW>;
-	snps,reset-active-low;
-	snps,reset-delays-us = <0 11000 70000>;
-
 	vreg-rgmii-supply = <&vreg_l2a>;
 
 	phy-handle = <&rgmii_phy>;
@@ -289,6 +281,11 @@
 
 			interrupt-parent = <&tlmm>;
 			interrupts-extended = <&tlmm 127 IRQ_TYPE_EDGE_FALLING>; /* phy-intr */
+
+			reset-gpios = <&pmm8540c_gpios 1 GPIO_ACTIVE_LOW>;
+			reset-assert-us = <11000>;
+			reset-deassert-us = <70000>;
+
 			device_type = "ethernet-phy";
 
 			/* Set to RGMII_SGMII mode and soft reset. Turn off auto-negotiation
