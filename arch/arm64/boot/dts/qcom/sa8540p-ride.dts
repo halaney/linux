@@ -277,7 +277,6 @@
 		ipv6-wq = <0>;
 	};
 
-	/* TODO: this is ripped from sa8155p-adp and im hacking it up */
 	mdio {
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
@@ -286,15 +285,20 @@
 
 		/* Marvell 88EA1512 */
 		rgmii_phy: phy@8 {
-			// Omitting the below should cause the bus to be scanned for a phy
 			reg = <0x8>;
 
 			interrupt-parent = <&tlmm>;
 			interrupts-extended = <&tlmm 127 IRQ_TYPE_EDGE_FALLING>; /* phy-intr */
 			device_type = "ethernet-phy";
-			/* confused about this compatible */
-			/* datasheet i found make it sound like it supports clause 22 and 45... */
-			//compatible = "ethernet-phy-ieee802.3-c22";
+
+			/* Set to RGMII_SGMII mode and soft reset. Turn off auto-negotiation
+			 * from userspace to talk to the switch on the SGMII side of things
+			 */
+			marvell,reg-init =
+				/* Set MODE[2:0] to RGMII_SGMII */
+				<0x12 0x14 0xfff8 0x4>,
+				/* Soft reset required after changing MODE[2:0] */
+				<0x12 0x14 0x7fff 0x8000>;
 		};
 	};
 };
