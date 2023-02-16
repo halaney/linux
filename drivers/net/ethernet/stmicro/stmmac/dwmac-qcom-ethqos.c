@@ -324,6 +324,16 @@ static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 
 static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 {
+	int phy_mode;
+	int phase_shift;
+
+	/* Determine if the PHY adds a 2 ns TX delay or the MAC handles it */
+	phy_mode = device_get_phy_mode(&ethqos->pdev->dev);
+	if (phy_mode == PHY_INTERFACE_MODE_RGMII_ID || phy_mode == PHY_INTERFACE_MODE_RGMII_TXID)
+		phase_shift = 0;
+	else
+		phase_shift = RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN;
+
 	/* Disable loopback mode */
 	rgmii_updatel(ethqos, RGMII_CONFIG2_TX_TO_RX_LOOPBACK_EN,
 		      0, RGMII_IO_MACRO_CONFIG2);
@@ -346,20 +356,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, RGMII_CONFIG2_DATA_DIVIDE_CLK_SEL,
 			      0, RGMII_IO_MACRO_CONFIG2);
 
-		/* TODO: this certainly isn't the way to indicate this */
-		//if (priv->plat->mac2mac_88Q5072)
-		// Not getting an IP without the if below -- need to figure out if i
-		// need a new dt property to switch thru here or what
-		if (1)
-			rgmii_updatel(ethqos,
-				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
-				      0, RGMII_IO_MACRO_CONFIG2);
-		else
-			rgmii_updatel(ethqos,
-				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
-				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
-				      RGMII_IO_MACRO_CONFIG2);
-
+		rgmii_updatel(ethqos, RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
+				  phase_shift, RGMII_IO_MACRO_CONFIG2);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RSVD_CONFIG15,
 			      0, RGMII_IO_MACRO_CONFIG2);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
@@ -403,15 +401,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      0, RGMII_IO_MACRO_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_DATA_DIVIDE_CLK_SEL,
 			      0, RGMII_IO_MACRO_CONFIG2);
-		if (1) // Downstream does mac2mac || marvell phy so probably board level
-		//if (ethqos->has_emac3)
-			rgmii_updatel(ethqos,
-					  RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
-					  0, RGMII_IO_MACRO_CONFIG2);
-		else
-			rgmii_updatel(ethqos, RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
-					  RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
-					  RGMII_IO_MACRO_CONFIG2);
+		rgmii_updatel(ethqos, RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
+				  phase_shift, RGMII_IO_MACRO_CONFIG2);
 		rgmii_updatel(ethqos, RGMII_CONFIG_MAX_SPD_PRG_2,
 			      BIT(6), RGMII_IO_MACRO_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RSVD_CONFIG15,
@@ -458,16 +449,8 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      0, RGMII_IO_MACRO_CONFIG);
 		rgmii_updatel(ethqos, RGMII_CONFIG2_DATA_DIVIDE_CLK_SEL,
 			      0, RGMII_IO_MACRO_CONFIG2);
-
-		if (0) // downstream has if !emac3 || mac2mac || marvell phy
-			rgmii_updatel(ethqos,
-				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
-				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
-				      RGMII_IO_MACRO_CONFIG2);
-		else
-			rgmii_updatel(ethqos,
-				      RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
-				      0, RGMII_IO_MACRO_CONFIG2);
+		rgmii_updatel(ethqos, RGMII_CONFIG2_TX_CLK_PHASE_SHIFT_EN,
+				  phase_shift, RGMII_IO_MACRO_CONFIG2);
 		rgmii_updatel(ethqos, RGMII_CONFIG_MAX_SPD_PRG_9,
 			      BIT(12) | GENMASK(9, 8),
 			      RGMII_IO_MACRO_CONFIG);
