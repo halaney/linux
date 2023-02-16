@@ -281,7 +281,7 @@ static int stmmac_mdio_read_c22(struct mii_bus *bus, int phyaddr, int phyreg)
 	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
 	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
 		& priv->hw->mii.clk_csr_mask;
-	if (priv->plat->has_gmac4) {
+	if (priv->plat->has_gmac4 || priv->plat->has_emac3) {
 		value |= MII_GMAC4_READ;
 	}
 
@@ -382,7 +382,7 @@ static int stmmac_mdio_write_c22(struct mii_bus *bus, int phyaddr, int phyreg,
 
 	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
 		& priv->hw->mii.clk_csr_mask;
-	if (priv->plat->has_gmac4)
+	if (priv->plat->has_gmac4 || priv->plat->has_emac3)
 		value |= MII_GMAC4_WRITE;
 	else
 		value |= MII_WRITE;
@@ -483,7 +483,7 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 	 * on MDC, so perform a dummy mdio read. To be updated for GMAC4
 	 * if needed.
 	 */
-	if (!priv->plat->has_gmac4)
+	if (!priv->plat->has_gmac4 && !priv->plat->has_emac3)
 		writel(0, priv->ioaddr + mii_address);
 #endif
 	return 0;
@@ -569,7 +569,7 @@ int stmmac_mdio_register(struct net_device *ndev)
 	} else {
 		new_bus->read = &stmmac_mdio_read_c22;
 		new_bus->write = &stmmac_mdio_write_c22;
-		if (priv->plat->has_gmac4) {
+		if (priv->plat->has_gmac4 || priv->plat->has_emac3) {
 			new_bus->read_c45 = &stmmac_mdio_read_c45;
 			new_bus->write_c45 = &stmmac_mdio_write_c45;
 		}
