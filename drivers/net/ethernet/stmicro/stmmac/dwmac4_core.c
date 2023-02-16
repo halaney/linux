@@ -198,15 +198,28 @@ static void dwmac4_prog_mtl_tx_algorithms(struct mac_device_info *hw,
 	writel(value, ioaddr + MTL_OPERATION_MODE);
 }
 
-static void dwmac4_set_mtl_tx_queue_weight(struct mac_device_info *hw,
-					   u32 weight, u32 queue)
+static void do_set_mtl_tx_queue_weight(struct mac_device_info *hw,
+				       int addr_offset, u32 weight)
 {
 	void __iomem *ioaddr = hw->pcsr;
-	u32 value = readl(ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
+	u32 value = readl(ioaddr + addr_offset);
 
 	value &= ~MTL_TXQ_WEIGHT_ISCQW_MASK;
 	value |= weight & MTL_TXQ_WEIGHT_ISCQW_MASK;
-	writel(value, ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
+	writel(value, ioaddr + addr_offset);
+}
+
+static inline void emac3_set_mtl_tx_queue_weight(struct mac_device_info *hw,
+						 u32 weight, u32 queue)
+{
+	do_set_mtl_tx_queue_weight(hw, EMAC3_MTL_TXQX_WEIGHT_BASE_ADDR(queue),
+				   weight);
+}
+
+static inline void dwmac4_set_mtl_tx_queue_weight(struct mac_device_info *hw,
+						  u32 weight, u32 queue)
+{
+	do_set_mtl_tx_queue_weight(hw, MTL_TXQX_WEIGHT_BASE_ADDR(queue), weight);
 }
 
 static void dwmac4_map_mtl_dma(struct mac_device_info *hw, u32 queue, u32 chan)
@@ -227,9 +240,13 @@ static void dwmac4_map_mtl_dma(struct mac_device_info *hw, u32 queue, u32 chan)
 	}
 }
 
-static void dwmac4_config_cbs(struct mac_device_info *hw,
-			      u32 send_slope, u32 idle_slope,
-			      u32 high_credit, u32 low_credit, u32 queue)
+static void do_config_cbs(struct mac_device_info *hw, u32 send_slope,
+			  u32 idle_slope, u32 high_credit, u32 low_credit,
+			  u32 queue, int etsx_ctrl_base_addr,
+			  int send_slp_credx_base_addr,
+			  int high_credx_base_addr, int low_credx_base_addr,
+			  void (*set_mtl_tx_queue_weight)(struct mac_device_info *hw,
+							  u32 weight, u32 queue))
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -241,31 +258,55 @@ static void dwmac4_config_cbs(struct mac_device_info *hw,
 	pr_debug("\tlow_credit: 0x%08x\n", low_credit);
 
 	/* enable AV algorithm */
-	value = readl(ioaddr + MTL_ETSX_CTRL_BASE_ADDR(queue));
+	value = readl(ioaddr + etsx_ctrl_base_addr);
 	value |= MTL_ETS_CTRL_AVALG;
 	value |= MTL_ETS_CTRL_CC;
-	writel(value, ioaddr + MTL_ETSX_CTRL_BASE_ADDR(queue));
+	writel(value, ioaddr + etsx_ctrl_base_addr);
 
 	/* configure send slope */
-	value = readl(ioaddr + MTL_SEND_SLP_CREDX_BASE_ADDR(queue));
+	value = readl(ioaddr + send_slp_credx_base_addr);
 	value &= ~MTL_SEND_SLP_CRED_SSC_MASK;
 	value |= send_slope & MTL_SEND_SLP_CRED_SSC_MASK;
-	writel(value, ioaddr + MTL_SEND_SLP_CREDX_BASE_ADDR(queue));
+	writel(value, ioaddr + send_slp_credx_base_addr);
 
 	/* configure idle slope (same register as tx weight) */
-	dwmac4_set_mtl_tx_queue_weight(hw, idle_slope, queue);
+	set_mtl_tx_queue_weight(hw, idle_slope, queue);
 
 	/* configure high credit */
-	value = readl(ioaddr + MTL_HIGH_CREDX_BASE_ADDR(queue));
+	value = readl(ioaddr + high_credx_base_addr);
 	value &= ~MTL_HIGH_CRED_HC_MASK;
 	value |= high_credit & MTL_HIGH_CRED_HC_MASK;
-	writel(value, ioaddr + MTL_HIGH_CREDX_BASE_ADDR(queue));
+	writel(value, ioaddr + high_credx_base_addr);
 
-	/* configure high credit */
-	value = readl(ioaddr + MTL_LOW_CREDX_BASE_ADDR(queue));
+	/* configure low credit */
+	value = readl(ioaddr + low_credx_base_addr);
 	value &= ~MTL_HIGH_CRED_LC_MASK;
 	value |= low_credit & MTL_HIGH_CRED_LC_MASK;
-	writel(value, ioaddr + MTL_LOW_CREDX_BASE_ADDR(queue));
+	writel(value, ioaddr + low_credx_base_addr);
+}
+
+static inline void emac3_config_cbs(struct mac_device_info *hw, u32 send_slope,
+				    u32 idle_slope, u32 high_credit,
+				    u32 low_credit, u32 queue)
+{
+	do_config_cbs(hw, send_slope, idle_slope, high_credit, low_credit,
+		      queue, EMAC3_MTL_ETSX_CTRL_BASE_ADDR(queue),
+		      EMAC3_MTL_SEND_SLP_CREDX_BASE_ADDR(queue),
+		      EMAC3_MTL_HIGH_CREDX_BASE_ADDR(queue),
+		      EMAC3_MTL_LOW_CREDX_BASE_ADDR(queue),
+		      emac3_set_mtl_tx_queue_weight);
+}
+
+static inline void dwmac4_config_cbs(struct mac_device_info *hw, u32 send_slope,
+				     u32 idle_slope, u32 high_credit,
+				     u32 low_credit, u32 queue)
+{
+	do_config_cbs(hw, send_slope, idle_slope, high_credit, low_credit,
+		      queue, MTL_ETSX_CTRL_BASE_ADDR(queue),
+		      MTL_SEND_SLP_CREDX_BASE_ADDR(queue),
+		      MTL_HIGH_CREDX_BASE_ADDR(queue),
+		      MTL_LOW_CREDX_BASE_ADDR(queue),
+		      dwmac4_set_mtl_tx_queue_weight);
 }
 
 static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
@@ -814,7 +855,8 @@ static void dwmac4_phystatus(void __iomem *ioaddr, struct stmmac_extra_stats *x)
 	}
 }
 
-static int dwmac4_irq_mtl_status(struct mac_device_info *hw, u32 chan)
+static int do_irq_mtl_status(struct mac_device_info *hw, u32 chan,
+			     int addr_offset)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 mtl_int_qx_status;
@@ -825,17 +867,27 @@ static int dwmac4_irq_mtl_status(struct mac_device_info *hw, u32 chan)
 	/* Check MTL Interrupt */
 	if (mtl_int_qx_status & MTL_INT_QX(chan)) {
 		/* read Queue x Interrupt status */
-		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(chan));
+		u32 status = readl(ioaddr + addr_offset);
 
 		if (status & MTL_RX_OVERFLOW_INT) {
 			/*  clear Interrupt */
 			writel(status | MTL_RX_OVERFLOW_INT,
-			       ioaddr + MTL_CHAN_INT_CTRL(chan));
+			       ioaddr + addr_offset);
 			ret = CORE_IRQ_MTL_RX_OVERFLOW;
 		}
 	}
 
 	return ret;
+}
+
+static inline int emac3_irq_mtl_status(struct mac_device_info *hw, u32 chan)
+{
+	return do_irq_mtl_status(hw, chan, EMAC3_MTL_CHAN_INT_CTRL(chan));
+}
+
+static inline int dwmac4_irq_mtl_status(struct mac_device_info *hw, u32 chan)
+{
+	return do_irq_mtl_status(hw, chan, MTL_CHAN_INT_CTRL(chan));
 }
 
 static int dwmac4_irq_status(struct mac_device_info *hw,
@@ -888,14 +940,16 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
 	return ret;
 }
 
-static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
-			 u32 rx_queues, u32 tx_queues)
+static void do_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
+		     u32 rx_queues, u32 tx_queues,
+		     int (*rx_addr_offset)(u32 queue),
+		     int (*tx_addr_offset)(u32 queue))
 {
 	u32 value;
 	u32 queue;
 
 	for (queue = 0; queue < tx_queues; queue++) {
-		value = readl(ioaddr + MTL_CHAN_TX_DEBUG(queue));
+		value = readl(ioaddr + tx_addr_offset(queue));
 
 		if (value & MTL_DEBUG_TXSTSFSTS)
 			x->mtl_tx_status_fifo_full++;
@@ -920,7 +974,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
 	}
 
 	for (queue = 0; queue < rx_queues; queue++) {
-		value = readl(ioaddr + MTL_CHAN_RX_DEBUG(queue));
+		value = readl(ioaddr + rx_addr_offset(queue));
 
 		if (value & MTL_DEBUG_RXFSTS_MASK) {
 			u32 rxfsts = (value & MTL_DEBUG_RXFSTS_MASK)
@@ -975,6 +1029,42 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
 					    >> GMAC_DEBUG_RFCFCSTS_SHIFT;
 	if (value & GMAC_DEBUG_RPESTS)
 		x->mac_gmii_rx_proto_engine++;
+}
+
+static inline int emac3_debug_rx_addr_offset(u32 queue)
+{
+	return EMAC3_MTL_CHAN_RX_DEBUG(queue);
+}
+
+static inline int emac3_debug_tx_addr_offset(u32 queue)
+{
+	return EMAC3_MTL_CHAN_TX_DEBUG(queue);
+}
+
+static inline void emac3_debug(void __iomem *ioaddr,
+			       struct stmmac_extra_stats *x, u32 rx_queues,
+			       u32 tx_queues)
+{
+	do_debug(ioaddr, x, rx_queues, tx_queues, emac3_debug_rx_addr_offset,
+		 emac3_debug_tx_addr_offset);
+}
+
+static inline int dwmac4_debug_rx_addr_offset(u32 queue)
+{
+	return MTL_CHAN_RX_DEBUG(queue);
+}
+
+static inline int dwmac4_debug_tx_addr_offset(u32 queue)
+{
+	return MTL_CHAN_TX_DEBUG(queue);
+}
+
+static inline void dwmac4_debug(void __iomem *ioaddr,
+				struct stmmac_extra_stats *x, u32 rx_queues,
+				u32 tx_queues)
+{
+	do_debug(ioaddr, x, rx_queues, tx_queues, dwmac4_debug_rx_addr_offset,
+		 dwmac4_debug_tx_addr_offset);
 }
 
 static void dwmac4_set_mac_loopback(void __iomem *ioaddr, bool enable)
@@ -1286,6 +1376,58 @@ const struct stmmac_ops dwmac510_ops = {
 	.pcs_rane = dwmac4_rane,
 	.pcs_get_adv_lp = dwmac4_get_adv_lp,
 	.debug = dwmac4_debug,
+	.set_filter = dwmac4_set_filter,
+	.safety_feat_config = dwmac5_safety_feat_config,
+	.safety_feat_irq_status = dwmac5_safety_feat_irq_status,
+	.safety_feat_dump = dwmac5_safety_feat_dump,
+	.rxp_config = dwmac5_rxp_config,
+	.flex_pps_config = dwmac5_flex_pps_config,
+	.set_mac_loopback = dwmac4_set_mac_loopback,
+	.update_vlan_hash = dwmac4_update_vlan_hash,
+	.sarc_configure = dwmac4_sarc_configure,
+	.enable_vlan = dwmac4_enable_vlan,
+	.set_arp_offload = dwmac4_set_arp_offload,
+	.config_l3_filter = dwmac4_config_l3_filter,
+	.config_l4_filter = dwmac4_config_l4_filter,
+	.est_configure = dwmac5_est_configure,
+	.est_irq_status = dwmac5_est_irq_status,
+	.fpe_configure = dwmac5_fpe_configure,
+	.fpe_send_mpacket = dwmac5_fpe_send_mpacket,
+	.fpe_irq_status = dwmac5_fpe_irq_status,
+	.add_hw_vlan_rx_fltr = dwmac4_add_hw_vlan_rx_fltr,
+	.del_hw_vlan_rx_fltr = dwmac4_del_hw_vlan_rx_fltr,
+	.restore_hw_vlan_rx_fltr = dwmac4_restore_hw_vlan_rx_fltr,
+};
+
+const struct stmmac_ops emac3_ops = {
+	.core_init = dwmac4_core_init,
+	.set_mac = stmmac_dwmac4_set_mac,
+	.rx_ipc = dwmac4_rx_ipc_enable,
+	.rx_queue_enable = dwmac4_rx_queue_enable,
+	.rx_queue_prio = dwmac4_rx_queue_priority,
+	.tx_queue_prio = dwmac4_tx_queue_priority,
+	.rx_queue_routing = dwmac4_rx_queue_routing,
+	.prog_mtl_rx_algorithms = dwmac4_prog_mtl_rx_algorithms,
+	.prog_mtl_tx_algorithms = dwmac4_prog_mtl_tx_algorithms,
+	.set_mtl_tx_queue_weight = emac3_set_mtl_tx_queue_weight,
+	.map_mtl_to_dma = dwmac4_map_mtl_dma,
+	.config_cbs = emac3_config_cbs,
+	.dump_regs = dwmac4_dump_regs,
+	.host_irq_status = dwmac4_irq_status,
+	.host_mtl_irq_status = emac3_irq_mtl_status,
+	.flow_ctrl = dwmac4_flow_ctrl,
+	.pmt = dwmac4_pmt,
+	.set_umac_addr = dwmac4_set_umac_addr,
+	.get_umac_addr = dwmac4_get_umac_addr,
+	.set_eee_mode = dwmac4_set_eee_mode,
+	.reset_eee_mode = dwmac4_reset_eee_mode,
+	.set_eee_lpi_entry_timer = dwmac4_set_eee_lpi_entry_timer,
+	.set_eee_timer = dwmac4_set_eee_timer,
+	.set_eee_pls = dwmac4_set_eee_pls,
+	.pcs_ctrl_ane = dwmac4_ctrl_ane,
+	.pcs_rane = dwmac4_rane,
+	.pcs_get_adv_lp = dwmac4_get_adv_lp,
+	.debug = emac3_debug,
 	.set_filter = dwmac4_set_filter,
 	.safety_feat_config = dwmac5_safety_feat_config,
 	.safety_feat_irq_status = dwmac5_safety_feat_irq_status,
