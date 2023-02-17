@@ -217,6 +217,7 @@
 		};
 	};
 
+#if 0
 	smp2p-adsp {
 		compatible = "qcom,smp2p";
 		qcom,smem = <443>, <429>;
@@ -307,6 +308,7 @@
 			#interrupt-cells = <2>;
 		};
 	};
+#endif
 
 };
 
