@@ -51,6 +51,7 @@
 #define SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY	GENMASK(26, 21)
 #define SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_CODE	GENMASK(29, 27)
 #define SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_EN	BIT(30)
+#define SDCC_DDR_CONFIG_TCXO_CYCLES_CNT		GENMASK(11,9)
 #define SDCC_DDR_CONFIG_PRG_RCLK_DLY		GENMASK(8, 0)
 
 /* SDCC_HC_REG_DLL_CONFIG2 fields */
@@ -364,9 +365,6 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			      RGMII_CONFIG2_RX_PROG_SWAP,
 			      RGMII_IO_MACRO_CONFIG2);
 
-		/* TODO: It is probably ideal to use tx-internal-delay-ps/rx-internal-delay-ps
-		 * for this stuff, but the current driver hardcodes it so I will too.
-		 */
 		/* PRG_RCLK_DLY = (TCXO period * TCXO_CYCLES_CNT)/ (2 * RX delay ns),
 		 * in practice this becomes PRG_RCLK_DLY = (52 * 4) / (2 * RX delay ns)
 		 */
