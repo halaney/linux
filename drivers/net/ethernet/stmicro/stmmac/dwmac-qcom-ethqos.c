@@ -220,6 +220,9 @@ static const struct ethqos_emac_driver_data emac_v2_1_0_data = {
 static const struct ethqos_emac_por emac_v3_0_0_por[] = {
 	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x40c01343 },
 	{ .offset = SDCC_HC_REG_DLL_CONFIG,	.value = 0x2004642c },
+	/* TODO: Ask Ning if v2.1.0/v2.3.0 really have reset value of 0, or if below is correct
+	 * for HC_REG_DDR_CONFIG on those as well. Should we set 0 instead?
+	 */
 	{ .offset = SDCC_HC_REG_DDR_CONFIG,	.value = 0x80040800 },
 	{ .offset = SDCC_HC_REG_DLL_CONFIG2,	.value = 0x00200000 },
 	{ .offset = SDCC_USR_CTL,		.value = 0x00010800 },
@@ -227,6 +230,10 @@ static const struct ethqos_emac_por emac_v3_0_0_por[] = {
 };
 
 static const char * const emac_v3_0_0_vreg_l[] = {
+	/* TODO: Ask Ning if this regulator actually is needed, I'm not sure how to determine on
+	 * schematics and things seem to work without it, BUT that doesn't necessarily mean
+	 * it isn't on for some other reason. If it is a dependency we should vote for it
+	 */
 	"vreg-rgmii",
 };
 
@@ -260,7 +267,9 @@ static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 	rgmii_updatel(ethqos, SDCC_DLL_CONFIG_DLL_EN,
 		      SDCC_DLL_CONFIG_DLL_EN, SDCC_HC_REG_DLL_CONFIG);
 
-	/* TODO figure what this is about... */
+	/* TODO: Ask Ning why this programming change exists. Both of these fields are
+	 * ambiguously decscribed in my documentation
+	 */
 	if (!ethqos->has_emac3) {
 		rgmii_updatel(ethqos, SDCC_DLL_MCLK_GATING_EN,
 			      0, SDCC_HC_REG_DLL_CONFIG);
@@ -302,9 +311,6 @@ static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
 	rgmii_updatel(ethqos, SDCC_DLL_CONFIG2_DDR_CAL_EN,
 		      SDCC_DLL_CONFIG2_DDR_CAL_EN, SDCC_HC_REG_DLL_CONFIG2);
 
-	/* TODO: Note to self, this stuff might actually make sense with this if statement
-	 * not entirely clear though
-	 */
 	if (!ethqos->has_emac3) {
 		rgmii_updatel(ethqos, SDCC_DLL_CONFIG2_DLL_CLOCK_DIS,
 			      0, SDCC_HC_REG_DLL_CONFIG2);
@@ -369,6 +375,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		 * in practice this becomes PRG_RCLK_DLY = (52 * 4) / (2 * RX delay ns)
 		 */
 		if (ethqos->has_emac3)
+			/* TODO: Ask Ning to confirm this calculation is correct */
 			/* 0.9 ns */
 			rgmii_updatel(ethqos, SDCC_DDR_CONFIG_PRG_RCLK_DLY,
 				      115, SDCC_HC_REG_DDR_CONFIG);
@@ -406,8 +413,15 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, RGMII_CONFIG2_RSVD_CONFIG15,
 			      0, RGMII_IO_MACRO_CONFIG2);
 
-		/* TODO: check if the inputs are swapped on the SIP accidentally,
-		 * if so deal with it on the board level dts */
+		/* TODO: Ask Ning: This works without this change. I don't understand
+		 * what this actually is doing. I am also not positive I tested properly
+		 * since this change only exists in the 100 speed case and I'm running at
+		 * 1000! Same thing applies for speed 10. Looking at downstream I should
+		 * have they actually did this for 1000/100/10 cases, so I assume setting
+		 * this to 0 actually does work in all cases since it works for 1000.
+		 *
+		 * Rambling over, what's the point of this and why do we need to enable it when
+		 * upstream sets it to 0?
 		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_CONFIG2_RX_PROG_SWAP,
@@ -416,7 +430,6 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      0, RGMII_IO_MACRO_CONFIG2);
 
-		/* TODO: Will this mess up rxid stuff above? check the math from old comment */
 		/* Write 0x5 to PRG_RCLK_DLY_CODE */
 		rgmii_updatel(ethqos, SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_CODE,
 			      (BIT(29) | BIT(27)), SDCC_HC_REG_DDR_CONFIG);
@@ -470,7 +483,9 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		rgmii_updatel(ethqos, SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_EN,
 			      SDCC_DDR_CONFIG_EXT_PRG_RCLK_DLY_EN,
 			      SDCC_HC_REG_DDR_CONFIG);
-		/* TODO: Use the variable like the other speeds do? */
+		/* TODO: Use the variable like the other speeds do? 
+		 * seems reasonable to use rgmii_config_loopback_en like the 1000/100
+		 * cases upstream has... */
 		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos, RGMII_CONFIG_LOOPBACK_EN,
 				      0, RGMII_IO_MACRO_CONFIG);
@@ -509,9 +524,15 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 	rgmii_updatel(ethqos, SDCC_DLL_CONFIG_PDN,
 		      SDCC_DLL_CONFIG_PDN, SDCC_HC_REG_DLL_CONFIG);
 
-	/* TODO: figure out what this is about... */
+	/* TODO: Ask Ning why this change is needed specifically,
+	 * without it I get this message:
+	 * [    8.769045] qcom-ethqos 23000000.ethernet: Timeout while waiting for DLL lock
+	 * but traffic still works ok with iperf3! I think more "explained" setting
+	 * of these register fields is going to be needed to be accepted upstream,
+	 * but we might get lucky with it as is. I don't really know what a lot
+	 * of these fields are :(
+	 */
 	if (ethqos->has_emac3) {
-		/* TODO: this seems not cool */
 		if (ethqos->speed == SPEED_1000) {
 			rgmii_writel(ethqos, 0x1800000, SDCC_TEST_CTL);
 			rgmii_writel(ethqos, 0x2C010800, SDCC_USR_CTL);
@@ -540,7 +561,7 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 			      SDCC_DLL_CONFIG_CK_OUT_EN,
 			      SDCC_HC_REG_DLL_CONFIG);
 
-		/* TODO: figure what this is about... */
+		/* TODO: Ask Ning why we don't wanna do this */
 		/* Set USR_CTL bit 26 with mask of 3 bits */
 		if (!ethqos->has_emac3)
 			rgmii_updatel(ethqos, GENMASK(26, 24), BIT(26),
