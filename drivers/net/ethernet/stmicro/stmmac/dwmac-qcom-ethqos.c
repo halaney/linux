@@ -422,6 +422,7 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 		 *
 		 * Rambling over, what's the point of this and why do we need to enable it when
 		 * upstream sets it to 0?
+		 */
 		if (ethqos->has_emac3)
 			rgmii_updatel(ethqos, RGMII_CONFIG2_RX_PROG_SWAP,
 				      RGMII_CONFIG2_RX_PROG_SWAP,
