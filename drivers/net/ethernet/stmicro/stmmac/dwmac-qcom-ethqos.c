@@ -6,7 +6,6 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
-#include <linux/regulator/consumer.h>
 #include "stmmac.h"
 #include "stmmac_platform.h"
 
@@ -82,11 +81,6 @@ struct ethqos_emac_driver_data {
 	const struct ethqos_emac_por *por;
 	unsigned int num_por;
 	bool rgmii_config_looback_en;
-
-	/* regulators to be requested */
-	const char * const *vreg_list;
-	unsigned int num_vregs;
-
 	bool has_emac3;
 };
 
@@ -101,9 +95,6 @@ struct qcom_ethqos {
 	const struct ethqos_emac_por *por;
 	unsigned int num_por;
 	bool rgmii_config_looback_en;
-
-	struct regulator_bulk_data *vregs;
-	unsigned int num_vregs;
 
 	bool has_emac3;
 };
@@ -229,20 +220,10 @@ static const struct ethqos_emac_por emac_v3_0_0_por[] = {
 	{ .offset = RGMII_IO_MACRO_CONFIG2,	.value = 0x00002060 },
 };
 
-static const char * const emac_v3_0_0_vreg_l[] = {
-	/* TODO: Ask Ning if this regulator actually is needed, I'm not sure how to determine on
-	 * schematics and things seem to work without it, BUT that doesn't necessarily mean
-	 * it isn't on for some other reason. If it is a dependency we should vote for it
-	 */
-	"vreg-rgmii",
-};
-
 static const struct ethqos_emac_driver_data emac_v3_0_0_data = {
 	.por = emac_v3_0_0_por,
 	.num_por = ARRAY_SIZE(emac_v3_0_0_por),
 	.rgmii_config_looback_en = false,
-	.vreg_list = emac_v3_0_0_vreg_l,
-	.num_vregs = ARRAY_SIZE(emac_v3_0_0_vreg_l),
 	.has_emac3 = true,
 };
 
@@ -623,23 +604,6 @@ static int ethqos_clks_config(void *priv, bool enabled)
 	return ret;
 }
 
-static int qcom_ethqos_vreg_init(struct qcom_ethqos *ethqos,
-		const struct ethqos_emac_driver_data *data) {
-	int i;
-
-	if (!ethqos->num_vregs)
-		return 0;
-
-	ethqos->vregs = devm_kcalloc(&ethqos->pdev->dev, ethqos->num_vregs, sizeof(*ethqos->vregs), GFP_KERNEL);
-	if (!ethqos->vregs)
-		return -ENOMEM;
-
-	for (i = 0; i < ethqos->num_vregs; ++i)
-		ethqos->vregs[i].supply = data->vreg_list[i];
-
-	return devm_regulator_bulk_get(&ethqos->pdev->dev, ethqos->num_vregs, ethqos->vregs);
-}
-
 static int qcom_ethqos_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -678,18 +642,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ethqos->por = data->por;
 	ethqos->num_por = data->num_por;
 	ethqos->rgmii_config_looback_en = data->rgmii_config_looback_en;
-	ethqos->num_vregs = data->num_vregs;
 	ethqos->has_emac3 = data->has_emac3;
-
-	ret = qcom_ethqos_vreg_init(ethqos, data);
-	if (ret)
-		goto err_mem;
-
-	ret = regulator_bulk_enable(ethqos->num_vregs, ethqos->vregs);
-	if (ret) {
-		dev_err(&pdev->dev, "failed to enable regulators, err=%d\n", ret);
-		goto err_regulator;
-	}
 
 	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_clk)) {
@@ -722,9 +675,6 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 err_clk:
 	ethqos_clks_config(ethqos, false);
 
-err_regulator:
-	regulator_bulk_disable(ethqos->num_vregs, ethqos->vregs);
-
 err_mem:
 	stmmac_remove_config_dt(pdev, plat_dat);
 
@@ -742,7 +692,6 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	ret = stmmac_pltfr_remove(pdev);
 	ethqos_clks_config(ethqos, false);
-	regulator_bulk_disable(ethqos->num_vregs, ethqos->vregs);
 
 	return ret;
 }
