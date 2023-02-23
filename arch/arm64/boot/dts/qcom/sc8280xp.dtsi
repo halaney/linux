@@ -763,7 +763,7 @@
 
 		ethernet0: ethernet@00020000 {
 			//compatible = "qcom,stmmac-ethqos-emac0";
-			compatible = "qcom,stmmac-ethqos-emac1";
+			compatible = "qcom,sc8280xp-ethqos";
 			// TODO: full hex addresses?
 			reg = <0x0 0x20000 0x0 0x10000>,
 				<0x0 0x36000 0x0 0x100>;
@@ -792,7 +792,7 @@
 		};
 
 		ethernet1: ethernet@23000000 {
-			compatible = "qcom,stmmac-ethqos-emac1";
+			compatible = "qcom,sc8280xp-ethqos";
 			reg = <0x0 0x23000000 0x0 0x10000>,
 				<0x0 0x23016000 0x0 0x100>;
 			reg-names = "stmmaceth", "rgmii";
