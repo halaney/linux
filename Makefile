@@ -22,10 +22,6 @@ $(if $(filter __%, $(MAKECMDGOALS)), \
 PHONY := __all
 __all:
 
-# Set RHEL variables
-# Use this spot to avoid future merge conflicts
-include Makefile.rhelver
-
 # We are using a recursive build, so we need to do a little thinking
 # to get the ordering right.
 #
@@ -202,6 +198,9 @@ endif
 
 this-makefile := $(lastword $(MAKEFILE_LIST))
 abs_srctree := $(realpath $(dir $(this-makefile)))
+
+# Set RHEL variables
+include $(abs_srctree)/Makefile.rhelver
 
 ifneq ($(words $(subst :, ,$(abs_srctree))), 1)
 $(error source directory cannot contain spaces or colons)
