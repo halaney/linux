@@ -90,7 +90,7 @@
 
 		vreg_l8a: ldo8 {
 			regulator-name = "vreg_l8a";
-			regulator-min-microvolt = <2400000>;
+			regulator-min-microvolt = <2504000>;
 			regulator-max-microvolt = <3300000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 			regulator-allow-set-load;
