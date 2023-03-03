@@ -486,6 +486,10 @@ static int gh_secure_vm_loader_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_unmap_fw;
 
+	ret = qcom_scm_enable_shm_bridge();
+	if (ret)
+		dev_err(dev, "Failed to enable shm bridge via SCM\n");
+
 	spin_lock(&gh_sec_vm_lock);
 	list_add(&sec_vm_dev->list, &gh_sec_vm_list);
 	spin_unlock(&gh_sec_vm_lock);
