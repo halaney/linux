@@ -365,6 +365,7 @@ static int gh_vm_loader_mem_probe(struct gh_sec_vm_dev *sec_vm_dev)
 	struct reserved_mem *rmem;
 	struct device_node *node;
 	struct resource res;
+	struct resource *res_root, *res_new;
 	phys_addr_t phys;
 	ssize_t size;
 	void *virt;
@@ -375,6 +376,8 @@ static int gh_vm_loader_mem_probe(struct gh_sec_vm_dev *sec_vm_dev)
 		dev_err(dev, "DT error getting \"memory-region\"\n");
 		return -EINVAL;
 	}
+
+	res_root = &iomem_resource;
 
 	if (!of_property_read_bool(node, "no-map")) {
 		sec_vm_dev->is_static = false;
@@ -420,6 +423,15 @@ static int gh_vm_loader_mem_probe(struct gh_sec_vm_dev *sec_vm_dev)
 		sec_vm_dev->fw_phys = phys;
 		sec_vm_dev->fw_virt = virt;
 		sec_vm_dev->fw_size = size;
+
+		res_new = lookup_resource(res_root, phys);
+		if (!res_new)
+			dev_err(dev, "resource start 0x%lx is not existing\n", phys);
+		else {
+			res_new->name = "System RAM";
+			res_new->flags = IORESOURCE_SYSTEM_RAM | IORESOURCE_BUSY;
+			memblock_clear_nomap(phys, size);
+		}
 	}
 
 err_of_node_put:
@@ -503,13 +515,30 @@ err_unmap_fw:
 
 static int gh_secure_vm_loader_remove(struct platform_device *pdev)
 {
+	struct device *dev;
 	struct gh_sec_vm_dev *sec_vm_dev;
+	struct resource *res_root, *res_old;
 
 	sec_vm_dev = platform_get_drvdata(pdev);
+	dev = sec_vm_dev->dev;
+	res_root = &iomem_resource;
 
 	spin_lock(&gh_sec_vm_lock);
 	list_del(&sec_vm_dev->list);
 	spin_unlock(&gh_sec_vm_lock);
+
+	if (sec_vm_dev->is_static) {
+		res_old = lookup_resource(res_root, sec_vm_dev->fw_phys);
+		if (!res_old)
+			dev_err(dev, "resource start 0x%lx is not existing\n",
+				sec_vm_dev->fw_phys);
+		else {
+			res_old->name = "reserved";
+			res_old->flags = IORESOURCE_MEM;
+			memblock_mark_nomap(sec_vm_dev->fw_phys,
+						sec_vm_dev->fw_size);
+		}
+	}
 
 	if (sec_vm_dev->is_static)
 		memunmap(sec_vm_dev->fw_virt);
