@@ -461,6 +461,95 @@
 		reg = <0x0 0xd1800000 0x0 0x3900000>;
 	};
 
+	auto_vm_vblk0_ring: auto_vm_vblk0_ring@d5100000 {
+		no-map;
+		reg = <0x0 0xd5100000 0x0 0x4000>;
+		gunyah-label = <0x10>;
+	};
+
+	auto_vm_vblk1_ring: auto_vm_vblk1_ring@d5104000 {
+		no-map;
+		reg = <0x0 0xd5104000 0x0 0x4000>;
+		gunyah-label = <0x11>;
+	};
+
+	auto_vm_vblk2_ring: auto_vm_vblk2_ring@d5108000 {
+		no-map;
+		reg = <0x0 0xd5108000 0x0 0x4000>;
+		gunyah-label = <0x15>;
+	};
+
+	auto_vm_vblk3_ring: auto_vm_vblk3_ring@d510c000 {
+		no-map;
+		reg = <0x0 0xd510c000 0x0 0x4000>;
+		gunyah-label = <0x16>;
+	};
+
+	auto_vm_vblk4_ring: auto_vm_vblk4_ring@d5110000 {
+		no-map;
+		reg = <0x0 0xd5110000 0x0 0x4000>;
+		gunyah-label = <0x17>;
+	};
+
+	auto_vm_vnet0_ring: auto_vm_vnet0_ring@d5114000 {
+		no-map;
+		reg = <0x0 0xd5114000 0x0 0xC000>;
+		gunyah-label = <0x13>;
+	};
+
+	auto_vm_vhab0_ring: auto_vm_vhab0_ring@d5120000 {
+		no-map;
+		reg = <0x0 0xd5120000 0x0 0x20000>;
+		gunyah-label = <0x14>;
+	};
+
+	auto_vm_vhab1_ring: auto_vm_vhab1_ring@d5140000 {
+		no-map;
+		reg = <0x0 0xd5140000 0x0 0x20000>;
+		gunyah-label = <0x18>;
+	};
+
+	auto_vm_vhab2_ring: auto_vm_vhab2_ring@d5160000 {
+		no-map;
+		reg = <0x0 0xd5160000 0x0 0x80000>;
+		gunyah-label = <0x19>;
+	};
+
+	auto_vm_vhab3_ring: auto_vm_vhab3_ring@d51e0000 {
+		no-map;
+		reg = <0x0 0xd51e0000 0x0 0xa0000>;
+		gunyah-label = <0x1a>;
+	};
+
+	auto_vm_vhab4_ring: auto_vm_vhab4_ring@d5280000 {
+		no-map;
+		reg = <0x0 0xd5280000 0x0 0x60000>;
+		gunyah-label = <0x1b>;
+	};
+
+	auto_vm_vhab5_ring: auto_vm_vhab5_ring@d52e0000 {
+		no-map;
+		reg = <0x0 0xd52e0000 0x0 0x60000>;
+		gunyah-label = <0x1c>;
+	};
+
+	auto_vm_resv_ring: auto_vm_resv_ring@d5340000 {
+		no-map;
+		reg = <0x0 0xd5340000 0x0 0xc0000>;
+		gunyah-label = <0x1d>;
+	};
+
+	auto_vm_swiotlb: auto_vm_swiotlb@d5400000 {
+		no-map;
+		reg = <0x0 0xd5400000 0x0 0x1000000>;
+		gunyah-label = <0x12>;
+	};
+
+	auto_vm_0_mem: auto_vm_0_mem@d00000000 {
+		no-map;
+		reg = <0x0 0xE0000000 0x0 0xC0000000>;
+	};
+
 	dump_mem: mem_dump_region {
 		compatible = "shared-dma-pool";
 		alloc-ranges = <0x0 0x00000000 0x0 0xffffffff>;
@@ -4401,5 +4490,89 @@
 			#clock-cells = <0>;
 			clock-output-names = "pcie_1_pipe_clk";
 		};
+	};
+
+	secure_buffer: qcom,secure-buffer {
+		compatible = "qcom,secure-buffer";
+	};
+
+	auto_vm: qcom,auto_vm@df000000 {
+		reg = <0xd5100000 0x1300000>;
+		vm_name = "autoghgvm";
+		shared-buffers = <&auto_vm_vblk0_ring &auto_vm_vblk1_ring &auto_vm_vblk2_ring &auto_vm_vblk3_ring &auto_vm_vblk4_ring &auto_vm_vnet0_ring &auto_vm_vhab0_ring &auto_vm_vhab1_ring &auto_vm_vhab2_ring &auto_vm_vhab3_ring &auto_vm_vhab4_ring &auto_vm_vhab5_ring &auto_vm_resv_ring &auto_vm_swiotlb>;
+	};
+
+	auto_vm_be0: auto_vm_be0@10 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x10>;
+	};
+
+	auto_vm_be1: auto_vm_be1@11 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x11>;
+	};
+
+	auto_vm_be2: auto_vm_be2@13 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x13>;
+	};
+
+	auto_vm_be3: auto_vm_be3@14 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x14>;
+	};
+
+	auto_vm_be4: auto_vm_be4@15 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x15>;
+	};
+
+	auto_vm_be5: auto_vm_be5@16 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x16>;
+	};
+
+	auto_vm_be6: auto_vm_be6@17 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x17>;
+	};
+
+	auto_vm_be7: auto_vm_be7@18 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x18>;
+	};
+
+	auto_vm_be8: auto_vm_be8@19 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x19>;
+	};
+
+	auto_vm_be9: auto_vm_be9@1a {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x1a>;
+	};
+
+	auto_vm_be10: auto_vm_be10@1b {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x1b>;
+	};
+
+	auto_vm_be11: auto_vm_be11@1c {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x1c>;
+	};
+
+	auto_vm_be12: auto_vm_be12@1d {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x1d>;
+	};
+
+	auto_vm_0: gh-secure-vm-loader@0 {
+		compatible = "qcom,gh-secure-vm-loader";
+		qcom,pas-id = <44>;
+		qcom,vmid = <52>;
+		qcom,firmware-name = "autoghgvm";
+		memory-region = <&auto_vm_0_mem>;
+		virtio-backends = <&auto_vm_be0 &auto_vm_be1 &auto_vm_be2 &auto_vm_be3 &auto_vm_be4 &auto_vm_be5 &auto_vm_be6 &auto_vm_be7 &auto_vm_be8 &auto_vm_be9 &auto_vm_be10 &auto_vm_be11 &auto_vm_be12>;
 	};
 };
