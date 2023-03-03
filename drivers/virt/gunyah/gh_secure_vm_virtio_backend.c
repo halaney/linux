@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/interrupt.h>
@@ -36,7 +36,7 @@
 #include <trace/events/gh_virtio_backend.h>
 #undef CREATE_TRACE_POINTS
 
-#define MAX_QUEUES		4
+#define MAX_QUEUES		16
 #define MAX_IO_CONTEXTS		MAX_QUEUES
 
 #define VIRTIO_PRINT_MARKER	"gh_virtio_backend"
