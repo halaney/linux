@@ -6,6 +6,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
+#include "dwmac-qcom-serdes.h"
 #include "stmmac.h"
 #include "stmmac_platform.h"
 
@@ -87,10 +88,14 @@ struct ethqos_emac_driver_data {
 
 struct qcom_ethqos {
 	struct platform_device *pdev;
+	void __iomem *ioaddr;
 	void __iomem *rgmii_base;
+	void __iomem *sgmii_base;
 
 	unsigned int rgmii_clk_rate;
 	struct clk *rgmii_clk;
+	struct clk *phyaux_clk;
+	struct clk *sgmiref_clk;
 	unsigned int speed;
 
 	const struct ethqos_emac_por *por;
@@ -118,6 +123,197 @@ static void rgmii_updatel(struct qcom_ethqos *ethqos,
 	temp =  rgmii_readl(ethqos, offset);
 	temp = (temp & ~(mask)) | val;
 	rgmii_writel(ethqos, temp, offset);
+}
+
+#include "dwmac-qcom-serdes.h"
+
+int configure_serdes_dt(struct qcom_ethqos *ethqos)
+{
+	struct resource *res = NULL;
+	struct platform_device *pdev = ethqos->pdev;
+	int ret;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "serdes");
+	ethqos->sgmii_base = devm_ioremap_resource(&pdev->dev, res);
+	if (IS_ERR(ethqos->sgmii_base)) {
+		dev_err(&pdev->dev, "Can't get sgmii base\n");
+		ret = PTR_ERR(ethqos->sgmii_base);
+		goto err_mem;
+	}
+
+	ethqos->sgmiref_clk = devm_clk_get(&pdev->dev, "sgmi_ref");
+	if (IS_ERR(ethqos->sgmiref_clk)) {
+		ret = PTR_ERR(ethqos->sgmiref_clk);
+		ethqos->sgmiref_clk = NULL;
+		goto err_mem;
+	}
+	ethqos->phyaux_clk = devm_clk_get(&pdev->dev, "phyaux");
+	if (IS_ERR(ethqos->phyaux_clk)) {
+		ret = PTR_ERR(ethqos->phyaux_clk);
+		goto err_get_phyaux_clk;
+	}
+
+	ret = clk_prepare_enable(ethqos->sgmiref_clk);
+	if (ret)
+		goto err_enable_sgmiref_clk;
+
+	ret = clk_prepare_enable(ethqos->phyaux_clk);
+	if (ret)
+		goto err_enable_phyaux_clk;
+
+	return 0;
+
+err_enable_phyaux_clk:
+	clk_disable_unprepare(ethqos->sgmiref_clk);
+err_enable_sgmiref_clk:
+	ethqos->phyaux_clk = NULL;
+err_get_phyaux_clk:
+	ethqos->sgmiref_clk = NULL;
+err_mem:
+	return ret;
+}
+
+void qcom_ethqos_serdes_init(struct qcom_ethqos *ethqos, int speed)
+{
+	int retry = 500;
+	unsigned int val;
+
+	/****************MODULE: SGMII_PHY_SGMII_PCS**********************************/
+	writel_relaxed(0x01, ethqos->sgmii_base + QSERDES_PCS_SW_RESET);
+	writel_relaxed(0x01, ethqos->sgmii_base + QSERDES_PCS_POWER_DOWN_CONTROL);
+
+	/***************** MODULE: QSERDES_COM_SGMII_QMP_PLL*********/
+	writel_relaxed(0x0F, ethqos->sgmii_base + QSERDES_COM_PLL_IVCO);
+	writel_relaxed(0x06, ethqos->sgmii_base + QSERDES_COM_CP_CTRL_MODE0);
+	writel_relaxed(0x16, ethqos->sgmii_base + QSERDES_COM_PLL_RCTRL_MODE0);
+	writel_relaxed(0x36, ethqos->sgmii_base + QSERDES_COM_PLL_CCTRL_MODE0);
+	writel_relaxed(0x1A, ethqos->sgmii_base + QSERDES_COM_SYSCLK_EN_SEL);
+	writel_relaxed(0x0A, ethqos->sgmii_base + QSERDES_COM_LOCK_CMP1_MODE0);
+	writel_relaxed(0x1A, ethqos->sgmii_base + QSERDES_COM_LOCK_CMP2_MODE0);
+	writel_relaxed(0x82, ethqos->sgmii_base + QSERDES_COM_DEC_START_MODE0);
+	writel_relaxed(0x55, ethqos->sgmii_base + QSERDES_COM_DIV_FRAC_START1_MODE0);
+	writel_relaxed(0x55, ethqos->sgmii_base + QSERDES_COM_DIV_FRAC_START2_MODE0);
+	writel_relaxed(0x03, ethqos->sgmii_base + QSERDES_COM_DIV_FRAC_START3_MODE0);
+	writel_relaxed(0x24, ethqos->sgmii_base + QSERDES_COM_VCO_TUNE1_MODE0);
+
+	writel_relaxed(0x02, ethqos->sgmii_base + QSERDES_COM_VCO_TUNE2_MODE0);
+	writel_relaxed(0x00, ethqos->sgmii_base + QSERDES_COM_VCO_TUNE_INITVAL2);
+	writel_relaxed(0x04, ethqos->sgmii_base + QSERDES_COM_HSCLK_SEL);
+	writel_relaxed(0x00, ethqos->sgmii_base + QSERDES_COM_HSCLK_HS_SWITCH_SEL);
+	writel_relaxed(0x0A, ethqos->sgmii_base + QSERDES_COM_CORECLK_DIV_MODE0);
+	writel_relaxed(0x00, ethqos->sgmii_base + QSERDES_COM_CORE_CLK_EN);
+	writel_relaxed(0xB9, ethqos->sgmii_base + QSERDES_COM_BIN_VCOCAL_CMP_CODE1_MODE0);
+	writel_relaxed(0x1E, ethqos->sgmii_base + QSERDES_COM_BIN_VCOCAL_CMP_CODE2_MODE0);
+	writel_relaxed(0x11, ethqos->sgmii_base + QSERDES_COM_BIN_VCOCAL_HSCLK_SEL);
+
+	/******************MODULE: QSERDES_TX0_SGMII_QMP_TX***********************/
+	writel_relaxed(0x05, ethqos->sgmii_base + QSERDES_TX_TX_BAND);
+	writel_relaxed(0x0A, ethqos->sgmii_base + QSERDES_TX_SLEW_CNTL);
+	writel_relaxed(0x09, ethqos->sgmii_base + QSERDES_TX_RES_CODE_LANE_OFFSET_TX);
+	writel_relaxed(0x09, ethqos->sgmii_base + QSERDES_TX_RES_CODE_LANE_OFFSET_RX);
+	writel_relaxed(0x05, ethqos->sgmii_base + QSERDES_TX_LANE_MODE_1);
+	writel_relaxed(0x00, ethqos->sgmii_base + QSERDES_TX_LANE_MODE_3);
+	writel_relaxed(0x12, ethqos->sgmii_base + QSERDES_TX_RCV_DETECT_LVL_2);
+	writel_relaxed(0x0C, ethqos->sgmii_base + QSERDES_TX_TRAN_DRVR_EMP_EN);
+
+	/*****************MODULE: QSERDES_RX0_SGMII_QMP_RX*******************/
+	writel_relaxed(0x0A, ethqos->sgmii_base + QSERDES_RX_UCDR_FO_GAIN);
+	writel_relaxed(0x06, ethqos->sgmii_base + QSERDES_RX_UCDR_SO_GAIN);
+	writel_relaxed(0x0A, ethqos->sgmii_base + QSERDES_RX_UCDR_FASTLOCK_FO_GAIN);
+	writel_relaxed(0x7F, ethqos->sgmii_base + QSERDES_RX_UCDR_SO_SATURATION_AND_ENABLE);
+	writel_relaxed(0x00, ethqos->sgmii_base + QSERDES_RX_UCDR_FASTLOCK_COUNT_LOW);
+	writel_relaxed(0x01, ethqos->sgmii_base + QSERDES_RX_UCDR_FASTLOCK_COUNT_HIGH);
+	writel_relaxed(0x81, ethqos->sgmii_base + QSERDES_RX_UCDR_PI_CONTROLS);
+	writel_relaxed(0x80, ethqos->sgmii_base + QSERDES_RX_UCDR_PI_CTRL2);
+	writel_relaxed(0x04, ethqos->sgmii_base + QSERDES_RX_RX_TERM_BW);
+	writel_relaxed(0x08, ethqos->sgmii_base + QSERDES_RX_VGA_CAL_CNTRL2);
+	writel_relaxed(0x0F, ethqos->sgmii_base + QSERDES_RX_GM_CAL);
+	writel_relaxed(0x04, ethqos->sgmii_base + QSERDES_RX_RX_EQU_ADAPTOR_CNTRL1);
+	writel_relaxed(0x00, ethqos->sgmii_base + QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2);
+	writel_relaxed(0x4A, ethqos->sgmii_base + QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3);
+	writel_relaxed(0x0A, ethqos->sgmii_base + QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4);
+	writel_relaxed(0x80, ethqos->sgmii_base + QSERDES_RX_RX_IDAC_TSETTLE_LOW);
+	writel_relaxed(0x01, ethqos->sgmii_base + QSERDES_RX_RX_IDAC_TSETTLE_HIGH);
+	writel_relaxed(0x20, ethqos->sgmii_base + QSERDES_RX_RX_IDAC_MEASURE_TIME);
+	writel_relaxed(0x17, ethqos->sgmii_base + QSERDES_RX_RX_EQ_OFFSET_ADAPTOR_CNTRL1);
+	writel_relaxed(0x00, ethqos->sgmii_base + QSERDES_RX_RX_OFFSET_ADAPTOR_CNTRL2);
+	writel_relaxed(0x0F, ethqos->sgmii_base + QSERDES_RX_SIGDET_CNTRL);
+	writel_relaxed(0x1E, ethqos->sgmii_base + QSERDES_RX_SIGDET_DEGLITCH_CNTRL);
+	writel_relaxed(0x05, ethqos->sgmii_base + QSERDES_RX_RX_BAND);
+	writel_relaxed(0xE0, ethqos->sgmii_base + QSERDES_RX_RX_MODE_00_LOW);
+	writel_relaxed(0xC8, ethqos->sgmii_base + QSERDES_RX_RX_MODE_00_HIGH);
+	writel_relaxed(0xC8, ethqos->sgmii_base + QSERDES_RX_RX_MODE_00_HIGH2);
+	writel_relaxed(0x09, ethqos->sgmii_base + QSERDES_RX_RX_MODE_00_HIGH3);
+	writel_relaxed(0xB1, ethqos->sgmii_base + QSERDES_RX_RX_MODE_00_HIGH4);
+	writel_relaxed(0xE0, ethqos->sgmii_base + QSERDES_RX_RX_MODE_01_LOW);
+	writel_relaxed(0xC8, ethqos->sgmii_base + QSERDES_RX_RX_MODE_01_HIGH);
+	writel_relaxed(0xC8, ethqos->sgmii_base + QSERDES_RX_RX_MODE_01_HIGH2);
+	writel_relaxed(0x09, ethqos->sgmii_base + QSERDES_RX_RX_MODE_01_HIGH3);
+	writel_relaxed(0xB1, ethqos->sgmii_base + QSERDES_RX_RX_MODE_01_HIGH4);
+	writel_relaxed(0xE0, ethqos->sgmii_base + QSERDES_RX_RX_MODE_10_LOW);
+	writel_relaxed(0xC8, ethqos->sgmii_base + QSERDES_RX_RX_MODE_10_HIGH);
+	writel_relaxed(0xC8, ethqos->sgmii_base + QSERDES_RX_RX_MODE_10_HIGH2);
+	writel_relaxed(0x3B, ethqos->sgmii_base + QSERDES_RX_RX_MODE_10_HIGH3);
+	writel_relaxed(0xB7, ethqos->sgmii_base + QSERDES_RX_RX_MODE_10_HIGH4);
+	writel_relaxed(0x0C, ethqos->sgmii_base + QSERDES_RX_DCC_CTRL1);
+
+	/****************MODULE: SGMII_PHY_SGMII_PCS**********************************/
+	writel_relaxed(0x0C, ethqos->sgmii_base + QSERDES_PCS_LINE_RESET_TIME);
+	writel_relaxed(0x1F, ethqos->sgmii_base + QSERDES_PCS_TX_LARGE_AMP_DRV_LVL);
+	writel_relaxed(0x03, ethqos->sgmii_base + QSERDES_PCS_TX_SMALL_AMP_DRV_LVL);
+	writel_relaxed(0x83, ethqos->sgmii_base + QSERDES_PCS_TX_MID_TERM_CTRL1);
+	writel_relaxed(0x08, ethqos->sgmii_base + QSERDES_PCS_TX_MID_TERM_CTRL2);
+	writel_relaxed(0x0C, ethqos->sgmii_base + QSERDES_PCS_SGMII_MISC_CTRL8);
+	writel_relaxed(0x00, ethqos->sgmii_base + QSERDES_PCS_SW_RESET);
+
+	writel_relaxed(0x01, ethqos->sgmii_base + QSERDES_PCS_PHY_START);
+
+	do {
+		val = readl_relaxed(ethqos->sgmii_base + QSERDES_COM_C_READY_STATUS);
+		val &= BIT(0);
+		if (val)
+			break;
+		usleep_range(1000, 1500);
+		retry--;
+	} while (retry > 0);
+	if (!retry)
+		pr_err("QSERDES_COM_C_READY_STATUS timedout with retry = %d\n", retry);
+
+	retry = 500;
+	do {
+		val = readl_relaxed(ethqos->sgmii_base + QSERDES_PCS_PCS_READY_STATUS);
+		val &= BIT(0);
+		if (val)
+			break;
+		usleep_range(1000, 1500);
+		retry--;
+	} while (retry > 0);
+	if (!retry)
+		pr_err("PCS_READY timedout with retry = %d\n", retry);
+
+	retry = 500;
+	do {
+		val = readl_relaxed(ethqos->sgmii_base + QSERDES_PCS_PCS_READY_STATUS);
+		val &= BIT(7);
+		if (val)
+			break;
+		usleep_range(1000, 1500);
+		retry--;
+	} while (retry > 0);
+	if (!retry)
+		pr_err("SGMIIPHY_READY timedout with retry = %d\n", retry);
+
+	retry = 5000;
+	do {
+		val = readl_relaxed(ethqos->sgmii_base + QSERDES_COM_CMN_STATUS);
+		val &= BIT(1);
+		if (val)
+			break;
+		usleep_range(1000, 1500);
+		retry--;
+	} while (retry > 0);
+	if (!retry)
+		pr_err("PLL Lock Status timedout with retry = %d\n", retry);
 }
 
 static void rgmii_dump(void *priv)
@@ -552,13 +748,65 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 	return 0;
 }
 
+int ethqos_configureSGMII(struct qcom_ethqos *ethqos)
+{
+	u32 value = 0;
+
+	value = readl(ethqos->ioaddr + MAC_CTRL_REG);
+	/* This looks to be updating
+#define GMAC_CONFIG_PS			BIT(15)
+#define GMAC_CONFIG_FES			BIT(14)
+	* described as:
+	* BIT 14 FES:
+	*	SPEED
+	*	This bit selects the speed mode.
+	*	The mac_speed_o[0] signal reflects the value of this bit.
+	*	0: M_10_1000M
+	*	1: M_100_2500M
+	*	BIT 15 PS:
+	*	Port Select
+	*	This bit selects the Ethernet line speed.
+	*	This bit, along with Bit 14, selects the exact line speed. In the 10/100 Mbps-only
+	*	(always 1) or 1000 Mbps-only (always 0) configurations, this bit is read-only (RO) with
+	*	appropriate value. In default 10/100/1000 Mbps configurations, this bit is read-write
+	*	(R/W). The mac_speed_o[1] signal reflects the value of this bit.
+	*	0: M_1000_2500M
+	*	1: M_10_100M
+	*/
+	switch (ethqos->speed) {
+		case SPEED_1000:
+			   value &= ~BIT(15);
+				   writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+				   rgmii_updatel(ethqos, BIT(16), BIT(16), RGMII_IO_MACRO_CONFIG2);
+		break;
+
+		case SPEED_100:
+				   value |= BIT(15) | BIT(14);
+				   writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		break;
+
+		case SPEED_10:
+				   value |= BIT(15);
+				   value &= ~BIT(14);
+				   writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		break;
+	}
+
+	return value;
+}
+
 static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 {
 	struct qcom_ethqos *ethqos = priv;
-
+	int phy_mode = device_get_phy_mode(&ethqos->pdev->dev);
 	ethqos->speed = speed;
-	ethqos_update_rgmii_clk(ethqos, speed);
-	ethqos_configure(ethqos);
+
+	if (phy_mode == PHY_INTERFACE_MODE_SGMII)
+		ethqos_configureSGMII(ethqos);
+	else {
+		ethqos_update_rgmii_clk(ethqos, speed);
+		ethqos_configure(ethqos);
+	}
 }
 
 static int ethqos_clks_config(void *priv, bool enabled)
@@ -614,6 +862,11 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 
 	ethqos->pdev = pdev;
+	ethqos->ioaddr = devm_platform_ioremap_resource_byname(pdev, "stmmaceth");
+	if (IS_ERR(ethqos->ioaddr)) {
+		ret = PTR_ERR(ethqos->ioaddr);
+		goto err_mem;
+	}
 	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_base)) {
 		ret = PTR_ERR(ethqos->rgmii_base);
