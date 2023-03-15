@@ -4585,4 +4585,11 @@
 		memory-region = <&auto_vm_0_mem>;
 		virtio-backends = <&auto_vm_be0 &auto_vm_be1 &auto_vm_be2 &auto_vm_be3 &auto_vm_be4 &auto_vm_be5 &auto_vm_be6 &auto_vm_be7 &auto_vm_be8 &auto_vm_be9 &auto_vm_be10 &auto_vm_be11 &auto_vm_be12>;
 	};
+
+	watchdog@17c10000 {
+		compatible = "qcom,kpss-wdt";
+		reg = <0 0x17c10000 0 0x1000>;
+		clocks = <&sleep_clk>;
+		interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
+	};
 };
