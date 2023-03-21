@@ -629,6 +629,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->has_emac3 = data->has_emac3;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
+	/* TODO: Set function for calculating emac3 MTL and DMA stuff in plat_data */
+
 	if (of_device_is_compatible(np, "qcom,qcs404-ethqos"))
 		plat_dat->rx_clk_runs_in_lpi = 1;
 
