@@ -343,12 +343,6 @@ enum power_event {
 #define EMAC3_MTL_CHAN_INT_CTRL(x)		(EMAC3_MTL_CHANX_BASE_ADDR(x) + 0x2c)
 #define EMAC3_MTL_CHAN_RX_OP_MODE(x)		(EMAC3_MTL_CHANX_BASE_ADDR(x) + 0x30)
 #define EMAC3_MTL_CHAN_RX_DEBUG(x)		(EMAC3_MTL_CHANX_BASE_ADDR(x) + 0x38)
-/* TODO: write function that says something like:
- * if priv->plat_data->mtl_base && offset 
- *		return mtl_base + (offset * x)
- * else
- *		return old value
- */
 #define MTL_CHAN_BASE_ADDR		0x00000d00
 #define MTL_CHAN_BASE_OFFSET		0x40
 #define MTL_CHANX_BASE_ADDR(x)		(MTL_CHAN_BASE_ADDR + \
