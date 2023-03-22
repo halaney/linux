@@ -15,7 +15,7 @@
 #include "stmmac.h"
 
 static int jumbo_frm(struct stmmac_tx_queue *tx_q, struct sk_buff *skb,
-		     int csum)
+			 int csum)
 {
 	unsigned int nopaged_len = skb_headlen(skb);
 	struct stmmac_priv *priv = tx_q->priv_data;
@@ -34,7 +34,7 @@ static int jumbo_frm(struct stmmac_tx_queue *tx_q, struct sk_buff *skb,
 	len = nopaged_len - bmax;
 
 	des2 = dma_map_single(priv->device, skb->data,
-			      bmax, DMA_TO_DEVICE);
+				  bmax, DMA_TO_DEVICE);
 	desc->des2 = cpu_to_le32(des2);
 	if (dma_mapping_error(priv->device, des2))
 		return -1;
@@ -51,8 +51,8 @@ static int jumbo_frm(struct stmmac_tx_queue *tx_q, struct sk_buff *skb,
 
 		if (len > bmax) {
 			des2 = dma_map_single(priv->device,
-					      (skb->data + bmax * i),
-					      bmax, DMA_TO_DEVICE);
+						  (skb->data + bmax * i),
+						  bmax, DMA_TO_DEVICE);
 			desc->des2 = cpu_to_le32(des2);
 			if (dma_mapping_error(priv->device, des2))
 				return -1;
@@ -64,8 +64,8 @@ static int jumbo_frm(struct stmmac_tx_queue *tx_q, struct sk_buff *skb,
 			i++;
 		} else {
 			des2 = dma_map_single(priv->device,
-					      (skb->data + bmax * i), len,
-					      DMA_TO_DEVICE);
+						  (skb->data + bmax * i), len,
+						  DMA_TO_DEVICE);
 			desc->des2 = cpu_to_le32(des2);
 			if (dma_mapping_error(priv->device, des2))
 				return -1;
@@ -88,7 +88,7 @@ static unsigned int is_jumbo_frm(int len, int enh_desc)
 	unsigned int ret = 0;
 
 	if ((enh_desc && (len > BUF_SIZE_8KiB)) ||
-	    (!enh_desc && (len > BUF_SIZE_2KiB))) {
+		(!enh_desc && (len > BUF_SIZE_2KiB))) {
 		ret = 1;
 	}
 
@@ -135,9 +135,9 @@ static void refill_desc3(struct stmmac_rx_queue *rx_q, struct dma_desc *p)
 		 * to keep explicit chaining in the descriptor.
 		 */
 		p->des3 = cpu_to_le32((unsigned int)(rx_q->dma_rx_phy +
-				      (((rx_q->dirty_rx) + 1) %
-				       priv->dma_conf.dma_rx_size) *
-				      sizeof(struct dma_desc)));
+					  (((rx_q->dirty_rx) + 1) %
+					   priv->dma_conf.dma_rx_size) *
+					  sizeof(struct dma_desc)));
 }
 
 static void clean_desc3(struct stmmac_tx_queue *tx_q, struct dma_desc *p)
@@ -146,15 +146,15 @@ static void clean_desc3(struct stmmac_tx_queue *tx_q, struct dma_desc *p)
 	unsigned int entry = tx_q->dirty_tx;
 
 	if (tx_q->tx_skbuff_dma[entry].last_segment && !priv->extend_desc &&
-	    priv->hwts_tx_en)
+		priv->hwts_tx_en)
 		/* NOTE: Device will overwrite des3 with timestamp value if
 		 * 1588-2002 time stamping is enabled, hence reinitialize it
 		 * to keep explicit chaining in the descriptor.
 		 */
 		p->des3 = cpu_to_le32((unsigned int)((tx_q->dma_tx_phy +
-				      ((tx_q->dirty_tx + 1) %
-				       priv->dma_conf.dma_tx_size))
-				      * sizeof(struct dma_desc)));
+					  ((tx_q->dirty_tx + 1) %
+					   priv->dma_conf.dma_tx_size))
+					  * sizeof(struct dma_desc)));
 }
 
 const struct stmmac_mode_ops chain_mode_ops = {

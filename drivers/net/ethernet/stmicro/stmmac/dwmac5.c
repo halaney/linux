@@ -183,7 +183,7 @@ static void dwmac5_handle_dma_err(struct net_device *ndev,
 			STAT_OFF(dma_errors), stats);
 }
 
-int dwmac5_safety_feat_config(void __iomem *ioaddr, unsigned int asp,
+int dwmac5_safety_feat_config(struct stmmac_priv *priv, void __iomem *ioaddr, unsigned int asp,
 			      struct stmmac_safety_feature_cfg *safety_feat_cfg)
 {
 	struct stmmac_safety_feature_cfg all_safety_feats = {
@@ -264,7 +264,7 @@ int dwmac5_safety_feat_config(void __iomem *ioaddr, unsigned int asp,
 	return 0;
 }
 
-int dwmac5_safety_feat_irq_status(struct net_device *ndev,
+int dwmac5_safety_feat_irq_status(struct stmmac_priv *priv, struct net_device *ndev,
 		void __iomem *ioaddr, unsigned int asp,
 		struct stmmac_safety_stats *stats)
 {
@@ -310,7 +310,7 @@ static const struct dwmac5_error {
 	{ dwmac5_dma_errors },
 };
 
-int dwmac5_safety_feat_dump(struct stmmac_safety_stats *stats,
+int dwmac5_safety_feat_dump(struct stmmac_priv *priv, struct stmmac_safety_stats *stats,
 			int index, unsigned long *count, const char **desc)
 {
 	int module = index / 32, offset = index % 32;
@@ -327,7 +327,7 @@ int dwmac5_safety_feat_dump(struct stmmac_safety_stats *stats,
 	return 0;
 }
 
-static int dwmac5_rxp_disable(void __iomem *ioaddr)
+static int dwmac5_rxp_disable(struct stmmac_priv *priv, void __iomem *ioaddr)
 {
 	u32 val;
 
@@ -339,7 +339,7 @@ static int dwmac5_rxp_disable(void __iomem *ioaddr)
 			val & RXPI, 1, 10000);
 }
 
-static void dwmac5_rxp_enable(void __iomem *ioaddr)
+static void dwmac5_rxp_enable(struct stmmac_priv *priv, void __iomem *ioaddr)
 {
 	u32 val;
 
@@ -430,7 +430,7 @@ dwmac5_rxp_get_next_entry(struct stmmac_tc_entry *entries, unsigned int count,
 	return NULL;
 }
 
-int dwmac5_rxp_config(void __iomem *ioaddr, struct stmmac_tc_entry *entries,
+int dwmac5_rxp_config(struct stmmac_priv *priv, void __iomem *ioaddr, struct stmmac_tc_entry *entries,
 		      unsigned int count)
 {
 	struct stmmac_tc_entry *entry, *frag;
@@ -444,7 +444,7 @@ int dwmac5_rxp_config(void __iomem *ioaddr, struct stmmac_tc_entry *entries,
 	writel(val, ioaddr + GMAC_CONFIG);
 
 	/* Disable RX Parser */
-	ret = dwmac5_rxp_disable(ioaddr);
+	ret = dwmac5_rxp_disable(priv, ioaddr);
 	if (ret)
 		goto re_enable;
 
@@ -509,7 +509,7 @@ int dwmac5_rxp_config(void __iomem *ioaddr, struct stmmac_tc_entry *entries,
 	writel(val, ioaddr + MTL_RXP_CONTROL_STATUS);
 
 	/* Enable RX Parser */
-	dwmac5_rxp_enable(ioaddr);
+	dwmac5_rxp_enable(priv, ioaddr);
 
 re_enable:
 	/* Re-enable RX */
@@ -517,8 +517,8 @@ re_enable:
 	return ret;
 }
 
-int dwmac5_flex_pps_config(void __iomem *ioaddr, int index,
-			   struct stmmac_pps_cfg *cfg, bool enable,
+int dwmac5_flex_pps_config(struct stmmac_priv *priv, void __iomem *ioaddr,
+			   int index, struct stmmac_pps_cfg *cfg, bool enable,
 			   u32 sub_second_inc, u32 systime_flags)
 {
 	u32 tnsec = readl(ioaddr + MAC_PPSx_TARGET_TIME_NSEC(index));
@@ -591,7 +591,7 @@ static int dwmac5_est_write(void __iomem *ioaddr, u32 reg, u32 val, bool gcl)
 				  ctrl, !(ctrl & SRWO), 100, 5000);
 }
 
-int dwmac5_est_configure(void __iomem *ioaddr, struct stmmac_est *cfg,
+int dwmac5_est_configure(struct stmmac_priv *priv, void __iomem *ioaddr, struct stmmac_est *cfg,
 			 unsigned int ptp_rate)
 {
 	int i, ret = 0x0;
@@ -633,7 +633,7 @@ int dwmac5_est_configure(void __iomem *ioaddr, struct stmmac_est *cfg,
 	return 0;
 }
 
-void dwmac5_est_irq_status(void __iomem *ioaddr, struct net_device *dev,
+void dwmac5_est_irq_status(struct stmmac_priv *priv, void __iomem *ioaddr, struct net_device *dev,
 			  struct stmmac_extra_stats *x, u32 txqcnt)
 {
 	u32 status, value, feqn, hbfq, hbfs, btrl;
@@ -710,7 +710,7 @@ void dwmac5_est_irq_status(void __iomem *ioaddr, struct net_device *dev,
 	}
 }
 
-void dwmac5_fpe_configure(void __iomem *ioaddr, u32 num_txq, u32 num_rxq,
+void dwmac5_fpe_configure(struct stmmac_priv *priv, void __iomem *ioaddr, u32 num_txq, u32 num_rxq,
 			  bool enable)
 {
 	u32 value;
@@ -734,7 +734,7 @@ void dwmac5_fpe_configure(void __iomem *ioaddr, u32 num_txq, u32 num_rxq,
 	writel(value, ioaddr + MAC_FPE_CTRL_STS);
 }
 
-int dwmac5_fpe_irq_status(void __iomem *ioaddr, struct net_device *dev)
+int dwmac5_fpe_irq_status(struct stmmac_priv *priv, void __iomem *ioaddr, struct net_device *dev)
 {
 	u32 value;
 	int status;
@@ -766,7 +766,7 @@ int dwmac5_fpe_irq_status(void __iomem *ioaddr, struct net_device *dev)
 	return status;
 }
 
-void dwmac5_fpe_send_mpacket(void __iomem *ioaddr, enum stmmac_mpacket_type type)
+void dwmac5_fpe_send_mpacket(struct stmmac_priv *priv, void __iomem *ioaddr, enum stmmac_mpacket_type type)
 {
 	u32 value;
 

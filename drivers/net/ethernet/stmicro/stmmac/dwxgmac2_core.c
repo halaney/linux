@@ -12,7 +12,7 @@
 #include "dwxlgmac2.h"
 #include "dwxgmac2.h"
 
-static void dwxgmac2_core_init(struct mac_device_info *hw,
+static void dwxgmac2_core_init(struct stmmac_priv *priv, struct mac_device_info *hw,
 			       struct net_device *dev)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -47,7 +47,7 @@ static void dwxgmac2_core_init(struct mac_device_info *hw,
 	writel(XGMAC_INT_DEFAULT_EN, ioaddr + XGMAC_INT_EN);
 }
 
-static void dwxgmac2_set_mac(void __iomem *ioaddr, bool enable)
+static void dwxgmac2_set_mac(struct stmmac_priv *priv, void __iomem *ioaddr, bool enable)
 {
 	u32 tx = readl(ioaddr + XGMAC_TX_CONFIG);
 	u32 rx = readl(ioaddr + XGMAC_RX_CONFIG);
@@ -64,7 +64,7 @@ static void dwxgmac2_set_mac(void __iomem *ioaddr, bool enable)
 	writel(rx, ioaddr + XGMAC_RX_CONFIG);
 }
 
-static int dwxgmac2_rx_ipc(struct mac_device_info *hw)
+static int dwxgmac2_rx_ipc(struct stmmac_priv *priv, struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -79,7 +79,7 @@ static int dwxgmac2_rx_ipc(struct mac_device_info *hw)
 	return !!(readl(ioaddr + XGMAC_RX_CONFIG) & XGMAC_CONFIG_IPC);
 }
 
-static void dwxgmac2_rx_queue_enable(struct mac_device_info *hw, u8 mode,
+static void dwxgmac2_rx_queue_enable(struct stmmac_priv *priv, struct mac_device_info *hw, u8 mode,
 				     u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -93,7 +93,7 @@ static void dwxgmac2_rx_queue_enable(struct mac_device_info *hw, u8 mode,
 	writel(value, ioaddr + XGMAC_RXQ_CTRL0);
 }
 
-static void dwxgmac2_rx_queue_prio(struct mac_device_info *hw, u32 prio,
+static void dwxgmac2_rx_queue_prio(struct stmmac_priv *priv, struct mac_device_info *hw, u32 prio,
 				   u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -110,7 +110,7 @@ static void dwxgmac2_rx_queue_prio(struct mac_device_info *hw, u32 prio,
 	writel(value, ioaddr + reg);
 }
 
-static void dwxgmac2_tx_queue_prio(struct mac_device_info *hw, u32 prio,
+static void dwxgmac2_tx_queue_prio(struct stmmac_priv *priv, struct mac_device_info *hw, u32 prio,
 				   u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -127,7 +127,7 @@ static void dwxgmac2_tx_queue_prio(struct mac_device_info *hw, u32 prio,
 	writel(value, ioaddr + reg);
 }
 
-static void dwxgmac2_prog_mtl_rx_algorithms(struct mac_device_info *hw,
+static void dwxgmac2_prog_mtl_rx_algorithms(struct stmmac_priv *priv, struct mac_device_info *hw,
 					    u32 rx_alg)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -149,7 +149,7 @@ static void dwxgmac2_prog_mtl_rx_algorithms(struct mac_device_info *hw,
 	writel(value, ioaddr + XGMAC_MTL_OPMODE);
 }
 
-static void dwxgmac2_prog_mtl_tx_algorithms(struct mac_device_info *hw,
+static void dwxgmac2_prog_mtl_tx_algorithms(struct stmmac_priv *priv, struct mac_device_info *hw,
 					    u32 tx_alg)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -187,7 +187,7 @@ static void dwxgmac2_prog_mtl_tx_algorithms(struct mac_device_info *hw,
 	}
 }
 
-static void dwxgmac2_set_mtl_tx_queue_weight(struct mac_device_info *hw,
+static void dwxgmac2_set_mtl_tx_queue_weight(struct stmmac_priv *priv, struct mac_device_info *hw,
 					     u32 weight, u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -195,7 +195,7 @@ static void dwxgmac2_set_mtl_tx_queue_weight(struct mac_device_info *hw,
 	writel(weight, ioaddr + XGMAC_MTL_TCx_QUANTUM_WEIGHT(queue));
 }
 
-static void dwxgmac2_map_mtl_to_dma(struct mac_device_info *hw, u32 queue,
+static void dwxgmac2_map_mtl_to_dma(struct stmmac_priv *priv, struct mac_device_info *hw, u32 queue,
 				    u32 chan)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -212,7 +212,7 @@ static void dwxgmac2_map_mtl_to_dma(struct mac_device_info *hw, u32 queue,
 	writel(value, ioaddr + reg);
 }
 
-static void dwxgmac2_config_cbs(struct mac_device_info *hw,
+static void dwxgmac2_config_cbs(struct stmmac_priv *priv, struct mac_device_info *hw,
 				u32 send_slope, u32 idle_slope,
 				u32 high_credit, u32 low_credit, u32 queue)
 {
@@ -230,7 +230,7 @@ static void dwxgmac2_config_cbs(struct mac_device_info *hw,
 	writel(value, ioaddr + XGMAC_MTL_TCx_ETS_CONTROL(queue));
 }
 
-static void dwxgmac2_dump_regs(struct mac_device_info *hw, u32 *reg_space)
+static void dwxgmac2_dump_regs(struct stmmac_priv *priv, struct mac_device_info *hw, u32 *reg_space)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	int i;
@@ -239,7 +239,7 @@ static void dwxgmac2_dump_regs(struct mac_device_info *hw, u32 *reg_space)
 		reg_space[i] = readl(ioaddr + i * 4);
 }
 
-static int dwxgmac2_host_irq_status(struct mac_device_info *hw,
+static int dwxgmac2_host_irq_status(struct stmmac_priv *priv, struct mac_device_info *hw,
 				    struct stmmac_extra_stats *x)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -276,7 +276,7 @@ static int dwxgmac2_host_irq_status(struct mac_device_info *hw,
 	return ret;
 }
 
-static int dwxgmac2_host_mtl_irq_status(struct mac_device_info *hw, u32 chan)
+static int dwxgmac2_host_mtl_irq_status(struct stmmac_priv *priv, struct mac_device_info *hw, u32 chan)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	int ret = 0;
@@ -295,7 +295,7 @@ static int dwxgmac2_host_mtl_irq_status(struct mac_device_info *hw, u32 chan)
 	return ret;
 }
 
-static void dwxgmac2_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+static void dwxgmac2_flow_ctrl(struct stmmac_priv *priv, struct mac_device_info *hw, unsigned int duplex,
 			       unsigned int fc, unsigned int pause_time,
 			       u32 tx_cnt)
 {
@@ -316,7 +316,7 @@ static void dwxgmac2_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
 	}
 }
 
-static void dwxgmac2_pmt(struct mac_device_info *hw, unsigned long mode)
+static void dwxgmac2_pmt(struct stmmac_priv *priv, struct mac_device_info *hw, unsigned long mode)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 val = 0x0;
@@ -334,7 +334,7 @@ static void dwxgmac2_pmt(struct mac_device_info *hw, unsigned long mode)
 	writel(val, ioaddr + XGMAC_PMT);
 }
 
-static void dwxgmac2_set_umac_addr(struct mac_device_info *hw,
+static void dwxgmac2_set_umac_addr(struct stmmac_priv *priv, struct mac_device_info *hw,
 				   const unsigned char *addr,
 				   unsigned int reg_n)
 {
@@ -348,7 +348,7 @@ static void dwxgmac2_set_umac_addr(struct mac_device_info *hw,
 	writel(value, ioaddr + XGMAC_ADDRx_LOW(reg_n));
 }
 
-static void dwxgmac2_get_umac_addr(struct mac_device_info *hw,
+static void dwxgmac2_get_umac_addr(struct stmmac_priv *priv, struct mac_device_info *hw,
 				   unsigned char *addr, unsigned int reg_n)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -367,7 +367,7 @@ static void dwxgmac2_get_umac_addr(struct mac_device_info *hw,
 	addr[5] = (hi_addr >> 8) & 0xff;
 }
 
-static void dwxgmac2_set_eee_mode(struct mac_device_info *hw,
+static void dwxgmac2_set_eee_mode(struct stmmac_priv *priv, struct mac_device_info *hw,
 				  bool en_tx_lpi_clockgating)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -382,7 +382,7 @@ static void dwxgmac2_set_eee_mode(struct mac_device_info *hw,
 	writel(value, ioaddr + XGMAC_LPI_CTRL);
 }
 
-static void dwxgmac2_reset_eee_mode(struct mac_device_info *hw)
+static void dwxgmac2_reset_eee_mode(struct stmmac_priv *priv, struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -392,7 +392,7 @@ static void dwxgmac2_reset_eee_mode(struct mac_device_info *hw)
 	writel(value, ioaddr + XGMAC_LPI_CTRL);
 }
 
-static void dwxgmac2_set_eee_pls(struct mac_device_info *hw, int link)
+static void dwxgmac2_set_eee_pls(struct stmmac_priv *priv, struct mac_device_info *hw, int link)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -405,7 +405,7 @@ static void dwxgmac2_set_eee_pls(struct mac_device_info *hw, int link)
 	writel(value, ioaddr + XGMAC_LPI_CTRL);
 }
 
-static void dwxgmac2_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
+static void dwxgmac2_set_eee_timer(struct stmmac_priv *priv, struct mac_device_info *hw, int ls, int tw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -437,7 +437,7 @@ static void dwxgmac2_set_mchash(void __iomem *ioaddr, u32 *mcfilterbits,
 		writel(mcfilterbits[regs], ioaddr + XGMAC_HASH_TABLE(regs));
 }
 
-static void dwxgmac2_set_filter(struct mac_device_info *hw,
+static void dwxgmac2_set_filter(struct stmmac_priv *priv, struct mac_device_info *hw,
 				struct net_device *dev)
 {
 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
@@ -482,7 +482,7 @@ static void dwxgmac2_set_filter(struct mac_device_info *hw,
 		int reg = 1;
 
 		netdev_for_each_uc_addr(ha, dev) {
-			dwxgmac2_set_umac_addr(hw, ha->addr, reg);
+			dwxgmac2_set_umac_addr(priv, hw, ha->addr, reg);
 			reg++;
 		}
 
@@ -495,7 +495,7 @@ static void dwxgmac2_set_filter(struct mac_device_info *hw,
 	writel(value, ioaddr + XGMAC_PACKET_FILTER);
 }
 
-static void dwxgmac2_set_mac_loopback(void __iomem *ioaddr, bool enable)
+static void dwxgmac2_set_mac_loopback(struct stmmac_priv *priv, void __iomem *ioaddr, bool enable)
 {
 	u32 value = readl(ioaddr + XGMAC_RX_CONFIG);
 
@@ -522,7 +522,7 @@ static int dwxgmac2_rss_write_reg(void __iomem *ioaddr, bool is_key, int idx,
 				  !(ctrl & XGMAC_OB), 100, 10000);
 }
 
-static int dwxgmac2_rss_configure(struct mac_device_info *hw,
+static int dwxgmac2_rss_configure(struct stmmac_priv *priv, struct mac_device_info *hw,
 				  struct stmmac_rss *cfg, u32 num_rxq)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -550,14 +550,14 @@ static int dwxgmac2_rss_configure(struct mac_device_info *hw,
 	}
 
 	for (i = 0; i < num_rxq; i++)
-		dwxgmac2_map_mtl_to_dma(hw, i, XGMAC_QDDMACH);
+		dwxgmac2_map_mtl_to_dma(priv, hw, i, XGMAC_QDDMACH);
 
 	value |= XGMAC_UDP4TE | XGMAC_TCP4TE | XGMAC_IP2TE | XGMAC_RSSE;
 	writel(value, ioaddr + XGMAC_RSS_CTRL);
 	return 0;
 }
 
-static void dwxgmac2_update_vlan_hash(struct mac_device_info *hw, u32 hash,
+static void dwxgmac2_update_vlan_hash(struct stmmac_priv *priv, struct mac_device_info *hw, u32 hash,
 				      __le16 perfect_match, bool is_double)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -803,7 +803,7 @@ static void dwxgmac3_handle_dma_err(struct net_device *ndev,
 }
 
 static int
-dwxgmac3_safety_feat_config(void __iomem *ioaddr, unsigned int asp,
+dwxgmac3_safety_feat_config(struct stmmac_priv *priv, void __iomem *ioaddr, unsigned int asp,
 			    struct stmmac_safety_feature_cfg *safety_cfg)
 {
 	u32 value;
@@ -841,7 +841,7 @@ dwxgmac3_safety_feat_config(void __iomem *ioaddr, unsigned int asp,
 	return 0;
 }
 
-static int dwxgmac3_safety_feat_irq_status(struct net_device *ndev,
+static int dwxgmac3_safety_feat_irq_status(struct stmmac_priv *priv, struct net_device *ndev,
 					   void __iomem *ioaddr,
 					   unsigned int asp,
 					   struct stmmac_safety_stats *stats)
@@ -889,7 +889,7 @@ static const struct dwxgmac3_error {
 	{ dwxgmac3_dma_errors },
 };
 
-static int dwxgmac3_safety_feat_dump(struct stmmac_safety_stats *stats,
+static int dwxgmac3_safety_feat_dump(struct stmmac_priv *priv, struct stmmac_safety_stats *stats,
 				     int index, unsigned long *count,
 				     const char **desc)
 {
@@ -1008,7 +1008,7 @@ dwxgmac3_rxp_get_next_entry(struct stmmac_tc_entry *entries,
 	return NULL;
 }
 
-static int dwxgmac3_rxp_config(void __iomem *ioaddr,
+static int dwxgmac3_rxp_config(struct stmmac_priv *priv, void __iomem *ioaddr,
 			       struct stmmac_tc_entry *entries,
 			       unsigned int count)
 {
@@ -1096,7 +1096,7 @@ re_enable:
 	return ret;
 }
 
-static int dwxgmac2_get_mac_tx_timestamp(struct mac_device_info *hw, u64 *ts)
+static int dwxgmac2_get_mac_tx_timestamp(struct stmmac_priv *priv, struct mac_device_info *hw, u64 *ts)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -1110,7 +1110,7 @@ static int dwxgmac2_get_mac_tx_timestamp(struct mac_device_info *hw, u64 *ts)
 	return 0;
 }
 
-static int dwxgmac2_flex_pps_config(void __iomem *ioaddr, int index,
+static int dwxgmac2_flex_pps_config(struct stmmac_priv *priv, void __iomem *ioaddr, int index,
 				    struct stmmac_pps_cfg *cfg, bool enable,
 				    u32 sub_second_inc, u32 systime_flags)
 {
@@ -1164,7 +1164,7 @@ static int dwxgmac2_flex_pps_config(void __iomem *ioaddr, int index,
 	return 0;
 }
 
-static void dwxgmac2_sarc_configure(void __iomem *ioaddr, int val)
+static void dwxgmac2_sarc_configure(struct stmmac_priv *priv, void __iomem *ioaddr, int val)
 {
 	u32 value = readl(ioaddr + XGMAC_TX_CONFIG);
 
@@ -1174,7 +1174,7 @@ static void dwxgmac2_sarc_configure(void __iomem *ioaddr, int val)
 	writel(value, ioaddr + XGMAC_TX_CONFIG);
 }
 
-static void dwxgmac2_enable_vlan(struct mac_device_info *hw, u32 type)
+static void dwxgmac2_enable_vlan(struct stmmac_priv *priv, struct mac_device_info *hw, u32 type)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -1241,7 +1241,7 @@ static int dwxgmac2_filter_write(struct mac_device_info *hw, u32 filter_no,
 	return dwxgmac2_filter_wait(hw);
 }
 
-static int dwxgmac2_config_l3_filter(struct mac_device_info *hw, u32 filter_no,
+static int dwxgmac2_config_l3_filter(struct stmmac_priv *priv, struct mac_device_info *hw, u32 filter_no,
 				     bool en, bool ipv6, bool sa, bool inv,
 				     u32 match)
 {
@@ -1304,7 +1304,7 @@ static int dwxgmac2_config_l3_filter(struct mac_device_info *hw, u32 filter_no,
 	return 0;
 }
 
-static int dwxgmac2_config_l4_filter(struct mac_device_info *hw, u32 filter_no,
+static int dwxgmac2_config_l4_filter(struct stmmac_priv *priv, struct mac_device_info *hw, u32 filter_no,
 				     bool en, bool udp, bool sa, bool inv,
 				     u32 match)
 {
@@ -1362,7 +1362,7 @@ static int dwxgmac2_config_l4_filter(struct mac_device_info *hw, u32 filter_no,
 	return 0;
 }
 
-static void dwxgmac2_set_arp_offload(struct mac_device_info *hw, bool en,
+static void dwxgmac2_set_arp_offload(struct stmmac_priv *priv, struct mac_device_info *hw, bool en,
 				     u32 addr)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -1396,7 +1396,7 @@ static int dwxgmac3_est_write(void __iomem *ioaddr, u32 reg, u32 val, bool gcl)
 					 ctrl, !(ctrl & XGMAC_SRWO), 100, 5000);
 }
 
-static int dwxgmac3_est_configure(void __iomem *ioaddr, struct stmmac_est *cfg,
+static int dwxgmac3_est_configure(struct stmmac_priv *priv, void __iomem *ioaddr, struct stmmac_est *cfg,
 				  unsigned int ptp_rate)
 {
 	int i, ret = 0x0;
@@ -1429,7 +1429,7 @@ static int dwxgmac3_est_configure(void __iomem *ioaddr, struct stmmac_est *cfg,
 	return 0;
 }
 
-static void dwxgmac3_fpe_configure(void __iomem *ioaddr, u32 num_txq,
+static void dwxgmac3_fpe_configure(struct stmmac_priv *priv, void __iomem *ioaddr, u32 num_txq,
 				   u32 num_rxq, bool enable)
 {
 	u32 value;
@@ -1500,7 +1500,7 @@ const struct stmmac_ops dwxgmac210_ops = {
 	.fpe_configure = dwxgmac3_fpe_configure,
 };
 
-static void dwxlgmac2_rx_queue_enable(struct mac_device_info *hw, u8 mode,
+static void dwxlgmac2_rx_queue_enable(struct stmmac_priv *priv, struct mac_device_info *hw, u8 mode,
 				      u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;

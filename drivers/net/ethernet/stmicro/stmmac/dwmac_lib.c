@@ -13,7 +13,7 @@
 
 #define GMAC_HI_REG_AE		0x80000000
 
-int dwmac_dma_reset(void __iomem *ioaddr)
+int dwmac_dma_reset(struct stmmac_priv *priv, void __iomem *ioaddr)
 {
 	u32 value = readl(ioaddr + DMA_BUS_MODE);
 
@@ -27,12 +27,12 @@ int dwmac_dma_reset(void __iomem *ioaddr)
 }
 
 /* CSR1 enables the transmit DMA to check for new descriptor */
-void dwmac_enable_dma_transmission(void __iomem *ioaddr)
+void dwmac_enable_dma_transmission(struct stmmac_priv *priv, void __iomem *ioaddr)
 {
 	writel(1, ioaddr + DMA_XMT_POLL_DEMAND);
 }
 
-void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
+void dwmac_enable_dma_irq(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 {
 	u32 value = readl(ioaddr + DMA_INTR_ENA);
 
@@ -44,7 +44,7 @@ void dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 	writel(value, ioaddr + DMA_INTR_ENA);
 }
 
-void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
+void dwmac_disable_dma_irq(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 {
 	u32 value = readl(ioaddr + DMA_INTR_ENA);
 
@@ -56,28 +56,28 @@ void dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 	writel(value, ioaddr + DMA_INTR_ENA);
 }
 
-void dwmac_dma_start_tx(void __iomem *ioaddr, u32 chan)
+void dwmac_dma_start_tx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
 	u32 value = readl(ioaddr + DMA_CONTROL);
 	value |= DMA_CONTROL_ST;
 	writel(value, ioaddr + DMA_CONTROL);
 }
 
-void dwmac_dma_stop_tx(void __iomem *ioaddr, u32 chan)
+void dwmac_dma_stop_tx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
 	u32 value = readl(ioaddr + DMA_CONTROL);
 	value &= ~DMA_CONTROL_ST;
 	writel(value, ioaddr + DMA_CONTROL);
 }
 
-void dwmac_dma_start_rx(void __iomem *ioaddr, u32 chan)
+void dwmac_dma_start_rx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
 	u32 value = readl(ioaddr + DMA_CONTROL);
 	value |= DMA_CONTROL_SR;
 	writel(value, ioaddr + DMA_CONTROL);
 }
 
-void dwmac_dma_stop_rx(void __iomem *ioaddr, u32 chan)
+void dwmac_dma_stop_rx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
 	u32 value = readl(ioaddr + DMA_CONTROL);
 	value &= ~DMA_CONTROL_SR;
@@ -154,7 +154,7 @@ static void show_rx_process_state(unsigned int status)
 }
 #endif
 
-int dwmac_dma_interrupt(void __iomem *ioaddr,
+int dwmac_dma_interrupt(struct stmmac_priv *priv, void __iomem *ioaddr,
 			struct stmmac_extra_stats *x, u32 chan, u32 dir)
 {
 	int ret = 0;
@@ -231,7 +231,7 @@ int dwmac_dma_interrupt(void __iomem *ioaddr,
 	return ret;
 }
 
-void dwmac_dma_flush_tx_fifo(void __iomem *ioaddr)
+void dwmac_dma_flush_tx_fifo(struct stmmac_priv *priv, void __iomem *ioaddr)
 {
 	u32 csr6 = readl(ioaddr + DMA_CONTROL);
 	writel((csr6 | DMA_CONTROL_FTF), ioaddr + DMA_CONTROL);
@@ -256,7 +256,8 @@ void stmmac_set_mac_addr(void __iomem *ioaddr, const u8 addr[6],
 EXPORT_SYMBOL_GPL(stmmac_set_mac_addr);
 
 /* Enable disable MAC RX/TX */
-void stmmac_set_mac(void __iomem *ioaddr, bool enable)
+void stmmac_set_mac(struct stmmac_priv *priv, void __iomem *ioaddr,
+		    bool enable)
 {
 	u32 old_val, value;
 

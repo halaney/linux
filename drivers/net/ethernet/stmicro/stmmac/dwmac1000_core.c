@@ -20,7 +20,8 @@
 #include "stmmac_pcs.h"
 #include "dwmac1000.h"
 
-static void dwmac1000_core_init(struct mac_device_info *hw,
+static void dwmac1000_core_init(struct stmmac_priv *priv,
+				struct mac_device_info *hw,
 				struct net_device *dev)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -68,7 +69,8 @@ static void dwmac1000_core_init(struct mac_device_info *hw,
 #endif
 }
 
-static int dwmac1000_rx_ipc_enable(struct mac_device_info *hw)
+static int dwmac1000_rx_ipc_enable(struct stmmac_priv *priv,
+				   struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value = readl(ioaddr + GMAC_CONTROL);
@@ -85,7 +87,8 @@ static int dwmac1000_rx_ipc_enable(struct mac_device_info *hw)
 	return !!(value & GMAC_CONTROL_IPC);
 }
 
-static void dwmac1000_dump_regs(struct mac_device_info *hw, u32 *reg_space)
+static void dwmac1000_dump_regs(struct stmmac_priv *priv,
+				struct mac_device_info *hw, u32 *reg_space)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	int i;
@@ -94,7 +97,8 @@ static void dwmac1000_dump_regs(struct mac_device_info *hw, u32 *reg_space)
 		reg_space[i] = readl(ioaddr + i * 4);
 }
 
-static void dwmac1000_set_umac_addr(struct mac_device_info *hw,
+static void dwmac1000_set_umac_addr(struct stmmac_priv *priv,
+				    struct mac_device_info *hw,
 				    const unsigned char *addr,
 				    unsigned int reg_n)
 {
@@ -103,7 +107,8 @@ static void dwmac1000_set_umac_addr(struct mac_device_info *hw,
 			    GMAC_ADDR_LOW(reg_n));
 }
 
-static void dwmac1000_get_umac_addr(struct mac_device_info *hw,
+static void dwmac1000_get_umac_addr(struct stmmac_priv *priv,
+				    struct mac_device_info *hw,
 				    unsigned char *addr,
 				    unsigned int reg_n)
 {
@@ -137,7 +142,8 @@ static void dwmac1000_set_mchash(void __iomem *ioaddr, u32 *mcfilterbits,
 		       ioaddr + GMAC_EXTHASH_BASE + regs * 4);
 }
 
-static void dwmac1000_set_filter(struct mac_device_info *hw,
+static void dwmac1000_set_filter(struct stmmac_priv *priv,
+				 struct mac_device_info *hw,
 				 struct net_device *dev)
 {
 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
@@ -216,7 +222,8 @@ static void dwmac1000_set_filter(struct mac_device_info *hw,
 }
 
 
-static void dwmac1000_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+static void dwmac1000_flow_ctrl(struct stmmac_priv *priv,
+				struct mac_device_info *hw, unsigned int duplex,
 				unsigned int fc, unsigned int pause_time,
 				u32 tx_cnt)
 {
@@ -244,7 +251,8 @@ static void dwmac1000_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
 	writel(flow, ioaddr + GMAC_FLOW_CTRL);
 }
 
-static void dwmac1000_pmt(struct mac_device_info *hw, unsigned long mode)
+static void dwmac1000_pmt(struct stmmac_priv *priv, struct mac_device_info *hw,
+			  unsigned long mode)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	unsigned int pmt = 0;
@@ -294,7 +302,8 @@ static void dwmac1000_rgsmii(void __iomem *ioaddr, struct stmmac_extra_stats *x)
 	}
 }
 
-static int dwmac1000_irq_status(struct mac_device_info *hw,
+static int dwmac1000_irq_status(struct stmmac_priv *priv,
+				struct mac_device_info *hw,
 				struct stmmac_extra_stats *x)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -341,7 +350,8 @@ static int dwmac1000_irq_status(struct mac_device_info *hw,
 	return ret;
 }
 
-static void dwmac1000_set_eee_mode(struct mac_device_info *hw,
+static void dwmac1000_set_eee_mode(struct stmmac_priv *priv,
+				   struct mac_device_info *hw,
 				   bool en_tx_lpi_clockgating)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -358,7 +368,8 @@ static void dwmac1000_set_eee_mode(struct mac_device_info *hw,
 	writel(value, ioaddr + LPI_CTRL_STATUS);
 }
 
-static void dwmac1000_reset_eee_mode(struct mac_device_info *hw)
+static void dwmac1000_reset_eee_mode(struct stmmac_priv *priv,
+				     struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -368,7 +379,7 @@ static void dwmac1000_reset_eee_mode(struct mac_device_info *hw)
 	writel(value, ioaddr + LPI_CTRL_STATUS);
 }
 
-static void dwmac1000_set_eee_pls(struct mac_device_info *hw, int link)
+static void dwmac1000_set_eee_pls(struct stmmac_priv *priv, struct mac_device_info *hw, int link)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -383,7 +394,7 @@ static void dwmac1000_set_eee_pls(struct mac_device_info *hw, int link)
 	writel(value, ioaddr + LPI_CTRL_STATUS);
 }
 
-static void dwmac1000_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
+static void dwmac1000_set_eee_timer(struct stmmac_priv *priv, struct mac_device_info *hw, int ls, int tw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	int value = ((tw & 0xffff)) | ((ls & 0x7ff) << 16);
@@ -398,23 +409,23 @@ static void dwmac1000_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
 	writel(value, ioaddr + LPI_TIMER_CTRL);
 }
 
-static void dwmac1000_ctrl_ane(void __iomem *ioaddr, bool ane, bool srgmi_ral,
+static void dwmac1000_ctrl_ane(struct stmmac_priv *priv, void __iomem *ioaddr, bool ane, bool srgmi_ral,
 			       bool loopback)
 {
 	dwmac_ctrl_ane(ioaddr, GMAC_PCS_BASE, ane, srgmi_ral, loopback);
 }
 
-static void dwmac1000_rane(void __iomem *ioaddr, bool restart)
+static void dwmac1000_rane(struct stmmac_priv *priv, void __iomem *ioaddr, bool restart)
 {
 	dwmac_rane(ioaddr, GMAC_PCS_BASE, restart);
 }
 
-static void dwmac1000_get_adv_lp(void __iomem *ioaddr, struct rgmii_adv *adv)
+static void dwmac1000_get_adv_lp(struct stmmac_priv *priv, void __iomem *ioaddr, struct rgmii_adv *adv)
 {
 	dwmac_get_adv_lp(ioaddr, GMAC_PCS_BASE, adv);
 }
 
-static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
+static void dwmac1000_debug(struct stmmac_priv *priv, void __iomem *ioaddr, struct stmmac_extra_stats *x,
 			    u32 rx_queues, u32 tx_queues)
 {
 	u32 value = readl(ioaddr + GMAC_DEBUG);
@@ -489,7 +500,7 @@ static void dwmac1000_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
 		x->mac_gmii_rx_proto_engine++;
 }
 
-static void dwmac1000_set_mac_loopback(void __iomem *ioaddr, bool enable)
+static void dwmac1000_set_mac_loopback(struct stmmac_priv *priv, void __iomem *ioaddr, bool enable)
 {
 	u32 value = readl(ioaddr + GMAC_CONTROL);
 

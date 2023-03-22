@@ -19,10 +19,9 @@
 #include "dwmac4.h"
 #include "dwmac5.h"
 
-static void dwmac4_core_init(struct mac_device_info *hw,
+static void dwmac4_core_init(struct stmmac_priv *priv, struct mac_device_info *hw,
 			     struct net_device *dev)
 {
-	struct stmmac_priv *priv = netdev_priv(dev);
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value = readl(ioaddr + GMAC_CONFIG);
 
@@ -63,7 +62,7 @@ static void dwmac4_core_init(struct mac_device_info *hw,
 		init_waitqueue_head(&priv->tstamp_busy_wait);
 }
 
-static void dwmac4_rx_queue_enable(struct mac_device_info *hw,
+static void dwmac4_rx_queue_enable(struct stmmac_priv *priv, struct mac_device_info *hw,
 				   u8 mode, u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -78,7 +77,7 @@ static void dwmac4_rx_queue_enable(struct mac_device_info *hw,
 	writel(value, ioaddr + GMAC_RXQ_CTRL0);
 }
 
-static void dwmac4_rx_queue_priority(struct mac_device_info *hw,
+static void dwmac4_rx_queue_priority(struct stmmac_priv *priv, struct mac_device_info *hw,
 				     u32 prio, u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -97,7 +96,7 @@ static void dwmac4_rx_queue_priority(struct mac_device_info *hw,
 	writel(value, ioaddr + base_register);
 }
 
-static void dwmac4_tx_queue_priority(struct mac_device_info *hw,
+static void dwmac4_tx_queue_priority(struct stmmac_priv *priv, struct mac_device_info *hw,
 				     u32 prio, u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -117,7 +116,7 @@ static void dwmac4_tx_queue_priority(struct mac_device_info *hw,
 	writel(value, ioaddr + base_register);
 }
 
-static void dwmac4_rx_queue_routing(struct mac_device_info *hw,
+static void dwmac4_rx_queue_routing(struct stmmac_priv *priv, struct mac_device_info *hw,
 				    u8 packet, u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -150,7 +149,7 @@ static void dwmac4_rx_queue_routing(struct mac_device_info *hw,
 	writel(value, ioaddr + GMAC_RXQ_CTRL1);
 }
 
-static void dwmac4_prog_mtl_rx_algorithms(struct mac_device_info *hw,
+static void dwmac4_prog_mtl_rx_algorithms(struct stmmac_priv *priv, struct mac_device_info *hw,
 					  u32 rx_alg)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -171,7 +170,7 @@ static void dwmac4_prog_mtl_rx_algorithms(struct mac_device_info *hw,
 	writel(value, ioaddr + MTL_OPERATION_MODE);
 }
 
-static void dwmac4_prog_mtl_tx_algorithms(struct mac_device_info *hw,
+static void dwmac4_prog_mtl_tx_algorithms(struct stmmac_priv *priv, struct mac_device_info *hw,
 					  u32 tx_alg)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -198,7 +197,7 @@ static void dwmac4_prog_mtl_tx_algorithms(struct mac_device_info *hw,
 	writel(value, ioaddr + MTL_OPERATION_MODE);
 }
 
-static void dwmac4_set_mtl_tx_queue_weight(struct mac_device_info *hw,
+static void dwmac4_set_mtl_tx_queue_weight(struct stmmac_priv *priv, struct mac_device_info *hw,
 					   u32 weight, u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -209,7 +208,7 @@ static void dwmac4_set_mtl_tx_queue_weight(struct mac_device_info *hw,
 	writel(value, ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue));
 }
 
-static void dwmac4_map_mtl_dma(struct mac_device_info *hw, u32 queue, u32 chan)
+static void dwmac4_map_mtl_dma(struct stmmac_priv *priv, struct mac_device_info *hw, u32 queue, u32 chan)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -227,7 +226,7 @@ static void dwmac4_map_mtl_dma(struct mac_device_info *hw, u32 queue, u32 chan)
 	}
 }
 
-static void dwmac4_config_cbs(struct mac_device_info *hw,
+static void dwmac4_config_cbs(struct stmmac_priv *priv, struct mac_device_info *hw,
 			      u32 send_slope, u32 idle_slope,
 			      u32 high_credit, u32 low_credit, u32 queue)
 {
@@ -253,7 +252,7 @@ static void dwmac4_config_cbs(struct mac_device_info *hw,
 	writel(value, ioaddr + MTL_SEND_SLP_CREDX_BASE_ADDR(queue));
 
 	/* configure idle slope (same register as tx weight) */
-	dwmac4_set_mtl_tx_queue_weight(hw, idle_slope, queue);
+	dwmac4_set_mtl_tx_queue_weight(priv, hw, idle_slope, queue);
 
 	/* configure high credit */
 	value = readl(ioaddr + MTL_HIGH_CREDX_BASE_ADDR(queue));
@@ -268,7 +267,7 @@ static void dwmac4_config_cbs(struct mac_device_info *hw,
 	writel(value, ioaddr + MTL_LOW_CREDX_BASE_ADDR(queue));
 }
 
-static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
+static void dwmac4_dump_regs(struct stmmac_priv *priv, struct mac_device_info *hw, u32 *reg_space)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	int i;
@@ -277,7 +276,7 @@ static void dwmac4_dump_regs(struct mac_device_info *hw, u32 *reg_space)
 		reg_space[i] = readl(ioaddr + i * 4);
 }
 
-static int dwmac4_rx_ipc_enable(struct mac_device_info *hw)
+static int dwmac4_rx_ipc_enable(struct stmmac_priv *priv, struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value = readl(ioaddr + GMAC_CONFIG);
@@ -294,7 +293,7 @@ static int dwmac4_rx_ipc_enable(struct mac_device_info *hw)
 	return !!(value & GMAC_CONFIG_IPC);
 }
 
-static void dwmac4_pmt(struct mac_device_info *hw, unsigned long mode)
+static void dwmac4_pmt(struct stmmac_priv *priv, struct mac_device_info *hw, unsigned long mode)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	unsigned int pmt = 0;
@@ -318,7 +317,7 @@ static void dwmac4_pmt(struct mac_device_info *hw, unsigned long mode)
 	writel(pmt, ioaddr + GMAC_PMT);
 }
 
-static void dwmac4_set_umac_addr(struct mac_device_info *hw,
+static void dwmac4_set_umac_addr(struct stmmac_priv *priv, struct mac_device_info *hw,
 				 const unsigned char *addr, unsigned int reg_n)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -327,7 +326,7 @@ static void dwmac4_set_umac_addr(struct mac_device_info *hw,
 				   GMAC_ADDR_LOW(reg_n));
 }
 
-static void dwmac4_get_umac_addr(struct mac_device_info *hw,
+static void dwmac4_get_umac_addr(struct stmmac_priv *priv, struct mac_device_info *hw,
 				 unsigned char *addr, unsigned int reg_n)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -336,7 +335,7 @@ static void dwmac4_get_umac_addr(struct mac_device_info *hw,
 				   GMAC_ADDR_LOW(reg_n));
 }
 
-static void dwmac4_set_eee_mode(struct mac_device_info *hw,
+static void dwmac4_set_eee_mode(struct stmmac_priv *priv, struct mac_device_info *hw,
 				bool en_tx_lpi_clockgating)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -355,7 +354,7 @@ static void dwmac4_set_eee_mode(struct mac_device_info *hw,
 	writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
 }
 
-static void dwmac4_reset_eee_mode(struct mac_device_info *hw)
+static void dwmac4_reset_eee_mode(struct stmmac_priv *priv, struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -365,7 +364,7 @@ static void dwmac4_reset_eee_mode(struct mac_device_info *hw)
 	writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
 }
 
-static void dwmac4_set_eee_pls(struct mac_device_info *hw, int link)
+static void dwmac4_set_eee_pls(struct stmmac_priv *priv, struct mac_device_info *hw, int link)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -380,7 +379,7 @@ static void dwmac4_set_eee_pls(struct mac_device_info *hw, int link)
 	writel(value, ioaddr + GMAC4_LPI_CTRL_STATUS);
 }
 
-static void dwmac4_set_eee_lpi_entry_timer(struct mac_device_info *hw, int et)
+static void dwmac4_set_eee_lpi_entry_timer(struct stmmac_priv *priv, struct mac_device_info *hw, int et)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	int value = et & STMMAC_ET_MAX;
@@ -401,7 +400,7 @@ static void dwmac4_set_eee_lpi_entry_timer(struct mac_device_info *hw, int et)
 	writel(regval, ioaddr + GMAC4_LPI_CTRL_STATUS);
 }
 
-static void dwmac4_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
+static void dwmac4_set_eee_timer(struct stmmac_priv *priv, struct mac_device_info *hw, int ls, int tw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	int value = ((tw & 0xffff)) | ((ls & 0x3ff) << 16);
@@ -461,7 +460,7 @@ static int dwmac4_write_vlan_filter(struct net_device *dev,
 	return -EBUSY;
 }
 
-static int dwmac4_add_hw_vlan_rx_fltr(struct net_device *dev,
+static int dwmac4_add_hw_vlan_rx_fltr(struct stmmac_priv *priv, struct net_device *dev,
 				      struct mac_device_info *hw,
 				      __be16 proto, u16 vid)
 {
@@ -521,7 +520,7 @@ static int dwmac4_add_hw_vlan_rx_fltr(struct net_device *dev,
 	return ret;
 }
 
-static int dwmac4_del_hw_vlan_rx_fltr(struct net_device *dev,
+static int dwmac4_del_hw_vlan_rx_fltr(struct stmmac_priv *priv, struct net_device *dev,
 				      struct mac_device_info *hw,
 				      __be16 proto, u16 vid)
 {
@@ -590,7 +589,7 @@ static void dwmac4_vlan_promisc_enable(struct net_device *dev,
 	}
 }
 
-static void dwmac4_restore_hw_vlan_rx_fltr(struct net_device *dev,
+static void dwmac4_restore_hw_vlan_rx_fltr(struct stmmac_priv *priv, struct net_device *dev,
 					   struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -621,7 +620,7 @@ static void dwmac4_restore_hw_vlan_rx_fltr(struct net_device *dev,
 	}
 }
 
-static void dwmac4_set_filter(struct mac_device_info *hw,
+static void dwmac4_set_filter(struct stmmac_priv *priv, struct mac_device_info *hw,
 			      struct net_device *dev)
 {
 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
@@ -697,7 +696,7 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
 		int reg = 1;
 
 		netdev_for_each_uc_addr(ha, dev) {
-			dwmac4_set_umac_addr(hw, ha->addr, reg);
+			dwmac4_set_umac_addr(priv, hw, ha->addr, reg);
 			reg++;
 		}
 
@@ -722,12 +721,12 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
 	} else {
 		if (hw->promisc) {
 			hw->promisc = 0;
-			dwmac4_restore_hw_vlan_rx_fltr(dev, hw);
+			dwmac4_restore_hw_vlan_rx_fltr(priv, dev, hw);
 		}
 	}
 }
 
-static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+static void dwmac4_flow_ctrl(struct stmmac_priv *priv, struct mac_device_info *hw, unsigned int duplex,
 			     unsigned int fc, unsigned int pause_time,
 			     u32 tx_cnt)
 {
@@ -765,18 +764,18 @@ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
 	}
 }
 
-static void dwmac4_ctrl_ane(void __iomem *ioaddr, bool ane, bool srgmi_ral,
+static void dwmac4_ctrl_ane(struct stmmac_priv *priv, void __iomem *ioaddr, bool ane, bool srgmi_ral,
 			    bool loopback)
 {
 	dwmac_ctrl_ane(ioaddr, GMAC_PCS_BASE, ane, srgmi_ral, loopback);
 }
 
-static void dwmac4_rane(void __iomem *ioaddr, bool restart)
+static void dwmac4_rane(struct stmmac_priv *priv, void __iomem *ioaddr, bool restart)
 {
 	dwmac_rane(ioaddr, GMAC_PCS_BASE, restart);
 }
 
-static void dwmac4_get_adv_lp(void __iomem *ioaddr, struct rgmii_adv *adv)
+static void dwmac4_get_adv_lp(struct stmmac_priv *priv, void __iomem *ioaddr, struct rgmii_adv *adv)
 {
 	dwmac_get_adv_lp(ioaddr, GMAC_PCS_BASE, adv);
 }
@@ -814,7 +813,7 @@ static void dwmac4_phystatus(void __iomem *ioaddr, struct stmmac_extra_stats *x)
 	}
 }
 
-static int dwmac4_irq_mtl_status(struct mac_device_info *hw, u32 chan)
+static int dwmac4_irq_mtl_status(struct stmmac_priv *priv, struct mac_device_info *hw, u32 chan)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 mtl_int_qx_status;
@@ -838,7 +837,7 @@ static int dwmac4_irq_mtl_status(struct mac_device_info *hw, u32 chan)
 	return ret;
 }
 
-static int dwmac4_irq_status(struct mac_device_info *hw,
+static int dwmac4_irq_status(struct stmmac_priv *priv, struct mac_device_info *hw,
 			     struct stmmac_extra_stats *x)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -888,7 +887,7 @@ static int dwmac4_irq_status(struct mac_device_info *hw,
 	return ret;
 }
 
-static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
+static void dwmac4_debug(struct stmmac_priv *priv, void __iomem *ioaddr, struct stmmac_extra_stats *x,
 			 u32 rx_queues, u32 tx_queues)
 {
 	u32 value;
@@ -977,7 +976,7 @@ static void dwmac4_debug(void __iomem *ioaddr, struct stmmac_extra_stats *x,
 		x->mac_gmii_rx_proto_engine++;
 }
 
-static void dwmac4_set_mac_loopback(void __iomem *ioaddr, bool enable)
+static void dwmac4_set_mac_loopback(struct stmmac_priv *priv, void __iomem *ioaddr, bool enable)
 {
 	u32 value = readl(ioaddr + GMAC_CONFIG);
 
@@ -989,7 +988,7 @@ static void dwmac4_set_mac_loopback(void __iomem *ioaddr, bool enable)
 	writel(value, ioaddr + GMAC_CONFIG);
 }
 
-static void dwmac4_update_vlan_hash(struct mac_device_info *hw, u32 hash,
+static void dwmac4_update_vlan_hash(struct stmmac_priv *priv, struct mac_device_info *hw, u32 hash,
 				    __le16 perfect_match, bool is_double)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -1028,7 +1027,7 @@ static void dwmac4_update_vlan_hash(struct mac_device_info *hw, u32 hash,
 	}
 }
 
-static void dwmac4_sarc_configure(void __iomem *ioaddr, int val)
+static void dwmac4_sarc_configure(struct stmmac_priv *priv, void __iomem *ioaddr, int val)
 {
 	u32 value = readl(ioaddr + GMAC_CONFIG);
 
@@ -1038,7 +1037,7 @@ static void dwmac4_sarc_configure(void __iomem *ioaddr, int val)
 	writel(value, ioaddr + GMAC_CONFIG);
 }
 
-static void dwmac4_enable_vlan(struct mac_device_info *hw, u32 type)
+static void dwmac4_enable_vlan(struct stmmac_priv *priv, struct mac_device_info *hw, u32 type)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 value;
@@ -1051,7 +1050,7 @@ static void dwmac4_enable_vlan(struct mac_device_info *hw, u32 type)
 	writel(value, ioaddr + GMAC_VLAN_INCL);
 }
 
-static void dwmac4_set_arp_offload(struct mac_device_info *hw, bool en,
+static void dwmac4_set_arp_offload(struct stmmac_priv *priv, struct mac_device_info *hw, bool en,
 				   u32 addr)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -1067,7 +1066,7 @@ static void dwmac4_set_arp_offload(struct mac_device_info *hw, bool en,
 	writel(value, ioaddr + GMAC_CONFIG);
 }
 
-static int dwmac4_config_l3_filter(struct mac_device_info *hw, u32 filter_no,
+static int dwmac4_config_l3_filter(struct stmmac_priv *priv, struct mac_device_info *hw, u32 filter_no,
 				   bool en, bool ipv6, bool sa, bool inv,
 				   u32 match)
 {
@@ -1121,7 +1120,7 @@ static int dwmac4_config_l3_filter(struct mac_device_info *hw, u32 filter_no,
 	return 0;
 }
 
-static int dwmac4_config_l4_filter(struct mac_device_info *hw, u32 filter_no,
+static int dwmac4_config_l4_filter(struct stmmac_priv *priv, struct mac_device_info *hw, u32 filter_no,
 				   bool en, bool udp, bool sa, bool inv,
 				   u32 match)
 {

@@ -12,7 +12,7 @@
 #include "common.h"
 #include "descs_com.h"
 
-static int enh_desc_get_tx_status(struct net_device_stats *stats,
+static int enh_desc_get_tx_status(struct stmmac_priv *priv, struct net_device_stats *stats,
 				  struct stmmac_extra_stats *x,
 				  struct dma_desc *p, void __iomem *ioaddr)
 {
@@ -33,7 +33,7 @@ static int enh_desc_get_tx_status(struct net_device_stats *stats,
 
 		if (unlikely(tdes0 & ETDES0_FRAME_FLUSHED)) {
 			x->tx_frame_flushed++;
-			dwmac_dma_flush_tx_fifo(ioaddr);
+			dwmac_dma_flush_tx_fifo(priv, ioaddr);
 		}
 
 		if (unlikely(tdes0 & ETDES0_LOSS_CARRIER)) {
@@ -53,7 +53,7 @@ static int enh_desc_get_tx_status(struct net_device_stats *stats,
 			x->tx_deferred++;
 
 		if (unlikely(tdes0 & ETDES0_UNDERFLOW_ERROR)) {
-			dwmac_dma_flush_tx_fifo(ioaddr);
+			dwmac_dma_flush_tx_fifo(priv, ioaddr);
 			x->tx_underflow++;
 		}
 
@@ -62,7 +62,7 @@ static int enh_desc_get_tx_status(struct net_device_stats *stats,
 
 		if (unlikely(tdes0 & ETDES0_PAYLOAD_ERROR)) {
 			x->tx_payload_error++;
-			dwmac_dma_flush_tx_fifo(ioaddr);
+			dwmac_dma_flush_tx_fifo(priv, ioaddr);
 		}
 
 		ret = tx_err;
@@ -79,7 +79,7 @@ static int enh_desc_get_tx_status(struct net_device_stats *stats,
 	return ret;
 }
 
-static int enh_desc_get_tx_len(struct dma_desc *p)
+static int enh_desc_get_tx_len(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des1) & ETDES1_BUFFER1_SIZE_MASK);
 }
@@ -117,7 +117,7 @@ static int enh_desc_coe_rdes0(int ipc_err, int type, int payload_err)
 	return ret;
 }
 
-static void enh_desc_get_ext_status(struct net_device_stats *stats,
+static void enh_desc_get_ext_status(struct stmmac_priv *priv, struct net_device_stats *stats,
 				    struct stmmac_extra_stats *x,
 				    struct dma_extended_desc *p)
 {
@@ -182,7 +182,7 @@ static void enh_desc_get_ext_status(struct net_device_stats *stats,
 	}
 }
 
-static int enh_desc_get_rx_status(struct net_device_stats *stats,
+static int enh_desc_get_rx_status(struct stmmac_priv *priv, struct net_device_stats *stats,
 				  struct stmmac_extra_stats *x,
 				  struct dma_desc *p)
 {
@@ -255,7 +255,7 @@ static int enh_desc_get_rx_status(struct net_device_stats *stats,
 	return ret;
 }
 
-static void enh_desc_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
+static void enh_desc_init_rx_desc(struct stmmac_priv *priv, struct dma_desc *p, int disable_rx_ic,
 				  int mode, int end, int bfsize)
 {
 	int bfsize1;
@@ -274,7 +274,7 @@ static void enh_desc_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
 		p->des1 |= cpu_to_le32(ERDES1_DISABLE_IC);
 }
 
-static void enh_desc_init_tx_desc(struct dma_desc *p, int mode, int end)
+static void enh_desc_init_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int mode, int end)
 {
 	p->des0 &= cpu_to_le32(~ETDES0_OWN);
 	if (mode == STMMAC_CHAIN_MODE)
@@ -283,27 +283,27 @@ static void enh_desc_init_tx_desc(struct dma_desc *p, int mode, int end)
 		enh_desc_end_tx_desc_on_ring(p, end);
 }
 
-static int enh_desc_get_tx_owner(struct dma_desc *p)
+static int enh_desc_get_tx_owner(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des0) & ETDES0_OWN) >> 31;
 }
 
-static void enh_desc_set_tx_owner(struct dma_desc *p)
+static void enh_desc_set_tx_owner(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des0 |= cpu_to_le32(ETDES0_OWN);
 }
 
-static void enh_desc_set_rx_owner(struct dma_desc *p, int disable_rx_ic)
+static void enh_desc_set_rx_owner(struct stmmac_priv *priv, struct dma_desc *p, int disable_rx_ic)
 {
 	p->des0 |= cpu_to_le32(RDES0_OWN);
 }
 
-static int enh_desc_get_tx_ls(struct dma_desc *p)
+static int enh_desc_get_tx_ls(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des0) & ETDES0_LAST_SEGMENT) >> 29;
 }
 
-static void enh_desc_release_tx_desc(struct dma_desc *p, int mode)
+static void enh_desc_release_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int mode)
 {
 	int ter = (le32_to_cpu(p->des0) & ETDES0_END_RING) >> 21;
 
@@ -314,7 +314,7 @@ static void enh_desc_release_tx_desc(struct dma_desc *p, int mode)
 		enh_desc_end_tx_desc_on_ring(p, ter);
 }
 
-static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+static void enh_desc_prepare_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int is_fs, int len,
 				     bool csum_flag, int mode, bool tx_own,
 				     bool ls, unsigned int tot_pkt_len)
 {
@@ -352,12 +352,12 @@ static void enh_desc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
 	p->des0 = cpu_to_le32(tdes0);
 }
 
-static void enh_desc_set_tx_ic(struct dma_desc *p)
+static void enh_desc_set_tx_ic(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des0 |= cpu_to_le32(ETDES0_INTERRUPT);
 }
 
-static int enh_desc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
+static int enh_desc_get_rx_frame_len(struct stmmac_priv *priv, struct dma_desc *p, int rx_coe_type)
 {
 	unsigned int csum = 0;
 	/* The type-1 checksum offload engines append the checksum at
@@ -373,17 +373,17 @@ static int enh_desc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
 				>> RDES0_FRAME_LEN_SHIFT) - csum);
 }
 
-static void enh_desc_enable_tx_timestamp(struct dma_desc *p)
+static void enh_desc_enable_tx_timestamp(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des0 |= cpu_to_le32(ETDES0_TIME_STAMP_ENABLE);
 }
 
-static int enh_desc_get_tx_timestamp_status(struct dma_desc *p)
+static int enh_desc_get_tx_timestamp_status(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des0) & ETDES0_TIME_STAMP_STATUS) >> 17;
 }
 
-static void enh_desc_get_timestamp(void *desc, u32 ats, u64 *ts)
+static void enh_desc_get_timestamp(struct stmmac_priv *priv, void *desc, u32 ats, u64 *ts)
 {
 	u64 ns;
 
@@ -401,7 +401,7 @@ static void enh_desc_get_timestamp(void *desc, u32 ats, u64 *ts)
 	*ts = ns;
 }
 
-static int enh_desc_get_rx_timestamp_status(void *desc, void *next_desc,
+static int enh_desc_get_rx_timestamp_status(struct stmmac_priv *priv, void *desc, void *next_desc,
 					    u32 ats)
 {
 	if (ats) {
@@ -418,7 +418,7 @@ static int enh_desc_get_rx_timestamp_status(void *desc, void *next_desc,
 	}
 }
 
-static void enh_desc_display_ring(void *head, unsigned int size, bool rx,
+static void enh_desc_display_ring(struct stmmac_priv *priv, void *head, unsigned int size, bool rx,
 				  dma_addr_t dma_rx_phy, unsigned int desc_size)
 {
 	struct dma_extended_desc *ep = (struct dma_extended_desc *)head;
@@ -441,12 +441,12 @@ static void enh_desc_display_ring(void *head, unsigned int size, bool rx,
 	pr_info("\n");
 }
 
-static void enh_desc_set_addr(struct dma_desc *p, dma_addr_t addr)
+static void enh_desc_set_addr(struct stmmac_priv *priv, struct dma_desc *p, dma_addr_t addr)
 {
 	p->des2 = cpu_to_le32(addr);
 }
 
-static void enh_desc_clear(struct dma_desc *p)
+static void enh_desc_clear(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des2 = 0;
 }

@@ -137,26 +137,27 @@
 
 #define GMAC_INT_FPE_EN			BIT(17)
 
-int dwmac5_safety_feat_config(void __iomem *ioaddr, unsigned int asp,
+int dwmac5_safety_feat_config(struct stmmac_priv *priv, void __iomem *ioaddr, unsigned int asp,
 			      struct stmmac_safety_feature_cfg *safety_cfg);
-int dwmac5_safety_feat_irq_status(struct net_device *ndev,
+int dwmac5_safety_feat_irq_status(struct stmmac_priv *priv, struct net_device *ndev,
 		void __iomem *ioaddr, unsigned int asp,
 		struct stmmac_safety_stats *stats);
-int dwmac5_safety_feat_dump(struct stmmac_safety_stats *stats,
-			int index, unsigned long *count, const char **desc);
-int dwmac5_rxp_config(void __iomem *ioaddr, struct stmmac_tc_entry *entries,
+int dwmac5_safety_feat_dump(struct stmmac_priv *priv,
+			    struct stmmac_safety_stats *stats,
+			    int index, unsigned long *count, const char **desc);
+int dwmac5_rxp_config(struct stmmac_priv *priv, void __iomem *ioaddr, struct stmmac_tc_entry *entries,
 		      unsigned int count);
-int dwmac5_flex_pps_config(void __iomem *ioaddr, int index,
-			   struct stmmac_pps_cfg *cfg, bool enable,
+int dwmac5_flex_pps_config(struct stmmac_priv *priv, void __iomem *ioaddr,
+			   int index, struct stmmac_pps_cfg *cfg, bool enable,
 			   u32 sub_second_inc, u32 systime_flags);
-int dwmac5_est_configure(void __iomem *ioaddr, struct stmmac_est *cfg,
-			 unsigned int ptp_rate);
-void dwmac5_est_irq_status(void __iomem *ioaddr, struct net_device *dev,
+int dwmac5_est_configure(struct stmmac_priv *priv, void __iomem *ioaddr,
+			 struct stmmac_est *cfg, unsigned int ptp_rate);
+void dwmac5_est_irq_status(struct stmmac_priv *priv, void __iomem *ioaddr, struct net_device *dev,
 			   struct stmmac_extra_stats *x, u32 txqcnt);
-void dwmac5_fpe_configure(void __iomem *ioaddr, u32 num_txq, u32 num_rxq,
+void dwmac5_fpe_configure(struct stmmac_priv *priv, void __iomem *ioaddr, u32 num_txq, u32 num_rxq,
 			  bool enable);
-void dwmac5_fpe_send_mpacket(void __iomem *ioaddr,
+void dwmac5_fpe_send_mpacket(struct stmmac_priv *priv, void __iomem *ioaddr,
 			     enum stmmac_mpacket_type type);
-int dwmac5_fpe_irq_status(void __iomem *ioaddr, struct net_device *dev);
+int dwmac5_fpe_irq_status(struct stmmac_priv *priv, void __iomem *ioaddr, struct net_device *dev);
 
 #endif /* __DWMAC5_H__ */

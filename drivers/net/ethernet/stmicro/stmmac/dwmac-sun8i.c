@@ -282,7 +282,7 @@ static const struct emac_variant emac_variant_h6 = {
 /* sun8i_dwmac_dma_reset() - reset the EMAC
  * Called from stmmac via stmmac_dma_ops->reset
  */
-static int sun8i_dwmac_dma_reset(void __iomem *ioaddr)
+static int sun8i_dwmac_dma_reset(struct stmmac_priv *priv, void __iomem *ioaddr)
 {
 	writel(0, ioaddr + EMAC_RX_CTL1);
 	writel(0, ioaddr + EMAC_TX_CTL1);
@@ -297,14 +297,14 @@ static int sun8i_dwmac_dma_reset(void __iomem *ioaddr)
 /* sun8i_dwmac_dma_init() - initialize the EMAC
  * Called from stmmac via stmmac_dma_ops->init
  */
-static void sun8i_dwmac_dma_init(void __iomem *ioaddr,
+static void sun8i_dwmac_dma_init(struct stmmac_priv *priv, void __iomem *ioaddr,
 				 struct stmmac_dma_cfg *dma_cfg, int atds)
 {
 	writel(EMAC_RX_INT | EMAC_TX_INT, ioaddr + EMAC_INT_EN);
 	writel(0x1FFFFFF, ioaddr + EMAC_INT_STA);
 }
 
-static void sun8i_dwmac_dma_init_rx(void __iomem *ioaddr,
+static void sun8i_dwmac_dma_init_rx(struct stmmac_priv *priv, void __iomem *ioaddr,
 				    struct stmmac_dma_cfg *dma_cfg,
 				    dma_addr_t dma_rx_phy, u32 chan)
 {
@@ -312,7 +312,7 @@ static void sun8i_dwmac_dma_init_rx(void __iomem *ioaddr,
 	writel(lower_32_bits(dma_rx_phy), ioaddr + EMAC_RX_DESC_LIST);
 }
 
-static void sun8i_dwmac_dma_init_tx(void __iomem *ioaddr,
+static void sun8i_dwmac_dma_init_tx(struct stmmac_priv *priv, void __iomem *ioaddr,
 				    struct stmmac_dma_cfg *dma_cfg,
 				    dma_addr_t dma_tx_phy, u32 chan)
 {
@@ -324,7 +324,7 @@ static void sun8i_dwmac_dma_init_tx(void __iomem *ioaddr,
  * Called from stmmac_dma_ops->dump_regs
  * Used for ethtool
  */
-static void sun8i_dwmac_dump_regs(void __iomem *ioaddr, u32 *reg_space)
+static void sun8i_dwmac_dump_regs(struct stmmac_priv *priv, void __iomem *ioaddr, u32 *reg_space)
 {
 	int i;
 
@@ -339,7 +339,7 @@ static void sun8i_dwmac_dump_regs(void __iomem *ioaddr, u32 *reg_space)
  * Called from stmmac_ops->dump_regs
  * Used for ethtool
  */
-static void sun8i_dwmac_dump_mac_regs(struct mac_device_info *hw,
+static void sun8i_dwmac_dump_mac_regs(struct stmmac_priv *priv, struct mac_device_info *hw,
 				      u32 *reg_space)
 {
 	int i;
@@ -352,7 +352,7 @@ static void sun8i_dwmac_dump_mac_regs(struct mac_device_info *hw,
 	}
 }
 
-static void sun8i_dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan,
+static void sun8i_dwmac_enable_dma_irq(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan,
 				       bool rx, bool tx)
 {
 	u32 value = readl(ioaddr + EMAC_INT_EN);
@@ -365,7 +365,7 @@ static void sun8i_dwmac_enable_dma_irq(void __iomem *ioaddr, u32 chan,
 	writel(value, ioaddr + EMAC_INT_EN);
 }
 
-static void sun8i_dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan,
+static void sun8i_dwmac_disable_dma_irq(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan,
 					bool rx, bool tx)
 {
 	u32 value = readl(ioaddr + EMAC_INT_EN);
@@ -378,7 +378,7 @@ static void sun8i_dwmac_disable_dma_irq(void __iomem *ioaddr, u32 chan,
 	writel(value, ioaddr + EMAC_INT_EN);
 }
 
-static void sun8i_dwmac_dma_start_tx(void __iomem *ioaddr, u32 chan)
+static void sun8i_dwmac_dma_start_tx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
 	u32 v;
 
@@ -388,7 +388,7 @@ static void sun8i_dwmac_dma_start_tx(void __iomem *ioaddr, u32 chan)
 	writel(v, ioaddr + EMAC_TX_CTL1);
 }
 
-static void sun8i_dwmac_enable_dma_transmission(void __iomem *ioaddr)
+static void sun8i_dwmac_enable_dma_transmission(struct stmmac_priv *priv, void __iomem *ioaddr)
 {
 	u32 v;
 
@@ -398,7 +398,7 @@ static void sun8i_dwmac_enable_dma_transmission(void __iomem *ioaddr)
 	writel(v, ioaddr + EMAC_TX_CTL1);
 }
 
-static void sun8i_dwmac_dma_stop_tx(void __iomem *ioaddr, u32 chan)
+static void sun8i_dwmac_dma_stop_tx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
 	u32 v;
 
@@ -407,7 +407,7 @@ static void sun8i_dwmac_dma_stop_tx(void __iomem *ioaddr, u32 chan)
 	writel(v, ioaddr + EMAC_TX_CTL1);
 }
 
-static void sun8i_dwmac_dma_start_rx(void __iomem *ioaddr, u32 chan)
+static void sun8i_dwmac_dma_start_rx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
 	u32 v;
 
@@ -417,7 +417,7 @@ static void sun8i_dwmac_dma_start_rx(void __iomem *ioaddr, u32 chan)
 	writel(v, ioaddr + EMAC_RX_CTL1);
 }
 
-static void sun8i_dwmac_dma_stop_rx(void __iomem *ioaddr, u32 chan)
+static void sun8i_dwmac_dma_stop_rx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
 	u32 v;
 
@@ -426,7 +426,7 @@ static void sun8i_dwmac_dma_stop_rx(void __iomem *ioaddr, u32 chan)
 	writel(v, ioaddr + EMAC_RX_CTL1);
 }
 
-static int sun8i_dwmac_dma_interrupt(void __iomem *ioaddr,
+static int sun8i_dwmac_dma_interrupt(struct stmmac_priv *priv, void __iomem *ioaddr,
 				     struct stmmac_extra_stats *x, u32 chan,
 				     u32 dir)
 {
@@ -492,7 +492,7 @@ static int sun8i_dwmac_dma_interrupt(void __iomem *ioaddr,
 	return ret;
 }
 
-static void sun8i_dwmac_dma_operation_mode_rx(void __iomem *ioaddr, int mode,
+static void sun8i_dwmac_dma_operation_mode_rx(struct stmmac_priv *priv, void __iomem *ioaddr, int mode,
 					      u32 channel, int fifosz, u8 qmode)
 {
 	u32 v;
@@ -515,7 +515,7 @@ static void sun8i_dwmac_dma_operation_mode_rx(void __iomem *ioaddr, int mode,
 	writel(v, ioaddr + EMAC_RX_CTL1);
 }
 
-static void sun8i_dwmac_dma_operation_mode_tx(void __iomem *ioaddr, int mode,
+static void sun8i_dwmac_dma_operation_mode_tx(struct stmmac_priv *priv, void __iomem *ioaddr, int mode,
 					      u32 channel, int fifosz, u8 qmode)
 {
 	u32 v;
@@ -593,7 +593,7 @@ err_disable_regulator:
 	return ret;
 }
 
-static void sun8i_dwmac_core_init(struct mac_device_info *hw,
+static void sun8i_dwmac_core_init(struct stmmac_priv *priv, struct mac_device_info *hw,
 				  struct net_device *dev)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -603,7 +603,7 @@ static void sun8i_dwmac_core_init(struct mac_device_info *hw,
 	writel(v, ioaddr + EMAC_BASIC_CTL1);
 }
 
-static void sun8i_dwmac_set_mac(void __iomem *ioaddr, bool enable)
+static void sun8i_dwmac_set_mac(struct stmmac_priv *priv, void __iomem *ioaddr, bool enable)
 {
 	u32 t, r;
 
@@ -624,7 +624,7 @@ static void sun8i_dwmac_set_mac(void __iomem *ioaddr, bool enable)
  * All slot > 0 need to be enabled with MAC_ADDR_TYPE_DST
  * If addr is NULL, clear the slot
  */
-static void sun8i_dwmac_set_umac_addr(struct mac_device_info *hw,
+static void sun8i_dwmac_set_umac_addr(struct stmmac_priv *priv, struct mac_device_info *hw,
 				      const unsigned char *addr,
 				      unsigned int reg_n)
 {
@@ -645,7 +645,7 @@ static void sun8i_dwmac_set_umac_addr(struct mac_device_info *hw,
 	}
 }
 
-static void sun8i_dwmac_get_umac_addr(struct mac_device_info *hw,
+static void sun8i_dwmac_get_umac_addr(struct stmmac_priv *priv, struct mac_device_info *hw,
 				      unsigned char *addr,
 				      unsigned int reg_n)
 {
@@ -656,7 +656,7 @@ static void sun8i_dwmac_get_umac_addr(struct mac_device_info *hw,
 }
 
 /* caution this function must return non 0 to work */
-static int sun8i_dwmac_rx_ipc_enable(struct mac_device_info *hw)
+static int sun8i_dwmac_rx_ipc_enable(struct stmmac_priv *priv, struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 v;
@@ -668,7 +668,7 @@ static int sun8i_dwmac_rx_ipc_enable(struct mac_device_info *hw)
 	return 1;
 }
 
-static void sun8i_dwmac_set_filter(struct mac_device_info *hw,
+static void sun8i_dwmac_set_filter(struct stmmac_priv *priv, struct mac_device_info *hw,
 				   struct net_device *dev)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -686,13 +686,13 @@ static void sun8i_dwmac_set_filter(struct mac_device_info *hw,
 	} else if (macaddrs <= hw->unicast_filter_entries) {
 		if (!netdev_mc_empty(dev)) {
 			netdev_for_each_mc_addr(ha, dev) {
-				sun8i_dwmac_set_umac_addr(hw, ha->addr, i);
+				sun8i_dwmac_set_umac_addr(priv, hw, ha->addr, i);
 				i++;
 			}
 		}
 		if (!netdev_uc_empty(dev)) {
 			netdev_for_each_uc_addr(ha, dev) {
-				sun8i_dwmac_set_umac_addr(hw, ha->addr, i);
+				sun8i_dwmac_set_umac_addr(priv, hw, ha->addr, i);
 				i++;
 			}
 		}
@@ -704,12 +704,12 @@ static void sun8i_dwmac_set_filter(struct mac_device_info *hw,
 
 	/* Disable unused address filter slots */
 	while (i < hw->unicast_filter_entries)
-		sun8i_dwmac_set_umac_addr(hw, NULL, i++);
+		sun8i_dwmac_set_umac_addr(priv, hw, NULL, i++);
 
 	writel(v, ioaddr + EMAC_RX_FRM_FLT);
 }
 
-static void sun8i_dwmac_flow_ctrl(struct mac_device_info *hw,
+static void sun8i_dwmac_flow_ctrl(struct stmmac_priv *priv, struct mac_device_info *hw,
 				  unsigned int duplex, unsigned int fc,
 				  unsigned int pause_time, u32 tx_cnt)
 {
@@ -1039,7 +1039,7 @@ static void sun8i_dwmac_exit(struct platform_device *pdev, void *priv)
 		regulator_disable(gmac->regulator);
 }
 
-static void sun8i_dwmac_set_mac_loopback(void __iomem *ioaddr, bool enable)
+static void sun8i_dwmac_set_mac_loopback(struct stmmac_priv *priv, void __iomem *ioaddr, bool enable)
 {
 	u32 value = readl(ioaddr + EMAC_BASIC_CTL0);
 

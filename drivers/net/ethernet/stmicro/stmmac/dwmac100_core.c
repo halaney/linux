@@ -19,7 +19,7 @@
 #include "stmmac.h"
 #include "dwmac100.h"
 
-static void dwmac100_core_init(struct mac_device_info *hw,
+static void dwmac100_core_init(struct stmmac_priv *priv, struct mac_device_info *hw,
 			       struct net_device *dev)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -34,7 +34,7 @@ static void dwmac100_core_init(struct mac_device_info *hw,
 #endif
 }
 
-static void dwmac100_dump_mac_regs(struct mac_device_info *hw, u32 *reg_space)
+static void dwmac100_dump_mac_regs(struct stmmac_priv *priv, struct mac_device_info *hw, u32 *reg_space)
 {
 	void __iomem *ioaddr = hw->pcsr;
 
@@ -48,18 +48,18 @@ static void dwmac100_dump_mac_regs(struct mac_device_info *hw, u32 *reg_space)
 	reg_space[MAC_VLAN2 / 4] = readl(ioaddr + MAC_VLAN2);
 }
 
-static int dwmac100_rx_ipc_enable(struct mac_device_info *hw)
+static int dwmac100_rx_ipc_enable(struct stmmac_priv *priv, struct mac_device_info *hw)
 {
 	return 0;
 }
 
-static int dwmac100_irq_status(struct mac_device_info *hw,
+static int dwmac100_irq_status(struct stmmac_priv *priv, struct mac_device_info *hw,
 			       struct stmmac_extra_stats *x)
 {
 	return 0;
 }
 
-static void dwmac100_set_umac_addr(struct mac_device_info *hw,
+static void dwmac100_set_umac_addr(struct stmmac_priv *priv, struct mac_device_info *hw,
 				   const unsigned char *addr,
 				   unsigned int reg_n)
 {
@@ -67,7 +67,7 @@ static void dwmac100_set_umac_addr(struct mac_device_info *hw,
 	stmmac_set_mac_addr(ioaddr, addr, MAC_ADDR_HIGH, MAC_ADDR_LOW);
 }
 
-static void dwmac100_get_umac_addr(struct mac_device_info *hw,
+static void dwmac100_get_umac_addr(struct stmmac_priv *priv, struct mac_device_info *hw,
 				   unsigned char *addr,
 				   unsigned int reg_n)
 {
@@ -75,7 +75,7 @@ static void dwmac100_get_umac_addr(struct mac_device_info *hw,
 	stmmac_get_mac_addr(ioaddr, addr, MAC_ADDR_HIGH, MAC_ADDR_LOW);
 }
 
-static void dwmac100_set_filter(struct mac_device_info *hw,
+static void dwmac100_set_filter(struct stmmac_priv *priv, struct mac_device_info *hw,
 				struct net_device *dev)
 {
 	void __iomem *ioaddr = (void __iomem *)dev->base_addr;
@@ -124,7 +124,7 @@ static void dwmac100_set_filter(struct mac_device_info *hw,
 	writel(value, ioaddr + MAC_CONTROL);
 }
 
-static void dwmac100_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
+static void dwmac100_flow_ctrl(struct stmmac_priv *priv, struct mac_device_info *hw, unsigned int duplex,
 			       unsigned int fc, unsigned int pause_time,
 			       u32 tx_cnt)
 {
@@ -137,12 +137,12 @@ static void dwmac100_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
 }
 
 /* No PMT module supported on ST boards with this Eth chip. */
-static void dwmac100_pmt(struct mac_device_info *hw, unsigned long mode)
+static void dwmac100_pmt(struct stmmac_priv *priv, struct mac_device_info *hw, unsigned long mode)
 {
 	return;
 }
 
-static void dwmac100_set_mac_loopback(void __iomem *ioaddr, bool enable)
+static void dwmac100_set_mac_loopback(struct stmmac_priv *priv, void __iomem *ioaddr, bool enable)
 {
 	u32 value = readl(ioaddr + MAC_CONTROL);
 

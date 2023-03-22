@@ -8,7 +8,7 @@
 #include "common.h"
 #include "dwxgmac2.h"
 
-static int dwxgmac2_get_tx_status(struct net_device_stats *stats,
+static int dwxgmac2_get_tx_status(struct stmmac_priv *priv, struct net_device_stats *stats,
 				  struct stmmac_extra_stats *x,
 				  struct dma_desc *p, void __iomem *ioaddr)
 {
@@ -23,7 +23,7 @@ static int dwxgmac2_get_tx_status(struct net_device_stats *stats,
 	return ret;
 }
 
-static int dwxgmac2_get_rx_status(struct net_device_stats *stats,
+static int dwxgmac2_get_rx_status(struct stmmac_priv *priv, struct net_device_stats *stats,
 				  struct stmmac_extra_stats *x,
 				  struct dma_desc *p)
 {
@@ -41,22 +41,22 @@ static int dwxgmac2_get_rx_status(struct net_device_stats *stats,
 	return good_frame;
 }
 
-static int dwxgmac2_get_tx_len(struct dma_desc *p)
+static int dwxgmac2_get_tx_len(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des2) & XGMAC_TDES2_B1L);
 }
 
-static int dwxgmac2_get_tx_owner(struct dma_desc *p)
+static int dwxgmac2_get_tx_owner(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des3) & XGMAC_TDES3_OWN) > 0;
 }
 
-static void dwxgmac2_set_tx_owner(struct dma_desc *p)
+static void dwxgmac2_set_tx_owner(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des3 |= cpu_to_le32(XGMAC_TDES3_OWN);
 }
 
-static void dwxgmac2_set_rx_owner(struct dma_desc *p, int disable_rx_ic)
+static void dwxgmac2_set_rx_owner(struct stmmac_priv *priv, struct dma_desc *p, int disable_rx_ic)
 {
 	p->des3 |= cpu_to_le32(XGMAC_RDES3_OWN);
 
@@ -64,27 +64,27 @@ static void dwxgmac2_set_rx_owner(struct dma_desc *p, int disable_rx_ic)
 		p->des3 |= cpu_to_le32(XGMAC_RDES3_IOC);
 }
 
-static int dwxgmac2_get_tx_ls(struct dma_desc *p)
+static int dwxgmac2_get_tx_ls(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des3) & XGMAC_RDES3_LD) > 0;
 }
 
-static int dwxgmac2_get_rx_frame_len(struct dma_desc *p, int rx_coe)
+static int dwxgmac2_get_rx_frame_len(struct stmmac_priv *priv, struct dma_desc *p, int rx_coe)
 {
 	return (le32_to_cpu(p->des3) & XGMAC_RDES3_PL);
 }
 
-static void dwxgmac2_enable_tx_timestamp(struct dma_desc *p)
+static void dwxgmac2_enable_tx_timestamp(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des2 |= cpu_to_le32(XGMAC_TDES2_TTSE);
 }
 
-static int dwxgmac2_get_tx_timestamp_status(struct dma_desc *p)
+static int dwxgmac2_get_tx_timestamp_status(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return 0; /* Not supported */
 }
 
-static inline void dwxgmac2_get_timestamp(void *desc, u32 ats, u64 *ts)
+static inline void dwxgmac2_get_timestamp(struct stmmac_priv *priv, void *desc, u32 ats, u64 *ts)
 {
 	struct dma_desc *p = (struct dma_desc *)desc;
 	u64 ns = 0;
@@ -115,7 +115,7 @@ static int dwxgmac2_rx_check_timestamp(void *desc)
 	return -EINVAL;
 }
 
-static int dwxgmac2_get_rx_timestamp_status(void *desc, void *next_desc,
+static int dwxgmac2_get_rx_timestamp_status(struct stmmac_priv *priv, void *desc, void *next_desc,
 					    u32 ats)
 {
 	struct dma_desc *p = (struct dma_desc *)desc;
@@ -128,13 +128,13 @@ static int dwxgmac2_get_rx_timestamp_status(void *desc, void *next_desc,
 	return !ret;
 }
 
-static void dwxgmac2_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
+static void dwxgmac2_init_rx_desc(struct stmmac_priv *priv, struct dma_desc *p, int disable_rx_ic,
 				  int mode, int end, int bfsize)
 {
-	dwxgmac2_set_rx_owner(p, disable_rx_ic);
+	dwxgmac2_set_rx_owner(priv, p, disable_rx_ic);
 }
 
-static void dwxgmac2_init_tx_desc(struct dma_desc *p, int mode, int end)
+static void dwxgmac2_init_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int mode, int end)
 {
 	p->des0 = 0;
 	p->des1 = 0;
@@ -142,7 +142,7 @@ static void dwxgmac2_init_tx_desc(struct dma_desc *p, int mode, int end)
 	p->des3 = 0;
 }
 
-static void dwxgmac2_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+static void dwxgmac2_prepare_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int is_fs, int len,
 				     bool csum_flag, int mode, bool tx_own,
 				     bool ls, unsigned int tot_pkt_len)
 {
@@ -180,7 +180,7 @@ static void dwxgmac2_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
 	p->des3 = cpu_to_le32(tdes3);
 }
 
-static void dwxgmac2_prepare_tso_tx_desc(struct dma_desc *p, int is_fs,
+static void dwxgmac2_prepare_tso_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int is_fs,
 					 int len1, int len2, bool tx_own,
 					 bool ls, unsigned int tcphdrlen,
 					 unsigned int tcppayloadlen)
@@ -220,7 +220,7 @@ static void dwxgmac2_prepare_tso_tx_desc(struct dma_desc *p, int is_fs,
 	p->des3 = cpu_to_le32(tdes3);
 }
 
-static void dwxgmac2_release_tx_desc(struct dma_desc *p, int mode)
+static void dwxgmac2_release_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int mode)
 {
 	p->des0 = 0;
 	p->des1 = 0;
@@ -228,12 +228,12 @@ static void dwxgmac2_release_tx_desc(struct dma_desc *p, int mode)
 	p->des3 = 0;
 }
 
-static void dwxgmac2_set_tx_ic(struct dma_desc *p)
+static void dwxgmac2_set_tx_ic(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des2 |= cpu_to_le32(XGMAC_TDES2_IOC);
 }
 
-static void dwxgmac2_set_mss(struct dma_desc *p, unsigned int mss)
+static void dwxgmac2_set_mss(struct stmmac_priv *priv, struct dma_desc *p, unsigned int mss)
 {
 	p->des0 = 0;
 	p->des1 = 0;
@@ -241,13 +241,13 @@ static void dwxgmac2_set_mss(struct dma_desc *p, unsigned int mss)
 	p->des3 = cpu_to_le32(XGMAC_TDES3_CTXT | XGMAC_TDES3_TCMSSV);
 }
 
-static void dwxgmac2_set_addr(struct dma_desc *p, dma_addr_t addr)
+static void dwxgmac2_set_addr(struct stmmac_priv *priv, struct dma_desc *p, dma_addr_t addr)
 {
 	p->des0 = cpu_to_le32(lower_32_bits(addr));
 	p->des1 = cpu_to_le32(upper_32_bits(addr));
 }
 
-static void dwxgmac2_clear(struct dma_desc *p)
+static void dwxgmac2_clear(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des0 = 0;
 	p->des1 = 0;
@@ -255,7 +255,7 @@ static void dwxgmac2_clear(struct dma_desc *p)
 	p->des3 = 0;
 }
 
-static int dwxgmac2_get_rx_hash(struct dma_desc *p, u32 *hash,
+static int dwxgmac2_get_rx_hash(struct stmmac_priv *priv, struct dma_desc *p, u32 *hash,
 				enum pkt_hash_types *type)
 {
 	unsigned int rdes3 = le32_to_cpu(p->des3);
@@ -283,26 +283,26 @@ static int dwxgmac2_get_rx_hash(struct dma_desc *p, u32 *hash,
 	return -EINVAL;
 }
 
-static void dwxgmac2_get_rx_header_len(struct dma_desc *p, unsigned int *len)
+static void dwxgmac2_get_rx_header_len(struct stmmac_priv *priv, struct dma_desc *p, unsigned int *len)
 {
 	if (le32_to_cpu(p->des3) & XGMAC_RDES3_L34T)
 		*len = le32_to_cpu(p->des2) & XGMAC_RDES2_HL;
 }
 
-static void dwxgmac2_set_sec_addr(struct dma_desc *p, dma_addr_t addr, bool is_valid)
+static void dwxgmac2_set_sec_addr(struct stmmac_priv *priv, struct dma_desc *p, dma_addr_t addr, bool is_valid)
 {
 	p->des2 = cpu_to_le32(lower_32_bits(addr));
 	p->des3 = cpu_to_le32(upper_32_bits(addr));
 }
 
-static void dwxgmac2_set_sarc(struct dma_desc *p, u32 sarc_type)
+static void dwxgmac2_set_sarc(struct stmmac_priv *priv, struct dma_desc *p, u32 sarc_type)
 {
 	sarc_type <<= XGMAC_TDES3_SAIC_SHIFT;
 
 	p->des3 |= cpu_to_le32(sarc_type & XGMAC_TDES3_SAIC);
 }
 
-static void dwxgmac2_set_vlan_tag(struct dma_desc *p, u16 tag, u16 inner_tag,
+static void dwxgmac2_set_vlan_tag(struct stmmac_priv *priv, struct dma_desc *p, u16 tag, u16 inner_tag,
 				  u32 inner_type)
 {
 	p->des0 = 0;
@@ -329,13 +329,13 @@ static void dwxgmac2_set_vlan_tag(struct dma_desc *p, u16 tag, u16 inner_tag,
 	p->des3 |= cpu_to_le32(XGMAC_TDES3_CTXT);
 }
 
-static void dwxgmac2_set_vlan(struct dma_desc *p, u32 type)
+static void dwxgmac2_set_vlan(struct stmmac_priv *priv, struct dma_desc *p, u32 type)
 {
 	type <<= XGMAC_TDES2_VTIR_SHIFT;
 	p->des2 |= cpu_to_le32(type & XGMAC_TDES2_VTIR);
 }
 
-static void dwxgmac2_set_tbs(struct dma_edesc *p, u32 sec, u32 nsec)
+static void dwxgmac2_set_tbs(struct stmmac_priv *priv, struct dma_edesc *p, u32 sec, u32 nsec)
 {
 	p->des4 = cpu_to_le32((sec & XGMAC_TDES0_LT) | XGMAC_TDES0_LTV);
 	p->des5 = cpu_to_le32(nsec & XGMAC_TDES1_LT);

@@ -12,7 +12,7 @@
 #include "common.h"
 #include "descs_com.h"
 
-static int ndesc_get_tx_status(struct net_device_stats *stats,
+static int ndesc_get_tx_status(struct stmmac_priv *priv, struct net_device_stats *stats,
 			       struct stmmac_extra_stats *x,
 			       struct dma_desc *p, void __iomem *ioaddr)
 {
@@ -61,7 +61,7 @@ static int ndesc_get_tx_status(struct net_device_stats *stats,
 	return ret;
 }
 
-static int ndesc_get_tx_len(struct dma_desc *p)
+static int ndesc_get_tx_len(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des1) & RDES1_BUFFER1_SIZE_MASK);
 }
@@ -70,7 +70,7 @@ static int ndesc_get_tx_len(struct dma_desc *p)
  * and, if required, updates the multicast statistics.
  * In case of success, it returns good_frame because the GMAC device
  * is supposed to be able to compute the csum in HW. */
-static int ndesc_get_rx_status(struct net_device_stats *stats,
+static int ndesc_get_rx_status(struct stmmac_priv *priv, struct net_device_stats *stats,
 			       struct stmmac_extra_stats *x,
 			       struct dma_desc *p)
 {
@@ -122,7 +122,7 @@ static int ndesc_get_rx_status(struct net_device_stats *stats,
 	return ret;
 }
 
-static void ndesc_init_rx_desc(struct dma_desc *p, int disable_rx_ic, int mode,
+static void ndesc_init_rx_desc(struct stmmac_priv *priv, struct dma_desc *p, int disable_rx_ic, int mode,
 			       int end, int bfsize)
 {
 	int bfsize1;
@@ -141,7 +141,7 @@ static void ndesc_init_rx_desc(struct dma_desc *p, int disable_rx_ic, int mode,
 		p->des1 |= cpu_to_le32(RDES1_DISABLE_IC);
 }
 
-static void ndesc_init_tx_desc(struct dma_desc *p, int mode, int end)
+static void ndesc_init_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int mode, int end)
 {
 	p->des0 &= cpu_to_le32(~TDES0_OWN);
 	if (mode == STMMAC_CHAIN_MODE)
@@ -150,27 +150,27 @@ static void ndesc_init_tx_desc(struct dma_desc *p, int mode, int end)
 		ndesc_end_tx_desc_on_ring(p, end);
 }
 
-static int ndesc_get_tx_owner(struct dma_desc *p)
+static int ndesc_get_tx_owner(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des0) & TDES0_OWN) >> 31;
 }
 
-static void ndesc_set_tx_owner(struct dma_desc *p)
+static void ndesc_set_tx_owner(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des0 |= cpu_to_le32(TDES0_OWN);
 }
 
-static void ndesc_set_rx_owner(struct dma_desc *p, int disable_rx_ic)
+static void ndesc_set_rx_owner(struct stmmac_priv *priv, struct dma_desc *p, int disable_rx_ic)
 {
 	p->des0 |= cpu_to_le32(RDES0_OWN);
 }
 
-static int ndesc_get_tx_ls(struct dma_desc *p)
+static int ndesc_get_tx_ls(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des1) & TDES1_LAST_SEGMENT) >> 30;
 }
 
-static void ndesc_release_tx_desc(struct dma_desc *p, int mode)
+static void ndesc_release_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int mode)
 {
 	int ter = (le32_to_cpu(p->des1) & TDES1_END_RING) >> 25;
 
@@ -181,7 +181,7 @@ static void ndesc_release_tx_desc(struct dma_desc *p, int mode)
 		ndesc_end_tx_desc_on_ring(p, ter);
 }
 
-static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+static void ndesc_prepare_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int is_fs, int len,
 				  bool csum_flag, int mode, bool tx_own,
 				  bool ls, unsigned int tot_pkt_len)
 {
@@ -211,12 +211,12 @@ static void ndesc_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
 		p->des0 |= cpu_to_le32(TDES0_OWN);
 }
 
-static void ndesc_set_tx_ic(struct dma_desc *p)
+static void ndesc_set_tx_ic(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des1 |= cpu_to_le32(TDES1_INTERRUPT);
 }
 
-static int ndesc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
+static int ndesc_get_rx_frame_len(struct stmmac_priv *priv, struct dma_desc *p, int rx_coe_type)
 {
 	unsigned int csum = 0;
 
@@ -235,17 +235,17 @@ static int ndesc_get_rx_frame_len(struct dma_desc *p, int rx_coe_type)
 
 }
 
-static void ndesc_enable_tx_timestamp(struct dma_desc *p)
+static void ndesc_enable_tx_timestamp(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des1 |= cpu_to_le32(TDES1_TIME_STAMP_ENABLE);
 }
 
-static int ndesc_get_tx_timestamp_status(struct dma_desc *p)
+static int ndesc_get_tx_timestamp_status(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des0) & TDES0_TIME_STAMP_STATUS) >> 17;
 }
 
-static void ndesc_get_timestamp(void *desc, u32 ats, u64 *ts)
+static void ndesc_get_timestamp(struct stmmac_priv *priv, void *desc, u32 ats, u64 *ts)
 {
 	struct dma_desc *p = (struct dma_desc *)desc;
 	u64 ns;
@@ -257,7 +257,7 @@ static void ndesc_get_timestamp(void *desc, u32 ats, u64 *ts)
 	*ts = ns;
 }
 
-static int ndesc_get_rx_timestamp_status(void *desc, void *next_desc, u32 ats)
+static int ndesc_get_rx_timestamp_status(struct stmmac_priv *priv, void *desc, void *next_desc, u32 ats)
 {
 	struct dma_desc *p = (struct dma_desc *)desc;
 
@@ -269,7 +269,7 @@ static int ndesc_get_rx_timestamp_status(void *desc, void *next_desc, u32 ats)
 		return 1;
 }
 
-static void ndesc_display_ring(void *head, unsigned int size, bool rx,
+static void ndesc_display_ring(struct stmmac_priv *priv, void *head, unsigned int size, bool rx,
 			       dma_addr_t dma_rx_phy, unsigned int desc_size)
 {
 	struct dma_desc *p = (struct dma_desc *)head;
@@ -292,12 +292,12 @@ static void ndesc_display_ring(void *head, unsigned int size, bool rx,
 	pr_info("\n");
 }
 
-static void ndesc_set_addr(struct dma_desc *p, dma_addr_t addr)
+static void ndesc_set_addr(struct stmmac_priv *priv, struct dma_desc *p, dma_addr_t addr)
 {
 	p->des2 = cpu_to_le32(addr);
 }
 
-static void ndesc_clear(struct dma_desc *p)
+static void ndesc_clear(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des2 = 0;
 }

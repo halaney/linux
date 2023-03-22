@@ -13,7 +13,7 @@
 #include "dwmac4.h"
 #include "dwmac4_descs.h"
 
-static int dwmac4_wrback_get_tx_status(struct net_device_stats *stats,
+static int dwmac4_wrback_get_tx_status(struct stmmac_priv *priv, struct net_device_stats *stats,
 				       struct stmmac_extra_stats *x,
 				       struct dma_desc *p,
 				       void __iomem *ioaddr)
@@ -73,7 +73,7 @@ static int dwmac4_wrback_get_tx_status(struct net_device_stats *stats,
 	return ret;
 }
 
-static int dwmac4_wrback_get_rx_status(struct net_device_stats *stats,
+static int dwmac4_wrback_get_rx_status(struct stmmac_priv *priv, struct net_device_stats *stats,
 				       struct stmmac_extra_stats *x,
 				       struct dma_desc *p)
 {
@@ -175,22 +175,22 @@ static int dwmac4_wrback_get_rx_status(struct net_device_stats *stats,
 	return ret;
 }
 
-static int dwmac4_rd_get_tx_len(struct dma_desc *p)
+static int dwmac4_rd_get_tx_len(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des2) & TDES2_BUFFER1_SIZE_MASK);
 }
 
-static int dwmac4_get_tx_owner(struct dma_desc *p)
+static int dwmac4_get_tx_owner(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des3) & TDES3_OWN) >> TDES3_OWN_SHIFT;
 }
 
-static void dwmac4_set_tx_owner(struct dma_desc *p)
+static void dwmac4_set_tx_owner(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des3 |= cpu_to_le32(TDES3_OWN);
 }
 
-static void dwmac4_set_rx_owner(struct dma_desc *p, int disable_rx_ic)
+static void dwmac4_set_rx_owner(struct stmmac_priv *priv, struct dma_desc *p, int disable_rx_ic)
 {
 	p->des3 |= cpu_to_le32(RDES3_OWN | RDES3_BUFFER1_VALID_ADDR);
 
@@ -198,23 +198,23 @@ static void dwmac4_set_rx_owner(struct dma_desc *p, int disable_rx_ic)
 		p->des3 |= cpu_to_le32(RDES3_INT_ON_COMPLETION_EN);
 }
 
-static int dwmac4_get_tx_ls(struct dma_desc *p)
+static int dwmac4_get_tx_ls(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	return (le32_to_cpu(p->des3) & TDES3_LAST_DESCRIPTOR)
 		>> TDES3_LAST_DESCRIPTOR_SHIFT;
 }
 
-static int dwmac4_wrback_get_rx_frame_len(struct dma_desc *p, int rx_coe)
+static int dwmac4_wrback_get_rx_frame_len(struct stmmac_priv *priv, struct dma_desc *p, int rx_coe)
 {
 	return (le32_to_cpu(p->des3) & RDES3_PACKET_SIZE_MASK);
 }
 
-static void dwmac4_rd_enable_tx_timestamp(struct dma_desc *p)
+static void dwmac4_rd_enable_tx_timestamp(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des2 |= cpu_to_le32(TDES2_TIMESTAMP_ENABLE);
 }
 
-static int dwmac4_wrback_get_tx_timestamp_status(struct dma_desc *p)
+static int dwmac4_wrback_get_tx_timestamp_status(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	/* Context type from W/B descriptor must be zero */
 	if (le32_to_cpu(p->des3) & TDES3_CONTEXT_TYPE)
@@ -227,7 +227,7 @@ static int dwmac4_wrback_get_tx_timestamp_status(struct dma_desc *p)
 	return 0;
 }
 
-static inline void dwmac4_get_timestamp(void *desc, u32 ats, u64 *ts)
+static inline void dwmac4_get_timestamp(struct stmmac_priv *priv, void *desc, u32 ats, u64 *ts)
 {
 	struct dma_desc *p = (struct dma_desc *)desc;
 	u64 ns;
@@ -265,7 +265,7 @@ static int dwmac4_rx_check_timestamp(void *desc)
 	return ret;
 }
 
-static int dwmac4_wrback_get_rx_timestamp_status(void *desc, void *next_desc,
+static int dwmac4_wrback_get_rx_timestamp_status(struct stmmac_priv *priv, void *desc, void *next_desc,
 						 u32 ats)
 {
 	struct dma_desc *p = (struct dma_desc *)desc;
@@ -296,13 +296,13 @@ exit:
 	return 0;
 }
 
-static void dwmac4_rd_init_rx_desc(struct dma_desc *p, int disable_rx_ic,
+static void dwmac4_rd_init_rx_desc(struct stmmac_priv *priv, struct dma_desc *p, int disable_rx_ic,
 				   int mode, int end, int bfsize)
 {
-	dwmac4_set_rx_owner(p, disable_rx_ic);
+	dwmac4_set_rx_owner(priv, p, disable_rx_ic);
 }
 
-static void dwmac4_rd_init_tx_desc(struct dma_desc *p, int mode, int end)
+static void dwmac4_rd_init_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int mode, int end)
 {
 	p->des0 = 0;
 	p->des1 = 0;
@@ -310,7 +310,7 @@ static void dwmac4_rd_init_tx_desc(struct dma_desc *p, int mode, int end)
 	p->des3 = 0;
 }
 
-static void dwmac4_rd_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
+static void dwmac4_rd_prepare_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int is_fs, int len,
 				      bool csum_flag, int mode, bool tx_own,
 				      bool ls, unsigned int tot_pkt_len)
 {
@@ -348,7 +348,7 @@ static void dwmac4_rd_prepare_tx_desc(struct dma_desc *p, int is_fs, int len,
 	p->des3 = cpu_to_le32(tdes3);
 }
 
-static void dwmac4_rd_prepare_tso_tx_desc(struct dma_desc *p, int is_fs,
+static void dwmac4_rd_prepare_tso_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int is_fs,
 					  int len1, int len2, bool tx_own,
 					  bool ls, unsigned int tcphdrlen,
 					  unsigned int tcppayloadlen)
@@ -391,7 +391,7 @@ static void dwmac4_rd_prepare_tso_tx_desc(struct dma_desc *p, int is_fs,
 	p->des3 = cpu_to_le32(tdes3);
 }
 
-static void dwmac4_release_tx_desc(struct dma_desc *p, int mode)
+static void dwmac4_release_tx_desc(struct stmmac_priv *priv, struct dma_desc *p, int mode)
 {
 	p->des0 = 0;
 	p->des1 = 0;
@@ -399,12 +399,12 @@ static void dwmac4_release_tx_desc(struct dma_desc *p, int mode)
 	p->des3 = 0;
 }
 
-static void dwmac4_rd_set_tx_ic(struct dma_desc *p)
+static void dwmac4_rd_set_tx_ic(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des2 |= cpu_to_le32(TDES2_INTERRUPT_ON_COMPLETION);
 }
 
-static void dwmac4_display_ring(void *head, unsigned int size, bool rx,
+static void dwmac4_display_ring(struct stmmac_priv *priv, void *head, unsigned int size, bool rx,
 				dma_addr_t dma_rx_phy, unsigned int desc_size)
 {
 	dma_addr_t dma_addr;
@@ -454,7 +454,7 @@ static void dwmac4_display_ring(void *head, unsigned int size, bool rx,
 	}
 }
 
-static void dwmac4_set_mss_ctxt(struct dma_desc *p, unsigned int mss)
+static void dwmac4_set_mss_ctxt(struct stmmac_priv *priv, struct dma_desc *p, unsigned int mss)
 {
 	p->des0 = 0;
 	p->des1 = 0;
@@ -462,13 +462,13 @@ static void dwmac4_set_mss_ctxt(struct dma_desc *p, unsigned int mss)
 	p->des3 = cpu_to_le32(TDES3_CONTEXT_TYPE | TDES3_CTXT_TCMSSV);
 }
 
-static void dwmac4_set_addr(struct dma_desc *p, dma_addr_t addr)
+static void dwmac4_set_addr(struct stmmac_priv *priv, struct dma_desc *p, dma_addr_t addr)
 {
 	p->des0 = cpu_to_le32(lower_32_bits(addr));
 	p->des1 = cpu_to_le32(upper_32_bits(addr));
 }
 
-static void dwmac4_clear(struct dma_desc *p)
+static void dwmac4_clear(struct stmmac_priv *priv, struct dma_desc *p)
 {
 	p->des0 = 0;
 	p->des1 = 0;
@@ -476,7 +476,7 @@ static void dwmac4_clear(struct dma_desc *p)
 	p->des3 = 0;
 }
 
-static void dwmac4_set_sarc(struct dma_desc *p, u32 sarc_type)
+static void dwmac4_set_sarc(struct stmmac_priv *priv, struct dma_desc *p, u32 sarc_type)
 {
 	sarc_type <<= TDES3_SA_INSERT_CTRL_SHIFT;
 
@@ -492,7 +492,7 @@ static int set_16kib_bfsize(int mtu)
 	return ret;
 }
 
-static void dwmac4_set_vlan_tag(struct dma_desc *p, u16 tag, u16 inner_tag,
+static void dwmac4_set_vlan_tag(struct stmmac_priv *priv, struct dma_desc *p, u16 tag, u16 inner_tag,
 				u32 inner_type)
 {
 	p->des0 = 0;
@@ -519,18 +519,18 @@ static void dwmac4_set_vlan_tag(struct dma_desc *p, u16 tag, u16 inner_tag,
 	p->des3 |= cpu_to_le32(TDES3_CONTEXT_TYPE);
 }
 
-static void dwmac4_set_vlan(struct dma_desc *p, u32 type)
+static void dwmac4_set_vlan(struct stmmac_priv *priv, struct dma_desc *p, u32 type)
 {
 	type <<= TDES2_VLAN_TAG_SHIFT;
 	p->des2 |= cpu_to_le32(type & TDES2_VLAN_TAG_MASK);
 }
 
-static void dwmac4_get_rx_header_len(struct dma_desc *p, unsigned int *len)
+static void dwmac4_get_rx_header_len(struct stmmac_priv *priv, struct dma_desc *p, unsigned int *len)
 {
 	*len = le32_to_cpu(p->des2) & RDES2_HL;
 }
 
-static void dwmac4_set_sec_addr(struct dma_desc *p, dma_addr_t addr, bool buf2_valid)
+static void dwmac4_set_sec_addr(struct stmmac_priv *priv, struct dma_desc *p, dma_addr_t addr, bool buf2_valid)
 {
 	p->des2 = cpu_to_le32(lower_32_bits(addr));
 	p->des3 = cpu_to_le32(upper_32_bits(addr));
@@ -541,7 +541,7 @@ static void dwmac4_set_sec_addr(struct dma_desc *p, dma_addr_t addr, bool buf2_v
 		p->des3 &= cpu_to_le32(~RDES3_BUFFER2_VALID_ADDR);
 }
 
-static void dwmac4_set_tbs(struct dma_edesc *p, u32 sec, u32 nsec)
+static void dwmac4_set_tbs(struct stmmac_priv *priv, struct dma_edesc *p, u32 sec, u32 nsec)
 {
 	p->des4 = cpu_to_le32((sec & TDES4_LT) | TDES4_LTV);
 	p->des5 = cpu_to_le32(nsec & TDES5_LT);
