@@ -2516,6 +2516,38 @@
 		dma-coherent;
 	};
 
+	vfio_eva@ab00000 {
+		compatible = "qcom,vfio-platform";
+		interrupts = <GIC_SPI 234 IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0xab00000 0x2000>,    //CVP0_CVP_TOP_PHYS_ADDR
+		      <0xab06000 0x1000>,    //CVP_DMA0_PHYS_ADDR
+		      <0xab0a000 0x1000>,    //CVP_FDU0_ECC_PHYS_ADDR <0xab0a000 0x400>
+		      <0xab0a000 0x3000>,    //CVP_DMA0_ECC_PHYS_ADDR <0xab0a800 0x2000>
+		      <0xab0c000 0x3000>,    //CVP_MPU0_ECC_PHYS_ADDR <0xab0c800 0x2000>
+		      <0xab20000 0x2000>,    //CVP1_CVP_TOP_PHYS_ADDR
+		      <0xab26000 0x1000>,    //CVP_DMA1_PHYS_ADDR
+		      <0xab2a000 0x1000>,    //CVP_FDU1_ECC_PHYS_ADDR <0xab2a000 0x400>
+		      <0xab2a000 0x3000>,    //CVP_DMA1_ECC_PHYS_ADDR <0xab2a800 0x2000>
+		      <0xab2c000 0x3000>,    //CVP_MPU1_ECC_PHYS_ADDR <0xab2c800 0x2000>
+		      <0xab10000 0x10000>,   //CVP_NOC_VIDEO_B_PHYS_ADDR <0xab10000 0xf580>
+		      <0xab1F000 0x1000>,    //AON_CVP_NOC_RESET_PHYS_ADDR <0xab1F800 0x800>
+		      <0xabb0000 0x2000>,    //CVP_IRIS_WRAPPER_PHYS_ADDR
+		      <0xabc2000 0x1000>,    //CVP_TZ0_PHYS_ADDR
+		      <0xabc3000 0x1000>,    //CVP_TZ1_PHYS_ADDR
+		      <0xabd0000 0x1000>,    //CVP_IRIS_CPU_NOC_PHYS_ADDR <0xabd0080 0x480>
+		      <0x110000  0x1e0000>,  //GCC_CLK_CTL_REG_PHYS_ADDR
+		      <0xab04000 0x1000>,    //CVP_FDU0_CVP_FDU_PHYS_ADDR <0xab04000 0x400>
+		      <0xab04000 0x1000>,    //CVP_MPU0_CVP_MPU_PHYS_ADDR <0xab04400 0x400>
+		      <0xab90000 0x1000>,    //CVP_CPU_WD_PHYS_ADDR
+		      <0xabc0000 0x2000>,    //CVP_TZ_WRAPPER_PHYS_ADDR
+		      <0xaba0000 0x1000>,    //CVP_CPU_CS_PHYS_ADDR
+		      <0xabe0000 0xf000>,    //CVP_AON_PHYS_ADDR
+		      <0xabf0000 0x10000>;   //CVP_VIDEO_CC_VIDEO_PHYS_ADDR
+		iommus = <&apps_smmu 0x08A0 0x400>;
+		qcom,iommu-dma-addr-pool = <0x4b000000 0x90000000>;
+		dma-coherent;
+	};
+
 	qupv3_id_0: geniqup@9c0000 {
 		compatible = "qcom,geni-se-qup";
 		reg = <0x9c0000 0x6000>;
