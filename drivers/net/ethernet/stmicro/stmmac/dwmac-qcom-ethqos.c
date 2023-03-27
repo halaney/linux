@@ -528,6 +528,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		return PTR_ERR(plat_dat);
 	}
 
+	/* TODO: assign dwmac4_addrs from dt data */
 	plat_dat->clks_config = ethqos_clks_config;
 
 	ethqos = devm_kzalloc(&pdev->dev, sizeof(*ethqos), GFP_KERNEL);

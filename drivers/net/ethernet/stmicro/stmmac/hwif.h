@@ -186,8 +186,12 @@ struct stmmac_dma_ops {
 	void (*axi)(struct stmmac_priv *priv, void __iomem *ioaddr, struct stmmac_axi *axi);
 	/* Dump DMA registers */
 	void (*dump_regs)(struct stmmac_priv *priv, void __iomem *ioaddr, u32 *reg_space);
+
+	/* TODO NEEDED */
 	void (*dma_rx_mode)(struct stmmac_priv *priv, void __iomem *ioaddr, int mode, u32 channel,
 			    int fifosz, u8 qmode);
+
+	/* TODO NEEDED */
 	void (*dma_tx_mode)(struct stmmac_priv *priv, void __iomem *ioaddr, int mode, u32 channel,
 			    int fifosz, u8 qmode);
 	/* To track extra statistic (if supported) */
@@ -217,6 +221,8 @@ struct stmmac_dma_ops {
 	void (*set_rx_tail_ptr)(struct stmmac_priv *priv, void __iomem *ioaddr, u32 tail_ptr, u32 chan);
 	void (*set_tx_tail_ptr)(struct stmmac_priv *priv, void __iomem *ioaddr, u32 tail_ptr, u32 chan);
 	void (*enable_tso)(struct stmmac_priv *priv, void __iomem *ioaddr, bool en, u32 chan);
+
+	/* TODO NEEDED */
 	void (*qmode)(struct stmmac_priv *priv, void __iomem *ioaddr, u32 channel, u8 qmode);
 	void (*set_bfsize)(struct stmmac_priv *priv, void __iomem *ioaddr, int bfsize, u32 chan);
 	void (*enable_sph)(struct stmmac_priv *priv, void __iomem *ioaddr, bool en, u32 chan);
@@ -325,6 +331,8 @@ struct stmmac_ops {
 	/* Handle extra events on specific interrupts hw dependent */
 	int (*host_irq_status)(struct stmmac_priv *priv, struct mac_device_info *hw,
 			       struct stmmac_extra_stats *x);
+
+	/* TODO: NEEDED */
 	/* Handle MTL interrupts */
 	int (*host_mtl_irq_status)(struct stmmac_priv *priv, struct mac_device_info *hw, u32 chan);
 	/* Multicast filter setting */
@@ -346,6 +354,8 @@ struct stmmac_ops {
 	void (*set_eee_lpi_entry_timer)(struct stmmac_priv *priv, struct mac_device_info *hw, int et);
 	void (*set_eee_timer)(struct stmmac_priv *priv, struct mac_device_info *hw, int ls, int tw);
 	void (*set_eee_pls)(struct stmmac_priv *priv, struct mac_device_info *hw, int link);
+
+	/* TODO: needed */
 	void (*debug)(struct stmmac_priv *priv, void __iomem *ioaddr, struct stmmac_extra_stats *x,
 		      u32 rx_queues, u32 tx_queues);
 	/* PCS calls */
