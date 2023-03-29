@@ -336,22 +336,21 @@ enum power_event {
 
 #define MTL_CHAN_BASE_ADDR		0x00000d00
 #define MTL_CHAN_BASE_OFFSET		0x40
-#define MTL_CHANX_BASE_ADDR(priv, x)  \
+#define MTL_CHANX_BASE_ADDR(dwmac4_addrs, x)  \
 ({ \
-	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs; \
 	u32 __addr; \
 	if (dwmac4_addrs) \
-		__addr = dwmac4_addrs->mtl_chan + (x * (dwmac4_addrs->mtl_chan_offset)); \
+		__addr = dwmac4_addrs->mtl_chan + (x * dwmac4_addrs->mtl_chan_offset); \
 	else \
 		__addr = (MTL_CHAN_BASE_ADDR + (x * MTL_CHAN_BASE_OFFSET)); \
 	__addr; \
 })
 
-#define MTL_CHAN_TX_OP_MODE(priv, x)		MTL_CHANX_BASE_ADDR(priv, x)
-#define MTL_CHAN_TX_DEBUG(priv, x)		(MTL_CHANX_BASE_ADDR(priv, x) + 0x8)
-#define MTL_CHAN_INT_CTRL(priv, x)		(MTL_CHANX_BASE_ADDR(priv, x) + 0x2c)
-#define MTL_CHAN_RX_OP_MODE(priv, x)		(MTL_CHANX_BASE_ADDR(priv, x) + 0x30)
-#define MTL_CHAN_RX_DEBUG(priv, x)		(MTL_CHANX_BASE_ADDR(priv, x) + 0x38)
+#define MTL_CHAN_TX_OP_MODE(dwmac4_addrs, x)		MTL_CHANX_BASE_ADDR(dwmac4_addrs, x)
+#define MTL_CHAN_TX_DEBUG(dwmac4_addrs, x)		(MTL_CHANX_BASE_ADDR(dwmac4_addrs, x) + 0x8)
+#define MTL_CHAN_INT_CTRL(dwmac4_addrs, x)		(MTL_CHANX_BASE_ADDR(dwmac4_addrs, x) + 0x2c)
+#define MTL_CHAN_RX_OP_MODE(dwmac4_addrs, x)		(MTL_CHANX_BASE_ADDR(dwmac4_addrs, x) + 0x30)
+#define MTL_CHAN_RX_DEBUG(dwmac4_addrs, x)		(MTL_CHANX_BASE_ADDR(dwmac4_addrs, x) + 0x38)
 
 #define MTL_OP_MODE_RSF			BIT(5)
 #define MTL_OP_MODE_TXQEN_MASK		GENMASK(3, 2)
@@ -396,12 +395,11 @@ enum power_event {
 /* MTL ETS Control register */
 #define MTL_ETS_CTRL_BASE_ADDR		0x00000d10
 #define MTL_ETS_CTRL_BASE_OFFSET	0x40
-#define MTL_ETSX_CTRL_BASE_ADDR(priv, x)  \
+#define MTL_ETSX_CTRL_BASE_ADDR(dwmac4_addrs, x)  \
 ({ \
-	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs; \
 	u32 __addr; \
 	if (dwmac4_addrs) \
-		__addr = dwmac4_addrs->mtl_ets_ctrl + (x * (dwmac4_addrs->mtl_ets_ctrl_offset)); \
+		__addr = dwmac4_addrs->mtl_ets_ctrl + (x * dwmac4_addrs->mtl_ets_ctrl_offset); \
 	else \
 		__addr = (MTL_ETS_CTRL_BASE_ADDR + (x * MTL_ETS_CTRL_BASE_OFFSET)); \
 	__addr; \
@@ -413,12 +411,11 @@ enum power_event {
 /* MTL Queue Quantum Weight */
 #define MTL_TXQ_WEIGHT_BASE_ADDR	0x00000d18
 #define MTL_TXQ_WEIGHT_BASE_OFFSET	0x40
-#define MTL_TXQX_WEIGHT_BASE_ADDR(priv, x)  \
+#define MTL_TXQX_WEIGHT_BASE_ADDR(dwmac4_addrs, x)  \
 ({ \
-	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs; \
 	u32 __addr; \
 	if (dwmac4_addrs) \
-		__addr = dwmac4_addrs->mtl_txq_weight + (x * (dwmac4_addrs->mtl_txq_weight_offset)); \
+		__addr = dwmac4_addrs->mtl_txq_weight + (x * dwmac4_addrs->mtl_txq_weight_offset); \
 	else \
 		__addr = (MTL_TXQ_WEIGHT_BASE_ADDR + (x * MTL_TXQ_WEIGHT_BASE_OFFSET)); \
 	__addr; \
@@ -429,12 +426,11 @@ enum power_event {
 /* MTL sendSlopeCredit register */
 #define MTL_SEND_SLP_CRED_BASE_ADDR	0x00000d1c
 #define MTL_SEND_SLP_CRED_OFFSET	0x40
-#define MTL_SEND_SLP_CREDX_BASE_ADDR(priv, x)  \
+#define MTL_SEND_SLP_CREDX_BASE_ADDR(dwmac4_addrs, x)  \
 ({ \
-	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs; \
 	u32 __addr; \
 	if (dwmac4_addrs) \
-		__addr = dwmac4_addrs->mtl_send_slp_cred + (x * (dwmac4_addrs->mtl_send_slp_cred_offset)); \
+		__addr = dwmac4_addrs->mtl_send_slp_cred + (x * dwmac4_addrs->mtl_send_slp_cred_offset); \
 	else \
 		__addr = (MTL_SEND_SLP_CRED_BASE_ADDR + (x * MTL_SEND_SLP_CRED_OFFSET)); \
 	__addr; \
@@ -445,12 +441,11 @@ enum power_event {
 /* MTL hiCredit register */
 #define MTL_HIGH_CRED_BASE_ADDR		0x00000d20
 #define MTL_HIGH_CRED_OFFSET		0x40
-#define MTL_HIGH_CREDX_BASE_ADDR(priv, x)  \
+#define MTL_HIGH_CREDX_BASE_ADDR(dwmac4_addrs, x)  \
 ({ \
-	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs; \
 	u32 __addr; \
 	if (dwmac4_addrs) \
-		__addr = dwmac4_addrs->mtl_high_cred + (x * (dwmac4_addrs->mtl_high_cred_offset)); \
+		__addr = dwmac4_addrs->mtl_high_cred + (x * dwmac4_addrs->mtl_high_cred_offset); \
 	else \
 		__addr = (MTL_HIGH_CRED_BASE_ADDR + (x * MTL_HIGH_CRED_OFFSET)); \
 	__addr; \
@@ -461,12 +456,11 @@ enum power_event {
 /* MTL loCredit register */
 #define MTL_LOW_CRED_BASE_ADDR		0x00000d24
 #define MTL_LOW_CRED_OFFSET		0x40
-#define MTL_LOW_CREDX_BASE_ADDR(priv, x)  \
+#define MTL_LOW_CREDX_BASE_ADDR(dwmac4_addrs, x)  \
 ({ \
-	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs; \
 	u32 __addr; \
 	if (dwmac4_addrs) \
-		__addr = dwmac4_addrs->mtl_low_cred + (x * (dwmac4_addrs->mtl_low_cred_offset)); \
+		__addr = dwmac4_addrs->mtl_low_cred + (x * dwmac4_addrs->mtl_low_cred_offset); \
 	else \
 		__addr = (MTL_LOW_CRED_BASE_ADDR + (x * MTL_LOW_CRED_OFFSET)); \
 	__addr; \
