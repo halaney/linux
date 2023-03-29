@@ -28,45 +28,20 @@ int dwmac4_dma_reset(struct stmmac_priv *priv, void __iomem *ioaddr)
 
 void dwmac4_set_rx_tail_ptr(struct stmmac_priv *priv, void __iomem *ioaddr, u32 tail_ptr, u32 chan)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	writel(tail_ptr, ioaddr + DMA_CHAN_RX_END_ADDR(chan, dma_chan, dma_chan_offset));
+	writel(tail_ptr, ioaddr + DMA_CHAN_RX_END_ADDR(priv, chan));
 }
 
 void dwmac4_set_tx_tail_ptr(struct stmmac_priv *priv, void __iomem *ioaddr, u32 tail_ptr, u32 chan)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	writel(tail_ptr, ioaddr + DMA_CHAN_TX_END_ADDR(chan, dma_chan, dma_chan_offset));
+	writel(tail_ptr, ioaddr + DMA_CHAN_TX_END_ADDR(priv, chan));
 }
 
 void dwmac4_dma_start_tx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-	u32 value;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	value = readl(ioaddr + DMA_CHAN_TX_CONTROL(chan, dma_chan, dma_chan_offset));
+	u32 value = readl(ioaddr + DMA_CHAN_TX_CONTROL(priv, chan));
 
 	value |= DMA_CONTROL_ST;
-	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(chan, dma_chan, dma_chan_offset));
+	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(priv, chan));
 
 	value = readl(ioaddr + GMAC_CONFIG);
 	value |= GMAC_CONFIG_TE;
@@ -75,37 +50,19 @@ void dwmac4_dma_start_tx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 cha
 
 void dwmac4_dma_stop_tx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-	u32 value;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	value = readl(ioaddr + DMA_CHAN_TX_CONTROL(chan, dma_chan, dma_chan_offset));
+	u32 value = readl(ioaddr + DMA_CHAN_TX_CONTROL(priv, chan));
 
 	value &= ~DMA_CONTROL_ST;
-	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(chan, dma_chan, dma_chan_offset));
+	writel(value, ioaddr + DMA_CHAN_TX_CONTROL(priv, chan));
 }
 
 void dwmac4_dma_start_rx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-	u32 value;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	value = readl(ioaddr + DMA_CHAN_RX_CONTROL(chan, dma_chan, dma_chan_offset));
+	u32 value = readl(ioaddr + DMA_CHAN_RX_CONTROL(priv, chan));
 
 	value |= DMA_CONTROL_SR;
 
-	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(chan, dma_chan, dma_chan_offset));
+	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(priv, chan));
 
 	value = readl(ioaddr + GMAC_CONFIG);
 	value |= GMAC_CONFIG_RE;
@@ -114,147 +71,76 @@ void dwmac4_dma_start_rx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 cha
 
 void dwmac4_dma_stop_rx(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-	u32 value;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	value = readl(ioaddr + DMA_CHAN_RX_CONTROL(chan, dma_chan, dma_chan_offset));
+	u32 value = readl(ioaddr + DMA_CHAN_RX_CONTROL(priv, chan));
 
 	value &= ~DMA_CONTROL_SR;
-	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(chan, dma_chan, dma_chan_offset));
+	writel(value, ioaddr + DMA_CHAN_RX_CONTROL(priv, chan));
 }
 
 void dwmac4_set_tx_ring_len(struct stmmac_priv *priv, void __iomem *ioaddr, u32 len, u32 chan)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	writel(len, ioaddr + DMA_CHAN_TX_RING_LEN(chan, dma_chan, dma_chan_offset));
+	writel(len, ioaddr + DMA_CHAN_TX_RING_LEN(priv, chan));
 }
 
 void dwmac4_set_rx_ring_len(struct stmmac_priv *priv, void __iomem *ioaddr, u32 len, u32 chan)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	writel(len, ioaddr + DMA_CHAN_RX_RING_LEN(chan, dma_chan, dma_chan_offset));
+	writel(len, ioaddr + DMA_CHAN_RX_RING_LEN(priv, chan));
 }
 
 void dwmac4_enable_dma_irq(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-	u32 value;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	value = readl(ioaddr + DMA_CHAN_INTR_ENA(chan, dma_chan, dma_chan_offset));
+	u32 value = readl(ioaddr + DMA_CHAN_INTR_ENA(priv, chan));
 
 	if (rx)
 		value |= DMA_CHAN_INTR_DEFAULT_RX;
 	if (tx)
 		value |= DMA_CHAN_INTR_DEFAULT_TX;
 
-	writel(value, ioaddr + DMA_CHAN_INTR_ENA(chan, dma_chan, dma_chan_offset));
+	writel(value, ioaddr + DMA_CHAN_INTR_ENA(priv, chan));
 }
 
 void dwmac410_enable_dma_irq(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-	u32 value;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	value = readl(ioaddr + DMA_CHAN_INTR_ENA(chan, dma_chan, dma_chan_offset));
+	u32 value = readl(ioaddr + DMA_CHAN_INTR_ENA(priv, chan));
 
 	if (rx)
 		value |= DMA_CHAN_INTR_DEFAULT_RX_4_10;
 	if (tx)
 		value |= DMA_CHAN_INTR_DEFAULT_TX_4_10;
 
-	writel(value, ioaddr + DMA_CHAN_INTR_ENA(chan, dma_chan, dma_chan_offset));
+	writel(value, ioaddr + DMA_CHAN_INTR_ENA(priv, chan));
 }
 
 void dwmac4_disable_dma_irq(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-	u32 value;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	value = readl(ioaddr + DMA_CHAN_INTR_ENA(chan, dma_chan, dma_chan_offset));
+	u32 value = readl(ioaddr + DMA_CHAN_INTR_ENA(priv, chan));
 
 	if (rx)
 		value &= ~DMA_CHAN_INTR_DEFAULT_RX;
 	if (tx)
 		value &= ~DMA_CHAN_INTR_DEFAULT_TX;
 
-	writel(value, ioaddr + DMA_CHAN_INTR_ENA(chan, dma_chan, dma_chan_offset));
+	writel(value, ioaddr + DMA_CHAN_INTR_ENA(priv, chan));
 }
 
 void dwmac410_disable_dma_irq(struct stmmac_priv *priv, void __iomem *ioaddr, u32 chan, bool rx, bool tx)
 {
-	u32 dma_chan_offset;
-	u32 dma_chan;
-	u32 value;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	value = readl(ioaddr + DMA_CHAN_INTR_ENA(chan, dma_chan, dma_chan_offset));
+	u32 value = readl(ioaddr + DMA_CHAN_INTR_ENA(priv, chan));
 
 	if (rx)
 		value &= ~DMA_CHAN_INTR_DEFAULT_RX_4_10;
 	if (tx)
 		value &= ~DMA_CHAN_INTR_DEFAULT_TX_4_10;
 
-	writel(value, ioaddr + DMA_CHAN_INTR_ENA(chan, dma_chan, dma_chan_offset));
+	writel(value, ioaddr + DMA_CHAN_INTR_ENA(priv, chan));
 }
 
 int dwmac4_dma_interrupt(struct stmmac_priv *priv, void __iomem *ioaddr,
 			 struct stmmac_extra_stats *x, u32 chan, u32 dir)
 {
-	u32 dma_chan_offset;
-	u32 intr_status;
-	u32 dma_chan;
-	u32 intr_en;
+	u32 intr_status = readl(ioaddr + DMA_CHAN_STATUS(priv, chan));
+	u32 intr_en = readl(ioaddr + DMA_CHAN_INTR_ENA(priv, chan));
 	int ret = 0;
-
-	if (priv->plat->dwmac4_addrs) {
-		dma_chan_offset = priv->plat->dwmac4_addrs->dma_chan_offset;
-		dma_chan = priv->plat->dwmac4_addrs->dma_chan;
-	}
-
-	intr_status = readl(ioaddr + DMA_CHAN_STATUS(chan, dma_chan, dma_chan_offset));
-	intr_en = readl(ioaddr + DMA_CHAN_INTR_ENA(chan, dma_chan, dma_chan_offset));
 
 	if (dir == DMA_DIR_RX)
 		intr_status &= DMA_CHAN_STATUS_MSK_RX;
@@ -298,7 +184,7 @@ int dwmac4_dma_interrupt(struct stmmac_priv *priv, void __iomem *ioaddr,
 	if (unlikely(intr_status & DMA_CHAN_STATUS_ERI))
 		x->rx_early_irq++;
 
-	writel(intr_status & intr_en, ioaddr + DMA_CHAN_STATUS(chan, dma_chan, dma_chan_offset));
+	writel(intr_status & intr_en, ioaddr + DMA_CHAN_STATUS(priv, chan));
 	return ret;
 }
 

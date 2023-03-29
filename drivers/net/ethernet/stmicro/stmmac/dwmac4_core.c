@@ -201,21 +201,11 @@ static void dwmac4_set_mtl_tx_queue_weight(struct stmmac_priv *priv, struct mac_
 					   u32 weight, u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
-	u32 mtl_txq_weight_offset;
-	u32 mtl_txq_weight;
-	u32 value;
+	u32 value = readl(ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(priv, queue));
 
-	if (priv->plat->dwmac4_addrs) {
-		mtl_txq_weight_offset = priv->plat->dwmac4_addrs->mtl_txq_weight_offset;
-		mtl_txq_weight = priv->plat->dwmac4_addrs->mtl_txq_weight;
-	}
-
-	value = readl(ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue, mtl_txq_weight,
-							 mtl_txq_weight_offset));
 	value &= ~MTL_TXQ_WEIGHT_ISCQW_MASK;
 	value |= weight & MTL_TXQ_WEIGHT_ISCQW_MASK;
-	writel(value, ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(queue, mtl_txq_weight,
-							 mtl_txq_weight_offset));
+	writel(value, ioaddr + MTL_TXQX_WEIGHT_BASE_ADDR(priv, queue));
 }
 
 static void dwmac4_map_mtl_dma(struct stmmac_priv *priv, struct mac_device_info *hw, u32 queue, u32 chan)
@@ -241,26 +231,7 @@ static void dwmac4_config_cbs(struct stmmac_priv *priv, struct mac_device_info *
 			      u32 high_credit, u32 low_credit, u32 queue)
 {
 	void __iomem *ioaddr = hw->pcsr;
-	u32 mtl_send_slp_cred_offset;
-	u32 mtl_high_cred_offset;
-	u32 mtl_low_cred_offset;
-	u32 mtl_ets_ctrl_offset;
-	u32 mtl_send_slp_cred;
-	u32 mtl_high_cred;
-	u32 mtl_low_cred;
-	u32 mtl_ets_ctrl;
 	u32 value;
-
-	if (priv->plat->dwmac4_addrs) {
-		mtl_send_slp_cred_offset = priv->plat->dwmac4_addrs->mtl_send_slp_cred_offset;
-		mtl_send_slp_cred = priv->plat->dwmac4_addrs->mtl_send_slp_cred;
-		mtl_high_cred_offset = priv->plat->dwmac4_addrs->mtl_high_cred_offset;
-		mtl_high_cred = priv->plat->dwmac4_addrs->mtl_high_cred;
-		mtl_low_cred_offset = priv->plat->dwmac4_addrs->mtl_low_cred_offset;
-		mtl_low_cred = priv->plat->dwmac4_addrs->mtl_low_cred;
-		mtl_ets_ctrl_offset = priv->plat->dwmac4_addrs->mtl_ets_ctrl_offset;
-		mtl_ets_ctrl = priv->plat->dwmac4_addrs->mtl_ets_ctrl;
-	}
 
 	pr_debug("Queue %d configured as AVB. Parameters:\n", queue);
 	pr_debug("\tsend_slope: 0x%08x\n", send_slope);
@@ -269,39 +240,31 @@ static void dwmac4_config_cbs(struct stmmac_priv *priv, struct mac_device_info *
 	pr_debug("\tlow_credit: 0x%08x\n", low_credit);
 
 	/* enable AV algorithm */
-	value = readl(ioaddr + MTL_ETSX_CTRL_BASE_ADDR(queue, mtl_ets_ctrl,
-						       mtl_ets_ctrl_offset));
+	value = readl(ioaddr + MTL_ETSX_CTRL_BASE_ADDR(priv, queue));
 	value |= MTL_ETS_CTRL_AVALG;
 	value |= MTL_ETS_CTRL_CC;
-	writel(value, ioaddr + MTL_ETSX_CTRL_BASE_ADDR(queue, mtl_ets_ctrl,
-						       mtl_ets_ctrl_offset));
+	writel(value, ioaddr + MTL_ETSX_CTRL_BASE_ADDR(priv, queue));
 
 	/* configure send slope */
-	value = readl(ioaddr + MTL_SEND_SLP_CREDX_BASE_ADDR(queue, mtl_send_slp_cred,
-							    mtl_send_slp_cred_offset));
+	value = readl(ioaddr + MTL_SEND_SLP_CREDX_BASE_ADDR(priv, queue));
 	value &= ~MTL_SEND_SLP_CRED_SSC_MASK;
 	value |= send_slope & MTL_SEND_SLP_CRED_SSC_MASK;
-	writel(value, ioaddr + MTL_SEND_SLP_CREDX_BASE_ADDR(queue, mtl_send_slp_cred,
-							    mtl_send_slp_cred_offset));
+	writel(value, ioaddr + MTL_SEND_SLP_CREDX_BASE_ADDR(priv, queue));
 
 	/* configure idle slope (same register as tx weight) */
 	dwmac4_set_mtl_tx_queue_weight(priv, hw, idle_slope, queue);
 
 	/* configure high credit */
-	value = readl(ioaddr + MTL_HIGH_CREDX_BASE_ADDR(queue, mtl_high_cred,
-							mtl_high_cred_offset));
+	value = readl(ioaddr + MTL_HIGH_CREDX_BASE_ADDR(priv, queue));
 	value &= ~MTL_HIGH_CRED_HC_MASK;
 	value |= high_credit & MTL_HIGH_CRED_HC_MASK;
-	writel(value, ioaddr + MTL_HIGH_CREDX_BASE_ADDR(queue, mtl_high_cred,
-							mtl_high_cred_offset));
+	writel(value, ioaddr + MTL_HIGH_CREDX_BASE_ADDR(priv, queue));
 
 	/* configure high credit */
-	value = readl(ioaddr + MTL_LOW_CREDX_BASE_ADDR(queue, mtl_low_cred,
-						       mtl_low_cred_offset));
+	value = readl(ioaddr + MTL_LOW_CREDX_BASE_ADDR(priv, queue));
 	value &= ~MTL_HIGH_CRED_LC_MASK;
 	value |= low_credit & MTL_HIGH_CRED_LC_MASK;
-	writel(value, ioaddr + MTL_LOW_CREDX_BASE_ADDR(queue, mtl_low_cred,
-						       mtl_low_cred_offset));
+	writel(value, ioaddr + MTL_LOW_CREDX_BASE_ADDR(priv, queue));
 }
 
 static void dwmac4_dump_regs(struct stmmac_priv *priv, struct mac_device_info *hw, u32 *reg_space)
@@ -854,28 +817,19 @@ static int dwmac4_irq_mtl_status(struct stmmac_priv *priv, struct mac_device_inf
 {
 	void __iomem *ioaddr = hw->pcsr;
 	u32 mtl_int_qx_status;
-	u32 mtl_chan_offset;
-	u32 mtl_chan;
 	int ret = 0;
-
-	if (priv->plat->dwmac4_addrs) {
-		mtl_chan_offset = priv->plat->dwmac4_addrs->mtl_chan_offset;
-		mtl_chan = priv->plat->dwmac4_addrs->mtl_chan;
-	}
 
 	mtl_int_qx_status = readl(ioaddr + MTL_INT_STATUS);
 
 	/* Check MTL Interrupt */
 	if (mtl_int_qx_status & MTL_INT_QX(chan)) {
 		/* read Queue x Interrupt status */
-		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(chan, mtl_chan,
-							      mtl_chan_offset));
+		u32 status = readl(ioaddr + MTL_CHAN_INT_CTRL(priv, chan));
 
 		if (status & MTL_RX_OVERFLOW_INT) {
 			/*  clear Interrupt */
 			writel(status | MTL_RX_OVERFLOW_INT,
-			       ioaddr + MTL_CHAN_INT_CTRL(chan, mtl_chan,
-							  mtl_chan_offset));
+			       ioaddr + MTL_CHAN_INT_CTRL(priv, chan));
 			ret = CORE_IRQ_MTL_RX_OVERFLOW;
 		}
 	}
@@ -936,18 +890,11 @@ static int dwmac4_irq_status(struct stmmac_priv *priv, struct mac_device_info *h
 static void dwmac4_debug(struct stmmac_priv *priv, void __iomem *ioaddr, struct stmmac_extra_stats *x,
 			 u32 rx_queues, u32 tx_queues)
 {
-	u32 mtl_chan_offset;
-	u32 mtl_chan;
 	u32 value;
 	u32 queue;
 
-	if (priv->plat->dwmac4_addrs) {
-		mtl_chan_offset = priv->plat->dwmac4_addrs->mtl_chan_offset;
-		mtl_chan = priv->plat->dwmac4_addrs->mtl_chan;
-	}
 	for (queue = 0; queue < tx_queues; queue++) {
-		value = readl(ioaddr + MTL_CHAN_TX_DEBUG(queue, mtl_chan,
-							 mtl_chan_offset));
+		value = readl(ioaddr + MTL_CHAN_TX_DEBUG(priv, queue));
 
 		if (value & MTL_DEBUG_TXSTSFSTS)
 			x->mtl_tx_status_fifo_full++;
@@ -972,8 +919,7 @@ static void dwmac4_debug(struct stmmac_priv *priv, void __iomem *ioaddr, struct 
 	}
 
 	for (queue = 0; queue < rx_queues; queue++) {
-		value = readl(ioaddr + MTL_CHAN_RX_DEBUG(queue, mtl_chan,
-							 mtl_chan_offset));
+		value = readl(ioaddr + MTL_CHAN_RX_DEBUG(priv, queue));
 
 		if (value & MTL_DEBUG_RXFSTS_MASK) {
 			u32 rxfsts = (value & MTL_DEBUG_RXFSTS_MASK)

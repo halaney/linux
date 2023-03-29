@@ -95,36 +95,37 @@
 /* Following DMA defines are chanels oriented */
 #define DMA_CHAN_BASE_ADDR		0x00001100
 #define DMA_CHAN_BASE_OFFSET		0x80
-#define DMA_CHANX_BASE_ADDR(x, __base, __offset) \
+#define DMA_CHANX_BASE_ADDR(priv, x)  \
 ({ \
+	const struct dwmac4_addrs *dwmac4_addrs = priv->plat->dwmac4_addrs; \
 	u32 __addr; \
-	if (__base && __offset) \
-		__addr = __base + (x * (__offset)); \
+	if (dwmac4_addrs) \
+		__addr = dwmac4_addrs->dma_chan + (x * (dwmac4_addrs->dma_chan_offset)); \
 	else \
 		__addr = (DMA_CHAN_BASE_ADDR + (x * DMA_CHAN_BASE_OFFSET)); \
 	__addr; \
 })
 #define DMA_CHAN_REG_NUMBER		17
 
-#define DMA_CHAN_CONTROL(x, __base, __offset)		DMA_CHANX_BASE_ADDR(x, __base, __offset)
-#define DMA_CHAN_TX_CONTROL(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x4)
-#define DMA_CHAN_RX_CONTROL(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x8)
-#define DMA_CHAN_TX_BASE_ADDR_HI(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x10)
-#define DMA_CHAN_TX_BASE_ADDR(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x14)
-#define DMA_CHAN_RX_BASE_ADDR_HI(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x18)
-#define DMA_CHAN_RX_BASE_ADDR(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x1c)
-#define DMA_CHAN_TX_END_ADDR(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x20)
-#define DMA_CHAN_RX_END_ADDR(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x28)
-#define DMA_CHAN_TX_RING_LEN(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x2c)
-#define DMA_CHAN_RX_RING_LEN(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x30)
-#define DMA_CHAN_INTR_ENA(x, __base, __offset)		(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x34)
-#define DMA_CHAN_RX_WATCHDOG(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x38)
-#define DMA_CHAN_SLOT_CTRL_STATUS(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x3c)
-#define DMA_CHAN_CUR_TX_DESC(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x44)
-#define DMA_CHAN_CUR_RX_DESC(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x4c)
-#define DMA_CHAN_CUR_TX_BUF_ADDR(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x54)
-#define DMA_CHAN_CUR_RX_BUF_ADDR(x, __base, __offset)	(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x5c)
-#define DMA_CHAN_STATUS(x, __base, __offset)		(DMA_CHANX_BASE_ADDR(x, __base, __offset) + 0x60)
+#define DMA_CHAN_CONTROL(priv, x)		DMA_CHANX_BASE_ADDR(priv, x)
+#define DMA_CHAN_TX_CONTROL(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x4)
+#define DMA_CHAN_RX_CONTROL(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x8)
+#define DMA_CHAN_TX_BASE_ADDR_HI(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x10)
+#define DMA_CHAN_TX_BASE_ADDR(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x14)
+#define DMA_CHAN_RX_BASE_ADDR_HI(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x18)
+#define DMA_CHAN_RX_BASE_ADDR(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x1c)
+#define DMA_CHAN_TX_END_ADDR(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x20)
+#define DMA_CHAN_RX_END_ADDR(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x28)
+#define DMA_CHAN_TX_RING_LEN(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x2c)
+#define DMA_CHAN_RX_RING_LEN(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x30)
+#define DMA_CHAN_INTR_ENA(priv, x)		(DMA_CHANX_BASE_ADDR(priv, x) + 0x34)
+#define DMA_CHAN_RX_WATCHDOG(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x38)
+#define DMA_CHAN_SLOT_CTRL_STATUS(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x3c)
+#define DMA_CHAN_CUR_TX_DESC(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x44)
+#define DMA_CHAN_CUR_RX_DESC(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x4c)
+#define DMA_CHAN_CUR_TX_BUF_ADDR(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x54)
+#define DMA_CHAN_CUR_RX_BUF_ADDR(priv, x)	(DMA_CHANX_BASE_ADDR(priv, x) + 0x5c)
+#define DMA_CHAN_STATUS(priv, x)		(DMA_CHANX_BASE_ADDR(priv, x) + 0x60)
 
 /* DMA Control X */
 #define DMA_CONTROL_SPH			BIT(24)
