@@ -2623,7 +2623,7 @@
 	pinctrl-0 = <&cci2_default>;
 	};
 
-	dpu_00@ae00000 {
+	vfio_dpu_00@ae00000 {
 		compatible = "qcom,vfio-platform";
 		interrupts = <0 92 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0xae00000 0x200000>;
@@ -2632,7 +2632,7 @@
 		dma-coherent;
 	};
 
-	dpu_10@22000000 {
+	vfio_dpu_10@22000000 {
 		compatible = "qcom,vfio-platform";
 		interrupts = <0 865 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x22000000 0x200000>;
