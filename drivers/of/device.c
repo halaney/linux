@@ -117,6 +117,8 @@ int of_dma_configure_id(struct device *dev, struct device_node *np,
 	u64 mask, end, size = 0;
 	bool coherent;
 	int ret;
+	char dev_gpu[] = "3d00000.vfio_kgsl";
+	char dev_lpac[] = "soc:vfio_kgsl_lpac";
 
 	ret = of_dma_get_range(np, &map);
 	if (ret < 0) {
@@ -157,6 +159,9 @@ int of_dma_configure_id(struct device *dev, struct device_node *np,
 			return -EINVAL;
 		}
 	}
+
+	if((!(strcmp(dev->kobj.name, dev_gpu))) ||(!(strcmp(dev->kobj.name, dev_lpac))))
+		dma_set_coherent_mask(dev, DMA_BIT_MASK(64));
 
 	/*
 	 * If @dev is expected to be DMA-capable then the bus code that created
