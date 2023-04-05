@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -459,22 +459,26 @@ int gh_reclaim_mem(struct gh_vm *vm, phys_addr_t phys,
 int gh_provide_mem(struct gh_vm *vm, phys_addr_t phys,
 					ssize_t size, bool is_system_vm)
 {
-	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	int destVMperm[2] = {PERM_READ | PERM_WRITE | PERM_EXEC, PERM_READ | PERM_WRITE | PERM_EXEC};
 	gh_vmid_t vmid = vm->vmid;
 	struct gh_acl_desc *acl_desc;
 	struct gh_sgl_desc *sgl_desc;
 	int srcVM[1] = {VMID_HLOS};
-	int destVM[1] = {vmid};
+	int destVM[2] = {VMID_HLOS, vmid};
 	int ret = 0;
 
-	acl_desc = kzalloc(offsetof(struct gh_acl_desc, acl_entries[1]),
+	acl_desc = kzalloc(offsetof(struct gh_acl_desc, acl_entries[2]),
 			GFP_KERNEL);
 	if (!acl_desc)
 		return -ENOMEM;
 
-	acl_desc->n_acl_entries = 1;
-	acl_desc->acl_entries[0].vmid = vmid;
+	acl_desc->n_acl_entries = 2;
+	acl_desc->acl_entries[0].vmid = VMID_HLOS;
 	acl_desc->acl_entries[0].perms =
+				GH_RM_ACL_X | GH_RM_ACL_R | GH_RM_ACL_W;
+
+	acl_desc->acl_entries[1].vmid = vmid;
+	acl_desc->acl_entries[1].perms =
 				GH_RM_ACL_X | GH_RM_ACL_R | GH_RM_ACL_W;
 
 	sgl_desc = kzalloc(offsetof(struct gh_sgl_desc, sgl_entries[1]),
@@ -488,7 +492,7 @@ int gh_provide_mem(struct gh_vm *vm, phys_addr_t phys,
 	sgl_desc->sgl_entries[0].ipa_base = phys;
 	sgl_desc->sgl_entries[0].size = size;
 
-	ret = hyp_assign_phys(phys, size, srcVM, 1, destVM, destVMperm, 1);
+	ret = hyp_assign_phys(phys, size, srcVM, 1, destVM, destVMperm, 2);
 	if (ret) {
 		pr_err("failed hyp_assign for %pa address of size %zx - subsys VMid %d rc:%d\n",
 			phys, size, vmid, ret);
@@ -506,11 +510,11 @@ int gh_provide_mem(struct gh_vm *vm, phys_addr_t phys,
 		ret = gh_rm_mem_donate(GH_RM_MEM_TYPE_NORMAL, 0, 0,
 			acl_desc, sgl_desc, NULL, &vm->mem_handle);
 	else
-		ret = gh_rm_mem_lend(GH_RM_MEM_TYPE_NORMAL, 0, 0, acl_desc,
+		ret = gh_rm_mem_share(GH_RM_MEM_TYPE_NORMAL, 0, 0, acl_desc,
 				sgl_desc, NULL, &vm->mem_handle);
 
 	if (ret)
-		ret = hyp_assign_phys(phys, size, destVM, 1,
+		ret = hyp_assign_phys(phys, size, destVM, 2,
 						srcVM, destVMperm, 1);
 
 err_hyp_assign:
