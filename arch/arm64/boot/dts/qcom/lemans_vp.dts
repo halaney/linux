@@ -195,14 +195,14 @@
 
 	virtio_mmio@1c0d0000 {
 		dma-coherent;
-		interrupts = <0x0 0x2e 0x4>;
+		interrupts = <GIC_SPI 0x2e IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x0 0x1c0d0000 0x0 0x2000>;
 		compatible = "virtio,mmio";
 	};
 
 	virtio_mmio@1c120000 {
 		dma-coherent;
-		interrupts = <0x0 0x2d 0x4>;
+		interrupts = < GIC_SPI 0x12 IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x0 0x1c120000 0x0 0x10000>;
 		compatible = "virtio,mmio";
 	};
