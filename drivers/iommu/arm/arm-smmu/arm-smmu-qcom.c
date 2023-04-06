@@ -81,7 +81,12 @@ static void qcom_adreno_smmu_resume_translation(const void *cookie, bool termina
 }
 
 #define QCOM_ADRENO_SMMU_GPU_SID 0
+#define QCOM_ADRENO_SMMU_GPU_LPAC_SID 1
 
+/*Adding the SID for LPAC , to enable the TTBR1 for LPAC by setting
+ * the quirk as GPU needs to map the same IOVA on LPAC device as well
+ * To DO: Discuss with GPU team to check if we can do any buffer sharing
+ * with LPAC, so as to avoid this core kernel change*/
 static bool qcom_adreno_smmu_is_gpu_device(struct device *dev)
 {
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
@@ -94,7 +99,8 @@ static bool qcom_adreno_smmu_is_gpu_device(struct device *dev)
 	for (i = 0; i < fwspec->num_ids; i++) {
 		u16 sid = FIELD_GET(ARM_SMMU_SMR_ID, fwspec->ids[i]);
 
-		if (sid == QCOM_ADRENO_SMMU_GPU_SID)
+		if (sid == QCOM_ADRENO_SMMU_GPU_SID ||
+				sid == QCOM_ADRENO_SMMU_GPU_LPAC_SID)
 			return true;
 	}
 
@@ -116,7 +122,7 @@ static const struct io_pgtable_cfg *qcom_adreno_smmu_get_ttbr1_cfg(
  * are active
  */
 
-static int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie,
+int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie,
 		const struct io_pgtable_cfg *pgtbl_cfg)
 {
 	struct arm_smmu_domain *smmu_domain = (void *)cookie;
@@ -156,6 +162,7 @@ static int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie,
 
 	return 0;
 }
+EXPORT_SYMBOL(qcom_adreno_smmu_set_ttbr0_cfg);
 
 static int qcom_adreno_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_domain,
 					       struct arm_smmu_device *smmu,
@@ -169,9 +176,9 @@ static int qcom_adreno_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_doma
 	 */
 	if (qcom_adreno_smmu_is_gpu_device(dev)) {
 		start = 0;
-		count = 1;
+		count = 2;
 	} else {
-		start = 1;
+		start = 2;
 		count = smmu->num_context_banks;
 	}
 
@@ -214,12 +221,14 @@ static int qcom_adreno_smmu_init_context(struct arm_smmu_domain *smmu_domain,
 	 */
 
 	priv = dev_get_drvdata(dev);
-	priv->cookie = smmu_domain;
-	priv->get_ttbr1_cfg = qcom_adreno_smmu_get_ttbr1_cfg;
-	priv->set_ttbr0_cfg = qcom_adreno_smmu_set_ttbr0_cfg;
-	priv->get_fault_info = qcom_adreno_smmu_get_fault_info;
-	priv->set_stall = qcom_adreno_smmu_set_stall;
-	priv->resume_translation = qcom_adreno_smmu_resume_translation;
+	if(priv != NULL){
+		priv->cookie = smmu_domain;
+		priv->get_ttbr1_cfg = qcom_adreno_smmu_get_ttbr1_cfg;
+		priv->set_ttbr0_cfg = qcom_adreno_smmu_set_ttbr0_cfg;
+		priv->get_fault_info = qcom_adreno_smmu_get_fault_info;
+		priv->set_stall = qcom_adreno_smmu_set_stall;
+		priv->resume_translation = qcom_adreno_smmu_resume_translation;
+	}
 
 	return 0;
 }

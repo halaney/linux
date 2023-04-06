@@ -104,7 +104,9 @@ extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 #define QCOM_SCM_MP_ASSIGN			0x16
 #define QCOM_SCM_MEMP_SHM_BRIDGE_ENABLE 	0x1c
 #define QCOM_SCM_MEMP_SHM_BRIDGE_DELETE 	0x1d
+#define QCOM_SCM_MP_CP_SMMU_APERTURE_ID		0x1b
 
+#define QCOM_SCM_CP_APERTURE_REG	0x0
 #define QCOM_SCM_SVC_OCMEM		0x0f
 #define QCOM_SCM_OCMEM_LOCK_CMD		0x01
 #define QCOM_SCM_OCMEM_UNLOCK_CMD	0x02

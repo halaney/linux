@@ -12,6 +12,10 @@
 #define KIUMD_EXPORT_DMABUF		_IOWR('R', 12, struct kiumd_user)
 #define KIUMD_IMPORT_DMABUF		_IOWR('R', 13, struct kiumd_user)
 #define KIUMD_IOVA_MAP_CTRL             _IOWR('R', 14, struct kiumd_user)
+#define KIUMD_SET_USER_CONTEXT         _IOWR('R', 15, struct kiumd_smmu_user)
+#define KIUMD_PER_PROCESS_ALLOC 	_IOWR('R', 16, struct kiumd_smmu_user)
+#define KIUMD_PER_PROCESS_SET         _IOWR('R', 17, struct kiumd_smmu_user)
+#define KIUMD_PER_PROCESS_FREE        _IOWR('R', 18, struct kiumd_smmu_user)
 
 #define IOMMU_NOEXEC    (1 << 3)
 #define IOMMU_MMIO      (1 << 4)
@@ -26,7 +30,14 @@ enum kiumd_iova_addr_type {
 struct kiumd_iova {
 	int vfio_fd;
 	enum kiumd_iova_addr_type iova_flag;
-	int iova;
+	__u64 iova;
+};
+
+struct kiumd_smmu_user {
+	int vfio_fd;
+	long int pgtbl_ops_ptr;
+	__u64 ttbr0;
+	__u16 asid;
 };
 
 struct kiumd_user {

@@ -147,6 +147,7 @@ extern int qcom_scm_ocmem_lock(enum qcom_scm_ocmem_client id, u32 offset,
 			       u32 size, u32 mode);
 extern int qcom_scm_ocmem_unlock(enum qcom_scm_ocmem_client id, u32 offset,
 				 u32 size);
+extern int qcom_scm_kgsl_set_smmu_aperture(unsigned int num_context_bank);
 
 extern bool qcom_scm_ice_available(void);
 extern int qcom_scm_ice_invalidate_key(u32 index);
