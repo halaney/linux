@@ -193,17 +193,17 @@
 		compatible = "qemu,platform", "simple-bus";
 	};
 
-	virtio_mmio@1c0d0000 {
+	virtio_mmio@160d0000 {
 		dma-coherent;
 		interrupts = <GIC_SPI 0x2e IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x0 0x1c0d0000 0x0 0x2000>;
+		reg = <0x0 0x160d0000 0x0 0x2000>;
 		compatible = "virtio,mmio";
 	};
 
-	virtio_mmio@1c120000 {
+	virtio_mmio@16120000 {
 		dma-coherent;
-		interrupts = < GIC_SPI 0x12 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x0 0x1c120000 0x0 0x10000>;
+		interrupts = < GIC_SPI 0x2d IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x0 0x16120000 0x0 0x10000>;
 		compatible = "virtio,mmio";
 	};
 
@@ -219,11 +219,11 @@
 		};
 	};
 
-	pl011@10000000  {
+	pl011@40000000  {
 		clock-names = "uartclk", "apb_pclk";
 		clocks = <0x8000 0x8000>;
 		interrupts = <GIC_SPI 0x17B IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x0 0x10000000 0x0 0x1000>;
+		reg = <0x0 0x40000000 0x0 0x1000>;
 		compatible = "arm,pl011", "arm,primecell";
 	};
 
@@ -297,8 +297,8 @@
 	};
 
 	chosen {
-		bootargs = "rw root=/dev/vda rdinit=/bin/bash -netdev user,id=eth0 -device virtio-net-device,netdev=eth0  earlyprintk=serial,ttyAMA0 console=ttyAMA0";
-		stdout-path = "/pl011@9000000";
+		bootargs = "rw root=/dev/vda rdinit=/bin/bash earlyprintk=serial,ttyAMA0 console=ttyAMA0";
+		stdout-path = "/pl011@40000000";
 		kaslr-seed = <0xdec2698b 0x996c3b6b>;
 	};
 
