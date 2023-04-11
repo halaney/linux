@@ -7,7 +7,18 @@
 
 #include <linux/netdevice.h>
 #include <linux/stmmac.h>
+#include "stmmac.h"
 
+#if 0
+#define stmmac_has_hwif_callback(__priv, __module, __cname) \
+({ \
+	bool __has_callback = false; \
+	if ((__priv)->hw->__module && (__priv)->hw->__module->__cname) { \
+		__has_callback = true; \
+	} \
+	__has_callback; \
+})
+#endif
 #define stmmac_do_void_callback(__priv, __module, __cname,  __arg0, __args...) \
 ({ \
 	int __result = -EINVAL; \
@@ -239,8 +250,18 @@ struct stmmac_dma_ops {
 	stmmac_do_callback(__priv, dma, reset, __args)
 #define stmmac_dma_init(__priv, __args...) \
 	stmmac_do_void_callback(__priv, dma, init, __args)
-#define stmmac_init_chan(__priv, __args...) \
-	stmmac_do_void_callback(__priv, dma, init_chan, __priv, __args)
+
+static inline int stmmac_init_chan(struct stmmac_priv *priv,
+				   void __iomem *ioaddr,
+				   struct stmmac_dma_cfg *dma_cfg, u32 chan)
+{
+	if (priv->hw->dma && priv->hw->dma->init_chan) {
+		priv->hw->dma->init_chan(priv, ioaddr, dma_cfg, chan);
+		return 0;
+	}
+	return -EINVAL;
+}
+
 #define stmmac_init_rx_chan(__priv, __args...) \
 	stmmac_do_void_callback(__priv, dma, init_rx_chan, __priv, __args)
 #define stmmac_init_tx_chan(__priv, __args...) \
