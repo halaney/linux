@@ -260,6 +260,17 @@ int kiumd_perprocess_pgtble_free(struct kiumd_dev *ki_dev, char __user *arg)
         return 0;
 }
 
+/**
+ * kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
+ *
+ * This function facilitates the mapping of a DMA-BUF based buffer to a SMMU
+ * backed device represented via a vfio_device.
+ *
+ * The function is called via IOCTL interface and input is provided via struct
+ * kiumd_user from the userspace.
+ *
+ * return value is errno or 0 in case of successful mapping
+ * */
 int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 {
 	struct kiumd_user kiusr;
@@ -284,11 +295,13 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 	//dma_buf_get (fd ) -> dma_buf*
 
 	kiumd_dmabuf = dma_buf_get(kiusr.dma_buf_fd);
-	if(kiumd_dmabuf == NULL) {
+
+	if(IS_ERR_OR_NULL(kiumd_dmabuf)) {
 		pr_err("%s:kiumd_dmabuf is NULL \n",__func__);
 		return -ENOTTY;
 	}
-	//dma_buf_attach
+
+        //dma_buf_attach
 	if (vfio_dev->dev != NULL)
 		dmabufattach = dma_buf_attach(kiumd_dmabuf, vfio_dev->dev);
 	if(dmabufattach == NULL) {
@@ -306,7 +319,8 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 		kiumd_dma_direction = kiusr.dma_direction;
 	else
 		kiumd_dma_direction = 0;
-	//dma_buf_map_attachment
+
+        //dma_buf_map_attachment
 	sgt = dma_buf_map_attachment(dmabufattach, kiumd_dma_direction);
 	if(sgt == NULL) {
 		pr_err("%s:sgt is NULL \n",__func__);
@@ -322,21 +336,32 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 	return 0;
 }
 
+/**
+ * kiumd_dmabuf_vfio_unmap(struct kiumd_dev *ki_dev, char __user *arg)
+ *
+ * This function facilitates the unmap the buffer mapped to SMMU backed device
+ * also decrements the dma_buf kref count.
+ *
+ * return errno or 0 in case of success
+ */
 int kiumd_dmabuf_vfio_unmap(struct kiumd_dev *ki_dev, char __user *arg)
 {
 
 	struct kiumd_user kiusr;
 	struct dma_buf_attachment *dmabufattach = NULL;
 	struct dma_buf *kiumd_dmabuf = NULL;
-    if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
+
+        if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
 		return -EFAULT;
 
 	dmabufattach = (struct dma_buf_attachment *)kiusr.dmabufattach;
-    dma_buf_unmap_attachment(dmabufattach, (struct sg_table *)kiusr.sgt_ptr,
+        dma_buf_unmap_attachment(dmabufattach, (struct sg_table *)kiusr.sgt_ptr,
 							DMA_BIDIRECTIONAL);
 	kiumd_dmabuf = (struct dma_buf *)kiusr.dmabuf_ptr;
-    dma_buf_detach(kiumd_dmabuf, dmabufattach);
-    return 0;
+        dma_buf_detach(kiumd_dmabuf, dmabufattach);
+        dma_buf_put(kiumd_dmabuf);
+
+        return 0;
 }
 
 int kiumd_export_fd(struct kiumd_dev *ki_dev, char __user *arg)
@@ -360,19 +385,6 @@ int kiumd_export_fd(struct kiumd_dev *ki_dev, char __user *arg)
 	return 0;
 }
 
-/*
- */
-struct dma_buf *find_dmabuf(int token)
-{
-	if(token <1024)
-	{
-		if (dmabuf_tbl[token].token == token)
-			return dmabuf_tbl[token].kiumd_dmabuf;
-	}
-	pr_err("%s: Token invalid... \n",__func__);
-	return NULL;
-}
-
 int kiumd_import_fd(struct kiumd_dev *ki_dev, char __user *arg)
 {
 	struct kiumd_user kiusr;
@@ -381,7 +393,6 @@ int kiumd_import_fd(struct kiumd_dev *ki_dev, char __user *arg)
 	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
 		return -EFAULT;
 
-	//kiumd_dmabuf = find_dmabuf(kiusr.dmabuf_ptr);
 	if(kiumd_dmabuf == NULL) {
 		pr_err("%s: find_dmabuf failed returned NULL buffer... \n",__func__);
 		return -EFAULT;
