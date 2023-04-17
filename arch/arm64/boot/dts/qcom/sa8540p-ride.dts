@@ -152,8 +152,8 @@
 };
 
 &ethernet0 {
-	snps,mtl-rx-config = <&ethernet0_mtl_rx_setup>;
-	snps,mtl-tx-config = <&ethernet0_mtl_tx_setup>;
+	snps,mtl-rx-config = <&mtl_rx_setup>;
+	snps,mtl-tx-config = <&mtl_tx_setup>;
 
 	max-speed = <1000>;
 	phy-handle = <&rgmii_phy>;
@@ -192,7 +192,7 @@
 		};
 	};
 
-	ethernet0_mtl_rx_setup: rx-queues-config {
+	mtl_rx_setup: rx-queues-config {
 		snps,rx-queues-to-use = <1>;
 		snps,rx-sched-sp;
 
@@ -222,7 +222,7 @@
 		};
 	};
 
-	ethernet0_mtl_tx_setup: tx-queues-config {
+	mtl_tx_setup: tx-queues-config {
 		snps,tx-queues-to-use = <1>;
 		snps,tx-sched-sp;
 
@@ -253,8 +253,8 @@
 };
 
 &ethernet1 {
-	snps,mtl-rx-config = <&ethernet1_mtl_rx_setup>;
-	snps,mtl-tx-config = <&ethernet1_mtl_tx_setup>;
+	snps,mtl-rx-config = <&mtl_rx_setup>;
+	snps,mtl-tx-config = <&mtl_tx_setup>;
 
 	max-speed = <1000>;
 	phy-mode = "rgmii-txid";
@@ -267,65 +267,6 @@
 	fixed-link {
 		speed = <1000>;
 		full-duplex;
-	};
-
-	ethernet1_mtl_rx_setup: rx-queues-config {
-		snps,rx-queues-to-use = <1>;
-		snps,rx-sched-sp;
-
-		queue0 {
-			snps,dcb-algorithm;
-			snps,map-to-dma-channel = <0x0>;
-			snps,route-up;
-			snps,priority = <0x1>;
-		};
-
-		queue1 {
-			snps,dcb-algorithm;
-			snps,map-to-dma-channel = <0x1>;
-			snps,route-ptp;
-		};
-
-		queue2 {
-			snps,avb-algorithm;
-			snps,map-to-dma-channel = <0x2>;
-			snps,route-avcp;
-		};
-
-		queue3 {
-			snps,avb-algorithm;
-			snps,map-to-dma-channel = <0x3>;
-			snps,priority = <0xc>;
-		};
-	};
-
-	ethernet1_mtl_tx_setup: tx-queues-config {
-		snps,tx-queues-to-use = <1>;
-		snps,tx-sched-sp;
-
-		queue0 {
-			snps,dcb-algorithm;
-		};
-
-		queue1 {
-			snps,dcb-algorithm;
-		};
-
-		queue2 {
-			snps,avb-algorithm;
-			snps,send_slope = <0x1000>;
-			snps,idle_slope = <0x1000>;
-			snps,high_credit = <0x3e800>;
-			snps,low_credit = <0xffc18000>;
-		};
-
-		queue3 {
-			snps,avb-algorithm;
-			snps,send_slope = <0x1000>;
-			snps,idle_slope = <0x1000>;
-			snps,high_credit = <0x3e800>;
-			snps,low_credit = <0xffc18000>;
-		};
 	};
 };
 
