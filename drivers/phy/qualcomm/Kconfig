@@ -185,3 +185,16 @@ config PHY_QCOM_IPQ806X_USB
 	  This option enables support for the Synopsis PHYs present inside the
 	  Qualcomm USB3.0 DWC3 controller on ipq806x SoC. This driver supports
 	  both HS and SS PHY controllers.
+config PHY_QCOM_SGMII_ETH
+	tristate "Qualcomm DWMAC SGMII SerDes/PHY driver"
+	depends on ARCH_QCOM
+	depends on HAS_IOMEM
+	depends on OF
+	select GENERIC_PHY
+	help
+	  SerDes is to provide data transmission over a single line or
+	  a differential pair in order to minimize the number of I/O pins
+	  and interconnects.
+	  Serdes driver by default comes up on 1Gbps mode in SGMII
+	  due to h/w limitation.
+
