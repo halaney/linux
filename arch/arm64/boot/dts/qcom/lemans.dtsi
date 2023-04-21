@@ -4166,20 +4166,27 @@
 		};
 	};
 
+	serdes_phy: phy@0x08901000 {
+		compatible = "qcom,sa8775p-dwmac-sgmii-phy";
+		reg = <0x08901000 0xE10>;
+		reg-names = "serdes";
+		clocks = <&gcc GCC_SGMI_CLKREF_EN>;
+		clock-names = "sgmi_ref";
+		#phy-cells = <0>;
+	};
+
 	ethqos_hw: qcom,ethernet@23040000 {
 		compatible = "qcom,stmmac-ethqos";
 		reg = <0x23040000 0x10000>,
 			<0x23056000 0x100>,
-			<0x08901000 0xE10>,
 			<0x23056100 0x100>;
 
-		reg-names = "stmmaceth", "rgmii","serdes","reseteth";
+		reg-names = "stmmaceth", "rgmii", "reseteth";
 		clocks = <&gcc GCC_EMAC0_AXI_CLK>,
 			<&gcc GCC_EMAC0_SLV_AHB_CLK>,
 			<&gcc GCC_EMAC0_PTP_CLK>,
-			<&gcc GCC_EMAC0_PHY_AUX_CLK>,
-			<&gcc GCC_SGMI_CLKREF_EN>;
-		clock-names = "stmmaceth", "pclk", "ptp_ref", "phyaux","sgmi_ref";
+			<&gcc GCC_EMAC0_PHY_AUX_CLK>;
+		clock-names = "stmmaceth", "pclk", "ptp_ref", "phyaux";
 		snps,ptp-ref-clk-rate = <250000000>;
 		snps,ptp-req-clk-rate = <96000000>;
 		interrupts-extended = <&intc 0 946 4>;
@@ -4204,6 +4211,8 @@
 		power-domains = <&gcc EMAC0_GDSC>;
 
 		phy-mode = "sgmii";
+		phys = <&serdes_phy>;
+		phy-names = "serdesphy";
 		snps,reset-delays-us = <0 11000 70000>;
 		pinctrl-names = "dev-emac-mdc",
 			"dev-emac-mdio";
