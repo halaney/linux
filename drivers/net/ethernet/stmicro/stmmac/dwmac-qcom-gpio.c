@@ -48,7 +48,7 @@ static int setup_gpio_input_common
 		}
 	} else {
 		ETHQOSERR("can't find gpio %s\n", name);
-		ret = -EINVAL;
+		ret = 0;
 	}
 
 	return ret;
@@ -225,8 +225,8 @@ int ethqos_init_gpio(struct qcom_ethqos *ethqos)
 				      "qcom,phy-intr-redirect",
 				      &ethqos->gpio_phy_intr_redirect);
 	if (ret) {
-		ETHQOSERR("Failed to setup <%s> gpio\n",
-			  "qcom,phy-intr-redirect");
+		ETHQOSERR("Failed to setup <%s> gpio, ret = %d\n",
+			  "qcom,phy-intr-redirect", ret);
 		goto gpio_error;
 	}
 
