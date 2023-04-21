@@ -358,6 +358,33 @@
 };
 
 &tlmm {
+	/* TODO: review these */
+	emac_mdc: emac_mdc {
+		mux {
+			pins = "gpio8";
+			function = "emac0_mdc";
+		};
+
+		config {
+			pins = "gpio8";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+	};
+
+	emac_mdio: emac_mdio {
+		mux {
+			pins = "gpio9";
+			function = "emac0_mdio";
+		};
+
+		config {
+			pins = "gpio9";
+			bias-pull-up;
+			drive-strength = <16>;
+		};
+	};
+
 	qup_uart10_default: qup-uart10-state {
 		pins = "gpio46", "gpio47";
 		function = "qup1_se3";

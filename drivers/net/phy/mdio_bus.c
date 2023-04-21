@@ -654,13 +654,16 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 	bool prevent_c45_scan;
 	int i, err;
 
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 	if (!bus || !bus->name)
 		return -EINVAL;
 
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 	/* An access method always needs both read and write operations */
 	if (!!bus->read != !!bus->write || !!bus->read_c45 != !!bus->write_c45)
 		return -EINVAL;
 
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 	/* At least one method is mandatory */
 	if (!bus->read && !bus->read_c45)
 		return -EINVAL;
@@ -686,11 +689,13 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 	 */
 	bus->state = MDIOBUS_UNREGISTERED;
 
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 	err = device_register(&bus->dev);
 	if (err) {
 		pr_err("mii_bus %s failed to register\n", bus->id);
 		return -EINVAL;
 	}
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 
 	mutex_init(&bus->mdio_lock);
 	mutex_init(&bus->shared_lock);
@@ -710,18 +715,21 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 		if (bus->reset_post_delay_us > 0)
 			fsleep(bus->reset_post_delay_us);
 	}
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 
 	if (bus->reset) {
 		err = bus->reset(bus);
 		if (err)
 			goto error_reset_gpiod;
 	}
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 
 	if (bus->read) {
 		err = mdiobus_scan_bus_c22(bus);
 		if (err)
 			goto error;
 	}
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 
 	prevent_c45_scan = mdiobus_prevent_c45_scan(bus);
 
@@ -730,6 +738,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 		if (err)
 			goto error;
 	}
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 
 	mdiobus_setup_mdiodev_from_board_info(bus, mdiobus_create_device);
 
@@ -738,6 +747,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 	return 0;
 
 error:
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 	for (i = 0; i < PHY_MAX_ADDR; i++) {
 		mdiodev = bus->mdio_map[i];
 		if (!mdiodev)
@@ -747,6 +757,7 @@ error:
 		mdiodev->device_free(mdiodev);
 	}
 error_reset_gpiod:
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 	/* Put PHYs in RESET to save power */
 	if (bus->reset_gpiod)
 		gpiod_set_value_cansleep(bus->reset_gpiod, 1);

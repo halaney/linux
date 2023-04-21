@@ -10,6 +10,8 @@
 #include "stmmac.h"
 #include "stmmac_platform.h"
 
+#include <linux/regulator/consumer.h>
+
 #define RGMII_IO_MACRO_CONFIG		0x0
 #define SDCC_HC_REG_DLL_CONFIG		0x4
 #define SDCC_TEST_CTL			0x8
@@ -133,8 +135,10 @@ int configure_serdes_dt(struct qcom_ethqos *ethqos)
 	struct platform_device *pdev = ethqos->pdev;
 	int ret;
 
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "serdes");
 	ethqos->sgmii_base = devm_ioremap_resource(&pdev->dev, res);
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	if (IS_ERR(ethqos->sgmii_base)) {
 		dev_err(&pdev->dev, "Can't get sgmii base\n");
 		ret = PTR_ERR(ethqos->sgmii_base);
@@ -161,6 +165,7 @@ int configure_serdes_dt(struct qcom_ethqos *ethqos)
 	if (ret)
 		goto err_enable_phyaux_clk;
 
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	return 0;
 
 err_enable_phyaux_clk:
@@ -314,6 +319,84 @@ void qcom_ethqos_serdes_init(struct qcom_ethqos *ethqos, int speed)
 	} while (retry > 0);
 	if (!retry)
 		pr_err("PLL Lock Status timedout with retry = %d\n", retry);
+}
+
+#define EMAC_VREG_RGMII_NAME "vreg_rgmii"
+#define EMAC_VREG_EMAC_PHY_NAME "vreg_emac_phy"
+#define EMAC_VREG_RGMII_IO_PADS_NAME "vreg_rgmii_io_pads"
+int ethqos_init_regulators(struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+
+	struct regulator *reg_rgmii;
+	struct regulator *reg_emac_phy;
+	struct regulator *reg_rgmii_io_pads;
+
+	if (of_property_read_bool(ethqos->pdev->dev.of_node,
+				  "vreg_rgmii-supply")) {
+		reg_rgmii =
+		devm_regulator_get(&ethqos->pdev->dev, EMAC_VREG_RGMII_NAME);
+		if (IS_ERR(reg_rgmii)) {
+			printk(KERN_ERR "Can not get <%s>\n", EMAC_VREG_RGMII_NAME);
+			return PTR_ERR(reg_rgmii);
+		}
+
+		ret = regulator_enable(reg_rgmii);
+		if (ret) {
+			printk(KERN_ERR "Can not enable <%s>\n",
+				  EMAC_VREG_RGMII_NAME);
+			goto reg_error;
+		}
+
+		printk(KERN_INFO "Enabled <%s>\n", EMAC_VREG_RGMII_NAME);
+	}
+
+	if (of_property_read_bool(ethqos->pdev->dev.of_node,
+				  "vreg_emac_phy-supply")) {
+		reg_emac_phy =
+		devm_regulator_get(&ethqos->pdev->dev, EMAC_VREG_EMAC_PHY_NAME);
+		if (IS_ERR(reg_emac_phy)) {
+			printk(KERN_ERR "Can not get <%s>\n",
+				  EMAC_VREG_EMAC_PHY_NAME);
+			return PTR_ERR(reg_emac_phy);
+		}
+
+		ret = regulator_enable(reg_emac_phy);
+		if (ret) {
+			printk(KERN_ERR "Can not enable <%s>\n",
+				  EMAC_VREG_EMAC_PHY_NAME);
+			goto reg_error;
+		}
+
+		printk(KERN_INFO "Enabled <%s>\n", EMAC_VREG_EMAC_PHY_NAME);
+	}
+
+	if (of_property_read_bool(ethqos->pdev->dev.of_node,
+				  "vreg_rgmii_io_pads-supply")) {
+		reg_rgmii_io_pads = devm_regulator_get
+		(&ethqos->pdev->dev, EMAC_VREG_RGMII_IO_PADS_NAME);
+		if (IS_ERR(reg_rgmii_io_pads)) {
+			printk(KERN_ERR "Can not get <%s>\n",
+				  EMAC_VREG_RGMII_IO_PADS_NAME);
+			return PTR_ERR(reg_rgmii_io_pads);
+		}
+
+		ret = regulator_enable(reg_rgmii_io_pads);
+		if (ret) {
+			printk(KERN_ERR "Can not enable <%s>\n",
+				  EMAC_VREG_RGMII_IO_PADS_NAME);
+			goto reg_error;
+		}
+
+		printk(KERN_INFO "Enabled <%s>\n", EMAC_VREG_RGMII_IO_PADS_NAME);
+	}
+
+	return ret;
+
+reg_error:
+	printk(KERN_ERR "%s failed\n", __func__);
+	//ethqos_disable_regulators(ethqos);
+	return ret;
 }
 
 static void rgmii_dump(void *priv)
@@ -843,10 +926,12 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	struct qcom_ethqos *ethqos;
 	int ret;
 
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return ret;
 
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	if (IS_ERR(plat_dat)) {
 		dev_err(&pdev->dev, "dt configuration failed\n");
@@ -861,36 +946,51 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		goto err_mem;
 	}
 
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	ethqos->pdev = pdev;
-	ethqos->ioaddr = devm_platform_ioremap_resource_byname(pdev, "stmmaceth");
-	if (IS_ERR(ethqos->ioaddr)) {
-		ret = PTR_ERR(ethqos->ioaddr);
-		goto err_mem;
-	}
+	/* TODO: is this really necessary, and the function that uses it? Isn't
+	 * that a core stmmac thing? */
+	ethqos->ioaddr = (&stmmac_res)->addr;
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_base)) {
 		ret = PTR_ERR(ethqos->rgmii_base);
 		goto err_mem;
 	}
 
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	data = of_device_get_match_data(&pdev->dev);
 	ethqos->por = data->por;
 	ethqos->num_por = data->num_por;
 	ethqos->rgmii_config_loopback_en = data->rgmii_config_loopback_en;
 	ethqos->has_emac3 = data->has_emac3;
 
-	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
-	if (IS_ERR(ethqos->rgmii_clk)) {
-		ret = PTR_ERR(ethqos->rgmii_clk);
-		goto err_mem;
+	/* TODO: remove */
+	ethqos_init_regulators(ethqos);
+
+	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
+	if (plat_dat->interface == PHY_INTERFACE_MODE_SGMII) {
+		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
+		ret = configure_serdes_dt(ethqos);
+		if (ret)
+			goto err_mem;
+		qcom_ethqos_serdes_init(ethqos, ethqos->speed);
+	} else {
+		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
+		ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
+		if (IS_ERR(ethqos->rgmii_clk)) {
+			ret = PTR_ERR(ethqos->rgmii_clk);
+			goto err_mem;
+		}
+
+		ret = ethqos_clks_config(ethqos, true);
+		if (ret)
+			goto err_mem;
+
+		ethqos->speed = SPEED_1000;
+		ethqos_update_rgmii_clk(ethqos, SPEED_1000);
 	}
 
-	ret = ethqos_clks_config(ethqos, true);
-	if (ret)
-		goto err_mem;
-
-	ethqos->speed = SPEED_1000;
-	ethqos_update_rgmii_clk(ethqos, SPEED_1000);
 	ethqos_set_func_clk_en(ethqos);
 
 	plat_dat->bsp_priv = ethqos;
