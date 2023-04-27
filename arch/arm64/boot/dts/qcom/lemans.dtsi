@@ -2541,29 +2541,29 @@
 		};
 
 		cci0_default: cci0_default {
-		mux {
-			/* CLK, DATA */
-			pins = "gpio60","gpio61";
-			function = "cci_i2c";
-		};
-		config {
-			pins = "gpio60","gpio61";
-			bias-pull-up; /* PULL UP*/
-			drive-strength = <2>; /* 2 MA */
-		};
+			mux {
+				/* CLK, DATA */
+				pins = "gpio60","gpio61";
+				function = "cci_i2c";
+			};
+			config {
+				pins = "gpio60","gpio61";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
 		};
 
 		cci2_default: cci2_default {
-		mux {
-			/* CLK, DATA */
-			pins = "gpio62","gpio63";
-			function = "cci_i2c";
-		};
-		config {
-			pins = "gpio62","gpio63";
-			bias-pull-up; /* PULL UP*/
-			drive-strength = <2>; /* 2 MA */
-		};
+			mux {
+				/* CLK, DATA */
+				pins = "gpio62","gpio63";
+				function = "cci_i2c";
+			};
+			config {
+				pins = "gpio62","gpio63";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
 		};
 	};
 
@@ -2582,59 +2582,59 @@
     	};
 
 	vfio_titan_base@ac00000 {
-	compatible = "qcom,vfio-platform";
-	reg = <0xac00000 0x1e0000>;
-	interrupts = <GIC_SPI 463 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 459 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 460 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 271 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 652 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 772 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 477 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 478 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 479 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 448 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 469 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 360 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 762 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 761 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 605 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 465 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 467 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 563 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 562 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 468 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 359 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 760 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 759 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 604 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 565 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 564 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 545 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 546 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 547 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 470 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 471 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 543 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 544 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 567 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 566 IRQ_TYPE_EDGE_RISING>,
-					<GIC_SPI 366 IRQ_TYPE_EDGE_RISING>;
-	iommus = <&apps_smmu 0x860 0x0400>,
-			<&apps_smmu 0x3400 0x0020>;
-	dma-coherent;
+		compatible = "qcom,vfio-platform";
+		reg = <0xac00000 0x1e0000>;
+		interrupts = <GIC_SPI 463 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 459 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 460 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 271 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 651 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 771 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 477 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 478 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 479 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 448 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 469 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 360 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 761 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 760 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 605 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 465 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 467 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 563 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 562 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 468 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 359 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 759 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 758 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 604 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 565 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 564 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 545 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 546 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 547 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 470 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 471 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 543 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 544 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 567 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 566 IRQ_TYPE_EDGE_RISING>,
+						<GIC_SPI 366 IRQ_TYPE_EDGE_RISING>;
+		iommus = <&apps_smmu 0x860 0x0400>,
+				<&apps_smmu 0x3400 0x0020>;
+		dma-coherent;
 	};
 
 	vfio_cci0@0 {
-	compatible = "qcom,apps-pinctlr";
-	pinctrl-names = "default";
-	pinctrl-0 = <&cci0_default>;
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cci0_default>;
 	};
 
 	vfio_cci2@1 {
-	compatible = "qcom,apps-pinctlr";
-	pinctrl-names = "default";
-	pinctrl-0 = <&cci2_default>;
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cci2_default>;
 	};
 
 	vfio_dpu_00@ae00000 {
