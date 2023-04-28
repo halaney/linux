@@ -1413,9 +1413,6 @@
 
 			/* TODO: interrupts normal? */
 			interrupts-extended = <&intc 0 946 4>;
-			
-			/* TODO: remove? */
-			qcom,arm-smmu;
 
 			/* TODO: Find other IRQ names for dt-binding sake */
 			interrupt-names = "macirq";
@@ -1444,15 +1441,18 @@
 
 			/* TODO: Describe phy properly.. in board file */
 			phy-mode = "sgmii";
+			phy-handle = <&sgmii_phy>;
 
 
 			pinctrl-0 = <&ethernet_default>;
 			pinctrl-names = "default";
 
 			/* TODO: put in board, and in phy node */
+			#if 0
 			snps,reset-gpio = <&pmm8654au_2_gpios 8 GPIO_ACTIVE_HIGH>;
 			snps,reset-delays-us = <0 11000 70000>;
 			snps,reset-active-low;
+			#endif
 			// TODO: i added this, might be wrong, but the downstream config
 			// messes with the reset code here to make that always the case
 			// also note, i messed with reset-gpio above (was reset-gpios, which i don't
@@ -1469,46 +1469,36 @@
 // Maybe there's a problem with my definition below, or maybe there's a issue
 // with the delays? The reset above is definitely necessary, i think its held
 // in reset without it.
-#if 0
 			mdio {
 				/* TODO: check all of this, move to board */
 				compatible = "snps,dwmac-mdio";
 				#address-cells = <1>;
 				#size-cells = <0>;
 
+				/* TODO: other options:
+				    1. pinctrl to the ethernet node and put back in phy
+				    2. figure out where the mdio code is doing things
+				       and pull each out phy out of reset prior
+				*/
+				/* The below phy is the only one on the bus, so
+				 * this gpio is the bus reset as well. By default
+				 * it is in reset, and to find the phy at all
+				 * it must be pulled out prior to mdio access.
+				 * So let's describe it at the bus level.
+				 */
+				reset-gpios = <&pmm8654au_2_gpios 8 GPIO_ACTIVE_LOW>;
+				reset-assert-us = <11000>;
+				reset-deassert-us = <70000>;
+
 				/* Marvell 88EA1512 */
-				rgmii_phy: phy@8 {
-					/* This matches the schematic and downstream */
-					//reg = <0x8>;
+				sgmii_phy: phy@8 {
+					reg = <0x8>;
 
-					/* TODO: there's definitely a falling edge gpio to use (gpio7 iirc) */
-					/* TODO: Find below info, if it exists,  this is from sa8540p */
-					//interrupts-extended = <&tlmm 127 IRQ_TYPE_EDGE_FALLING>;
-
-					/* TODO: This is definitely active low per schematic */
-					/* TODO: convert old school way to below way */
-					/* TODO: for some reason, the old school way is showing
-					   the phy in reg 2/3, but this isn't, and even the old
-					   school way is still getting -19 in the end.*/
-					//reset-gpios = <&pmm8654au_2_gpios 8 GPIO_ACTIVE_LOW>;
-					//reset-assert-us = <11000>;
-					//reset-deassert-us = <70000>;
+					interrupts-extended = <&tlmm 7 IRQ_TYPE_EDGE_FALLING>;
 
 					device_type = "ethernet-phy";
-
-					/* TODO: Is auto negotiation still needed to turn off? */
-					/* Set to RGMII_SGMII mode and soft reset. Turn off auto-negotiation
-					 * from userspace to talk to the switch on the SGMII side of things
-					 */
-					/*
-					marvell,reg-init =
-						/* Set MODE[2:0] to RGMII_SGMII */
-						//<0x12 0x14 0xfff8 0x4>,
-						/* Soft reset required after changing MODE[2:0] */
-						//<0x12 0x14 0x7fff 0x8000>;
 				};
 			};
-			#endif
 
 			/* TODO: clean this up */
 			mtl_rx_setup: rx-queues-config {
