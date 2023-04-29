@@ -9900,6 +9900,11 @@ F:	drivers/crypto/vmx/ghash*
 F:	drivers/crypto/vmx/ppc-xlate.pl
 F:	drivers/crypto/vmx/vmx.c
 
+IBM Power VFIO Support
+M:	Timothy Pearson <tpearson@raptorengineering.com>
+S:	Supported
+F:	drivers/vfio/vfio_iommu_spapr_tce.c
+
 IBM ServeRAID RAID DRIVER
 S:	Orphan
 F:	drivers/scsi/ips.*
@@ -15180,8 +15185,8 @@ OBJTOOL
 M:	Josh Poimboeuf <jpoimboe@kernel.org>
 M:	Peter Zijlstra <peterz@infradead.org>
 S:	Supported
+F:	include/linux/objtool*.h
 F:	tools/objtool/
-F:	include/linux/objtool.h
 
 OCELOT ETHERNET SWITCH DRIVER
 M:	Vladimir Oltean <vladimir.oltean@nxp.com>
@@ -21511,10 +21516,8 @@ F:	include/uapi/linux/ublk_cmd.h
 UCLINUX (M68KNOMMU AND COLDFIRE)
 M:	Greg Ungerer <gerg@linux-m68k.org>
 L:	linux-m68k@lists.linux-m68k.org
-L:	uclinux-dev@uclinux.org  (subscribers-only)
 S:	Maintained
 W:	http://www.linux-m68k.org/
-W:	http://www.uclinux.org/
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/gerg/m68knommu.git
 F:	arch/m68k/*/*_no.*
 F:	arch/m68k/68*/
