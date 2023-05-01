@@ -1,4 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0
+
+
+# Enable support for device-tree overlays required by Gunyah on some automotive
+# Qualcomm boards
+DTC_FLAGS_sa8775p-ride := -@
+
 dtb-$(CONFIG_ARCH_QCOM)	+= apq8016-sbc.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= apq8094-sony-xperia-kitakami-karin_windy.dtb
 dtb-$(CONFIG_ARCH_QCOM)	+= apq8096-db820c.dtb
