@@ -5791,8 +5791,11 @@ static void stmmac_common_interrupt(struct stmmac_priv *priv)
 							    queue);
 		}
 
+		/* TODO: why.. why why? Without this the link doesn't come up
+		 * (at least with the phy in polling mode)
+		 */
 		/* PCS link status */
-		if (priv->hw->pcs) {
+		if (priv->hw->pcs && priv->hw->pcs != STMMAC_PCS_SGMII) {
 			if (priv->xstats.pcs_link)
 				netif_carrier_on(priv->dev);
 			else
