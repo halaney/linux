@@ -6,8 +6,11 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
+#include <linux/phy/phy.h>
 #include "stmmac.h"
 #include "stmmac_platform.h"
+
+#include <linux/regulator/consumer.h>
 
 #define RGMII_IO_MACRO_CONFIG		0x0
 #define SDCC_HC_REG_DLL_CONFIG		0x4
@@ -87,10 +90,15 @@ struct ethqos_emac_driver_data {
 
 struct qcom_ethqos {
 	struct platform_device *pdev;
+	void __iomem *ioaddr;
 	void __iomem *rgmii_base;
+	void __iomem *sgmii_base;
 
 	unsigned int rgmii_clk_rate;
 	struct clk *rgmii_clk;
+	struct clk *phyaux_clk;
+	struct clk *sgmiref_clk;
+	struct phy *serdes_phy;
 	unsigned int speed;
 
 	const struct ethqos_emac_por *por;
@@ -118,6 +126,84 @@ static void rgmii_updatel(struct qcom_ethqos *ethqos,
 	temp =  rgmii_readl(ethqos, offset);
 	temp = (temp & ~(mask)) | val;
 	rgmii_writel(ethqos, temp, offset);
+}
+
+#define EMAC_VREG_RGMII_NAME "vreg_rgmii"
+#define EMAC_VREG_EMAC_PHY_NAME "vreg_emac_phy"
+#define EMAC_VREG_RGMII_IO_PADS_NAME "vreg_rgmii_io_pads"
+static int ethqos_init_regulators(struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+
+	struct regulator *reg_rgmii;
+	struct regulator *reg_emac_phy;
+	struct regulator *reg_rgmii_io_pads;
+
+	if (of_property_read_bool(ethqos->pdev->dev.of_node,
+				  "vreg_rgmii-supply")) {
+		reg_rgmii =
+		devm_regulator_get(&ethqos->pdev->dev, EMAC_VREG_RGMII_NAME);
+		if (IS_ERR(reg_rgmii)) {
+			printk(KERN_ERR "Can not get <%s>\n", EMAC_VREG_RGMII_NAME);
+			return PTR_ERR(reg_rgmii);
+		}
+
+		ret = regulator_enable(reg_rgmii);
+		if (ret) {
+			printk(KERN_ERR "Can not enable <%s>\n",
+				  EMAC_VREG_RGMII_NAME);
+			goto reg_error;
+		}
+
+		printk(KERN_INFO "Enabled <%s>\n", EMAC_VREG_RGMII_NAME);
+	}
+
+	if (of_property_read_bool(ethqos->pdev->dev.of_node,
+				  "vreg_emac_phy-supply")) {
+		reg_emac_phy =
+		devm_regulator_get(&ethqos->pdev->dev, EMAC_VREG_EMAC_PHY_NAME);
+		if (IS_ERR(reg_emac_phy)) {
+			printk(KERN_ERR "Can not get <%s>\n",
+				  EMAC_VREG_EMAC_PHY_NAME);
+			return PTR_ERR(reg_emac_phy);
+		}
+
+		ret = regulator_enable(reg_emac_phy);
+		if (ret) {
+			printk(KERN_ERR "Can not enable <%s>\n",
+				  EMAC_VREG_EMAC_PHY_NAME);
+			goto reg_error;
+		}
+
+		printk(KERN_INFO "Enabled <%s>\n", EMAC_VREG_EMAC_PHY_NAME);
+	}
+
+	if (of_property_read_bool(ethqos->pdev->dev.of_node,
+				  "vreg_rgmii_io_pads-supply")) {
+		reg_rgmii_io_pads = devm_regulator_get
+		(&ethqos->pdev->dev, EMAC_VREG_RGMII_IO_PADS_NAME);
+		if (IS_ERR(reg_rgmii_io_pads)) {
+			printk(KERN_ERR "Can not get <%s>\n",
+				  EMAC_VREG_RGMII_IO_PADS_NAME);
+			return PTR_ERR(reg_rgmii_io_pads);
+		}
+
+		ret = regulator_enable(reg_rgmii_io_pads);
+		if (ret) {
+			printk(KERN_ERR "Can not enable <%s>\n",
+				  EMAC_VREG_RGMII_IO_PADS_NAME);
+			goto reg_error;
+		}
+
+		printk(KERN_INFO "Enabled <%s>\n", EMAC_VREG_RGMII_IO_PADS_NAME);
+	}
+
+	return ret;
+
+reg_error:
+	printk(KERN_ERR "%s failed\n", __func__);
+	//ethqos_disable_regulators(ethqos);
+	return ret;
 }
 
 static void rgmii_dump(void *priv)
@@ -552,13 +638,72 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 	return 0;
 }
 
+static int ethqos_configureSGMII(struct qcom_ethqos *ethqos)
+{
+	u32 value = 0;
+
+	value = readl(ethqos->ioaddr + MAC_CTRL_REG);
+	/* This looks to be updating
+#define GMAC_CONFIG_PS			BIT(15)
+#define GMAC_CONFIG_FES			BIT(14)
+	* described as:
+	* BIT 14 FES:
+	*	SPEED
+	*	This bit selects the speed mode.
+	*	The mac_speed_o[0] signal reflects the value of this bit.
+	*	0: M_10_1000M
+	*	1: M_100_2500M
+	*	BIT 15 PS:
+	*	Port Select
+	*	This bit selects the Ethernet line speed.
+	*	This bit, along with Bit 14, selects the exact line speed. In the 10/100 Mbps-only
+	*	(always 1) or 1000 Mbps-only (always 0) configurations, this bit is read-only (RO) with
+	*	appropriate value. In default 10/100/1000 Mbps configurations, this bit is read-write
+	*	(R/W). The mac_speed_o[1] signal reflects the value of this bit.
+	*	0: M_1000_2500M
+	*	1: M_10_100M
+	* 
+	* TODO: we shouldn't be mucking with core regs in the platform driver
+	*/
+	switch (ethqos->speed) {
+		case SPEED_1000:
+			   value &= ~BIT(15);
+				   writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+				   rgmii_updatel(ethqos, BIT(16), BIT(16), RGMII_IO_MACRO_CONFIG2);
+		break;
+
+		case SPEED_100:
+				   value |= BIT(15) | BIT(14);
+				   writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		break;
+
+		case SPEED_10:
+				   value |= BIT(15);
+				   value &= ~BIT(14);
+				   writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		break;
+	}
+
+	return value;
+}
+
 static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 {
 	struct qcom_ethqos *ethqos = priv;
-
+	int phy_mode = device_get_phy_mode(&ethqos->pdev->dev);
 	ethqos->speed = speed;
-	ethqos_update_rgmii_clk(ethqos, speed);
-	ethqos_configure(ethqos);
+
+	if (phy_mode == PHY_INTERFACE_MODE_SGMII) {
+		ethqos_configureSGMII(ethqos);
+		/* TODO: set phy_speed(), and validate that call order makes sense */
+		phy_set_speed(ethqos->serdes_phy, ethqos->speed);
+		phy_calibrate(ethqos->serdes_phy);
+	}
+
+	else {
+		ethqos_update_rgmii_clk(ethqos, speed);
+		ethqos_configure(ethqos);
+	}
 }
 
 static int ethqos_clks_config(void *priv, bool enabled)
@@ -572,6 +717,12 @@ static int ethqos_clks_config(void *priv, bool enabled)
 			dev_err(&ethqos->pdev->dev, "rgmii_clk enable failed\n");
 			return ret;
 		}
+		/* TODO: clean up proper, etc */
+		ret = clk_prepare_enable(ethqos->phyaux_clk);
+		if (ret) {
+			dev_err(&ethqos->pdev->dev, "phyaux_clk enable failed\n");
+			return ret;
+		}
 
 		/* Enable functional clock to prevent DMA reset to timeout due
 		 * to lacking PHY clock after the hardware block has been power
@@ -580,10 +731,28 @@ static int ethqos_clks_config(void *priv, bool enabled)
 		 */
 		ethqos_set_func_clk_en(ethqos);
 	} else {
+		clk_disable_unprepare(ethqos->phyaux_clk);
 		clk_disable_unprepare(ethqos->rgmii_clk);
 	}
 
 	return ret;
+}
+
+static int qcom_ethqos_serdes_powerup(struct net_device *ndev, void *priv) {
+	struct qcom_ethqos *ethqos = priv;
+	/* TODO: replace with the standard phy sequence, need to look it up */
+	phy_set_speed(ethqos->serdes_phy, ethqos->speed);
+	phy_init(ethqos->serdes_phy);
+	return phy_power_on(ethqos->serdes_phy);
+
+	return 0;
+}
+
+static void qcom_ethqos_serdes_powerdown(struct net_device *ndev, void *priv) {
+	struct qcom_ethqos *ethqos = priv;
+	/* TODO: replace with the standard phy sequence */
+	phy_power_off(ethqos->serdes_phy);
+	phy_exit(ethqos->serdes_phy);
 }
 
 static int qcom_ethqos_probe(struct platform_device *pdev)
@@ -614,6 +783,9 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	}
 
 	ethqos->pdev = pdev;
+	/* TODO: is this really necessary, and the function that uses it? Isn't
+	 * that a core stmmac thing? */
+	ethqos->ioaddr = (&stmmac_res)->addr;
 	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
 	if (IS_ERR(ethqos->rgmii_base)) {
 		ret = PTR_ERR(ethqos->rgmii_base);
@@ -626,10 +798,31 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	ethqos->rgmii_config_loopback_en = data->rgmii_config_loopback_en;
 	ethqos->has_emac3 = data->has_emac3;
 
-	ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
-	if (IS_ERR(ethqos->rgmii_clk)) {
-		ret = PTR_ERR(ethqos->rgmii_clk);
-		goto err_mem;
+	/* TODO: remove or implement properly */
+	ethqos_init_regulators(ethqos);
+
+	if (plat_dat->interface == PHY_INTERFACE_MODE_SGMII) {
+		ethqos->phyaux_clk = devm_clk_get(&pdev->dev, "phyaux");
+		if (IS_ERR(ethqos->phyaux_clk)) {
+			ret = PTR_ERR(ethqos->phyaux_clk);
+			/* TODO: clean up path */
+			goto err_mem;
+		}
+		ethqos->serdes_phy = devm_phy_get(&pdev->dev, "serdesphy");
+		if (IS_ERR(ethqos->serdes_phy)) {
+			/* TODO: cleanup */
+			ret = PTR_ERR(ethqos->phyaux_clk);
+			dev_err(&pdev->dev, "Failed to get the phy: %d\n", ret);
+			goto err_mem;
+		}
+
+	} else {
+		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
+		ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
+		if (IS_ERR(ethqos->rgmii_clk)) {
+			ret = PTR_ERR(ethqos->rgmii_clk);
+			goto err_mem;
+		}
 	}
 
 	ret = ethqos_clks_config(ethqos, true);
@@ -647,6 +840,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->dwmac4_addrs = &data->dwmac4_addrs;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
+	plat_dat->serdes_powerup = qcom_ethqos_serdes_powerup;
+	plat_dat->serdes_powerdown  = qcom_ethqos_serdes_powerdown;
 	if (of_device_is_compatible(np, "qcom,qcs404-ethqos"))
 		plat_dat->rx_clk_runs_in_lpi = 1;
 
