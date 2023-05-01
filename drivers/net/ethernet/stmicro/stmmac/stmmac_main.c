@@ -1138,22 +1138,30 @@ static int stmmac_init_phy(struct net_device *dev)
 	struct fwnode_handle *fwnode;
 	int ret;
 
+	netdev_err(priv->dev, "%s: %d\n", __func__, __LINE__);
 	if (!phylink_expects_phy(priv->phylink))
 		return 0;
 
+	netdev_err(priv->dev, "%s: %d\n", __func__, __LINE__);
 	fwnode = of_fwnode_handle(priv->plat->phylink_node);
-	if (!fwnode)
+	if (!fwnode) {
+		netdev_err(priv->dev, "%s: %d getting fwnode from dev_fwnode!\n", __func__, __LINE__);
 		fwnode = dev_fwnode(priv->device);
+	}
 
-	if (fwnode)
+	if (fwnode) {
+		netdev_err(priv->dev, "%s: %d, using fwnode_get_phy_node\n", __func__, __LINE__);
 		phy_fwnode = fwnode_get_phy_node(fwnode);
-	else
+	}
+	else {
 		phy_fwnode = NULL;
+	}
 
 	/* Some DT bindings do not set-up the PHY handle. Let's try to
 	 * manually parse it
 	 */
 	if (!phy_fwnode || IS_ERR(phy_fwnode)) {
+		netdev_err(priv->dev, "%s: %d no phy_fwnode...\n", __func__, __LINE__);
 		int addr = priv->plat->phy_addr;
 		struct phy_device *phydev;
 
@@ -1170,8 +1178,10 @@ static int stmmac_init_phy(struct net_device *dev)
 
 		ret = phylink_connect_phy(priv->phylink, phydev);
 	} else {
+		netdev_err(priv->dev, "%s: %d there is a phy_fwnode!\n", __func__, __LINE__);
 		fwnode_handle_put(phy_fwnode);
 		ret = phylink_fwnode_phy_connect(priv->phylink, fwnode, 0);
+		netdev_err(priv->dev, "%s: %d phy_fwnode connect: %d\n", __func__, __LINE__, ret);
 	}
 
 	if (!priv->plat->pmt) {

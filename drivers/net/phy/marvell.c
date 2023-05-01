@@ -340,26 +340,54 @@ static int marvell_ack_interrupt(struct phy_device *phydev)
 	return 0;
 }
 
+#include <linux/gpio/consumer.h>
 static int marvell_config_intr(struct phy_device *phydev)
 {
 	int err;
 
+#if 0
+	struct gpio_desc *intr = gpiod_get(&phydev->mdio.dev, "intr", GPIOD_IN);
+
+	if (IS_ERR(intr)) {
+		printk(KERN_ERR "%s: %d: Failed to get intr gpio\n", __func__, __LINE__);
+	}
+
+	int intr_val = gpiod_get_value(intr);
+	printk(KERN_ERR "%s: %d: intr value (logical) is %d\n", __func__, __LINE__, intr_val);
+#endif
+
+	//dump_stack();
 	if (phydev->interrupts == PHY_INTERRUPT_ENABLED) {
+		//printk(KERN_ERR "%s: %d: Acking the IRQ, then writing to enable?\n", __func__, __LINE__);
 		err = marvell_ack_interrupt(phydev);
+		//printk(KERN_ERR "%s: %d: Acked\n", __func__, __LINE__);
+		//intr_val = gpiod_get_value(intr);
+		//printk(KERN_ERR "%s: %d: intr value (logical) is %d\n", __func__, __LINE__, intr_val);
 		if (err)
 			return err;
 
 		err = phy_write(phydev, MII_M1011_IMASK,
 				MII_M1011_IMASK_INIT);
+		//printk(KERN_ERR "%s: %d: enabled\n", __func__, __LINE__);
+		//intr_val = gpiod_get_value(intr);
+		//printk(KERN_ERR "%s: %d: intr value (logical) is %d\n", __func__, __LINE__, intr_val);
 	} else {
+		//printk(KERN_ERR "%s: %d: Disabling the IRQ, then acking to clear?\n", __func__, __LINE__);
 		err = phy_write(phydev, MII_M1011_IMASK,
 				MII_M1011_IMASK_CLEAR);
 		if (err)
 			return err;
+		//printk(KERN_ERR "%s: %d: disabled\n", __func__, __LINE__);
+		//intr_val = gpiod_get_value(intr);
+		//printk(KERN_ERR "%s: %d: intr value (logical) is %d\n", __func__, __LINE__, intr_val);
 
 		err = marvell_ack_interrupt(phydev);
+		//printk(KERN_ERR "%s: %d: Acked\n", __func__, __LINE__);
+		//intr_val = gpiod_get_value(intr);
+		//printk(KERN_ERR "%s: %d: intr value (logical) is %d\n", __func__, __LINE__, intr_val);
 	}
 
+	//gpiod_put(intr);
 	return err;
 }
 
@@ -367,6 +395,7 @@ static irqreturn_t marvell_handle_interrupt(struct phy_device *phydev)
 {
 	int irq_status;
 
+	printk(KERN_ERR "%s: %d: Handling IRQ\n", __func__, __LINE__);
 	irq_status = phy_read(phydev, MII_M1011_IEVENT);
 	if (irq_status < 0) {
 		phy_error(phydev);
@@ -1180,12 +1209,18 @@ static int m88e1116r_config_init(struct phy_device *phydev)
 static int m88e1318_config_init(struct phy_device *phydev)
 {
 	if (phy_interrupt_is_valid(phydev)) {
+		/* TODO: There's an if statement in the docs on the mode (copper vs fiber)
+		 * and irq, figure out if SGMII is copper or fiber mode!*/
+		printk(KERN_ERR "%s: %d: Setting up\n", __func__, __LINE__);
+		// just for fun, remove FORCE_INT and force assert..
 		int err = phy_modify_paged(
 			phydev, MII_MARVELL_LED_PAGE,
 			MII_88E1318S_PHY_LED_TCR,
 			MII_88E1318S_PHY_LED_TCR_FORCE_INT,
 			MII_88E1318S_PHY_LED_TCR_INTn_ENABLE |
 			MII_88E1318S_PHY_LED_TCR_INT_ACTIVE_LOW);
+		printk(KERN_ERR "%s: %d: LED_PAGE, LED_TCR reg: 0x%x\n", __func__, __LINE__,
+		       phy_read_paged(phydev, MII_MARVELL_LED_PAGE, MII_88E1318S_PHY_LED_TCR));
 		if (err < 0)
 			return err;
 	}

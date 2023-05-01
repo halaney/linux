@@ -1398,166 +1398,33 @@
 			compatible = "qcom,sa8775p-ethqos";
 			reg = <0x0 0x23040000 0x0 0x10000>,
 			      <0x0 0x23056000 0x0 0x100>,
-			      <0x0 0x08901000 0x0 0xE10>,
+			      <0x0 0x08901000 0x0 0xe10>,
 			      <0x0 0x23056100 0x0 0x100>;
+			reg-names = "stmmaceth", "rgmii", "serdes", "reseteth";
 
-			reg-names = "stmmaceth", "rgmii","serdes","reseteth";
 			clocks = <&gcc GCC_EMAC0_AXI_CLK>,
-				<&gcc GCC_EMAC0_SLV_AHB_CLK>,
-				<&gcc GCC_EMAC0_PTP_CLK>,
-				<&gcc GCC_EMAC0_PHY_AUX_CLK>,
-				<&gcc GCC_SGMI_CLKREF_EN>;
+				 <&gcc GCC_EMAC0_SLV_AHB_CLK>,
+				 <&gcc GCC_EMAC0_PTP_CLK>,
+				 <&gcc GCC_EMAC0_PHY_AUX_CLK>,
+				 <&gcc GCC_SGMI_CLKREF_EN>;
 			clock-names = "stmmaceth", "pclk", "ptp_ref", "phyaux", "sgmi_ref";
-			snps,ptp-ref-clk-rate = <250000000>;
-			snps,ptp-req-clk-rate = <96000000>;
 
-			/* TODO: interrupts normal? */
-			interrupts-extended = <&intc 0 946 4>;
+			/* TODO: clock, etc, stuff for this */
+			power-domains = <&gcc EMAC0_GDSC>;
 
 			/* TODO: Find other IRQ names for dt-binding sake */
+			/* TODO: ask Ning for the other IRQ */
+			interrupts = <GIC_SPI 946 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "macirq";
+
+			iommus = <&apps_smmu 0x120 0xf>;
 
 			snps,tso;
 			snps,pbl = <32>;
 			rx-fifo-depth = <16384>;
 			tx-fifo-depth = <16384>;
 
-		 /*       qcom,phy-intr-redirect = <&tlmm 7 0>; */
-
-			snps,mtl-rx-config = <&mtl_rx_setup>;
-			snps,mtl-tx-config = <&mtl_tx_setup>;
-
-			/* TODO: sus out what these do, if they're needed, etc,
-			   qdrive3 needed none. only one that was on the board at
-			   all related to rgmii or io pads and it wasn't connected
-			   to the phy in the end */
-			/* TODO: move to board file too */
-			// QUalcomm has this commented out /* vreg_rgmii-supply = <&pm8775_a_l4>; */
-			vreg_emac_phy-supply =  <&vreg_l5a>;
-			vreg_rgmii_io_pads-supply = <&vreg_l1c>;
-
-			/* TODO: clock, etc, stuff for this */
-			power-domains = <&gcc EMAC0_GDSC>;
-
-			/* TODO: Describe phy properly.. in board file */
-			phy-mode = "sgmii";
-			phy-handle = <&sgmii_phy>;
-
-
-			pinctrl-0 = <&ethernet_default>;
-			pinctrl-names = "default";
-
-			/* TODO: put in board, and in phy node */
-			#if 0
-			snps,reset-gpio = <&pmm8654au_2_gpios 8 GPIO_ACTIVE_HIGH>;
-			snps,reset-delays-us = <0 11000 70000>;
-			snps,reset-active-low;
-			#endif
-			// TODO: i added this, might be wrong, but the downstream config
-			// messes with the reset code here to make that always the case
-			// also note, i messed with reset-gpio above (was reset-gpios, which i don't
-			// think does anything at all.. 
-
-			/* TODO: what's this again? */
-			snps,ps-speed = <1000>;
-
-			iommus = <&apps_smmu 0x120 0xf>;
-
-// TODO: for some reason, the phy is found properly without the below,
-// but with it (and with reg commented out), the reg 2 / 3 values are read proper
-// but when the reset handler is added to the phy they aren't read at all?
-// Maybe there's a problem with my definition below, or maybe there's a issue
-// with the delays? The reset above is definitely necessary, i think its held
-// in reset without it.
-			mdio {
-				/* TODO: check all of this, move to board */
-				compatible = "snps,dwmac-mdio";
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				/* TODO: other options:
-				    1. pinctrl to the ethernet node and put back in phy
-				    2. figure out where the mdio code is doing things
-				       and pull each out phy out of reset prior
-				*/
-				/* The below phy is the only one on the bus, so
-				 * this gpio is the bus reset as well. By default
-				 * it is in reset, and to find the phy at all
-				 * it must be pulled out prior to mdio access.
-				 * So let's describe it at the bus level.
-				 */
-				reset-gpios = <&pmm8654au_2_gpios 8 GPIO_ACTIVE_LOW>;
-				reset-assert-us = <11000>;
-				reset-deassert-us = <70000>;
-
-				/* Marvell 88EA1512 */
-				sgmii_phy: phy@8 {
-					reg = <0x8>;
-
-					interrupts-extended = <&tlmm 7 IRQ_TYPE_EDGE_FALLING>;
-
-					device_type = "ethernet-phy";
-				};
-			};
-
-			/* TODO: clean this up */
-			mtl_rx_setup: rx-queues-config {
-				snps,rx-queues-to-use = <4>;
-				snps,rx-sched-sp;
-
-				queue0 {
-					snps,dcb-algorithm;
-					snps,map-to-dma-channel = <0x0>;
-					snps,route-up;
-					snps,priority = <0x1>;
-				};
-
-				queue1 {
-					snps,dcb-algorithm;
-					snps,map-to-dma-channel = <0x1>;
-					snps,route-ptp;
-				};
-
-				queue2 {
-					snps,avb-algorithm;
-					snps,map-to-dma-channel = <0x2>;
-					snps,route-avcp;
-				};
-
-				queue3 {
-					snps,avb-algorithm;
-					snps,map-to-dma-channel = <0x3>;
-					snps,priority = <0xC>;
-				};
-			};
-
-			mtl_tx_setup: tx-queues-config {
-				snps,tx-queues-to-use = <4>;
-				snps,tx-sched-sp;
-				queue0 {
-					snps,dcb-algorithm;
-				};
-
-				queue1 {
-					snps,dcb-algorithm;
-				};
-
-				queue2 {
-					snps,avb-algorithm;
-					snps,send_slope = <0x1000>;
-					snps,idle_slope = <0x1000>;
-					snps,high_credit = <0x3E800>;
-					snps,low_credit = <0xFFC18000>;
-				};
-
-				queue3 {
-					snps,avb-algorithm;
-					snps,send_slope = <0x1000>;
-					snps,idle_slope = <0x1000>;
-					snps,high_credit = <0x3E800>;
-					snps,low_credit = <0xFFC18000>;
-				};
-			};
+			status = "disabled";
 		};
 	};
 

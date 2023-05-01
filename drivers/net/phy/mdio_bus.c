@@ -518,9 +518,11 @@ static struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr, bool c45)
 	struct phy_device *phydev = ERR_PTR(-ENODEV);
 	int err;
 
+	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 	phydev = get_phy_device(bus, addr, c45);
 	if (IS_ERR(phydev))
 		return phydev;
+	dev_err(&bus->dev, "%s: %d got phy device\n", __func__, __LINE__);
 
 	/* For DT, see if the auto-probed phy has a corresponding child
 	 * in the bus node, and set the of_node pointer in this case.
@@ -532,6 +534,7 @@ static struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr, bool c45)
 		phy_device_free(phydev);
 		return ERR_PTR(-ENODEV);
 	}
+	dev_err(&bus->dev, "%s: %d phy device registered!\n", __func__, __LINE__);
 
 	return phydev;
 }
@@ -550,6 +553,7 @@ static struct phy_device *mdiobus_scan(struct mii_bus *bus, int addr, bool c45)
  */
 struct phy_device *mdiobus_scan_c22(struct mii_bus *bus, int addr)
 {
+	dev_err(&bus->dev, "%s: %d going down the rabbit hole for %d\n", __func__, __LINE__, addr);
 	return mdiobus_scan(bus, addr, false);
 }
 EXPORT_SYMBOL(mdiobus_scan_c22);
@@ -575,8 +579,11 @@ static int mdiobus_scan_bus_c22(struct mii_bus *bus)
 {
 	int i;
 
+	dev_err(&bus->dev, "%s: %d before c22 loop\n", __func__, __LINE__);
 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+		dev_err(&bus->dev, "%s: %d c22 loop, i: %d\n", __func__, __LINE__, i);
 		if ((bus->phy_mask & BIT(i)) == 0) {
+			dev_err(&bus->dev, "%s: %d c22 loop, i: %d met condition\n", __func__, __LINE__, i);
 			struct phy_device *phydev;
 
 			phydev = mdiobus_scan_c22(bus, i);
@@ -701,6 +708,7 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 	mutex_init(&bus->shared_lock);
 
 	/* assert bus level PHY GPIO reset */
+	dev_err(&bus->dev, "%s: %d before possible mdio bus reset\n", __func__, __LINE__);
 	gpiod = devm_gpiod_get_optional(&bus->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(gpiod)) {
 		err = dev_err_probe(&bus->dev, PTR_ERR(gpiod),
@@ -712,8 +720,10 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 		bus->reset_gpiod = gpiod;
 		fsleep(bus->reset_delay_us);
 		gpiod_set_value_cansleep(gpiod, 0);
+		dev_err(&bus->dev, "%s: %d after possible mdio bus reset\n", __func__, __LINE__);
 		if (bus->reset_post_delay_us > 0)
 			fsleep(bus->reset_post_delay_us);
+		dev_err(&bus->dev, "%s: %d after possible mdio bus reset post delay\n", __func__, __LINE__);
 	}
 	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 
@@ -725,25 +735,31 @@ int __mdiobus_register(struct mii_bus *bus, struct module *owner)
 	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 
 	if (bus->read) {
+		dev_err(&bus->dev, "%s: %d before c22 scan\n", __func__, __LINE__);
 		err = mdiobus_scan_bus_c22(bus);
+		dev_err(&bus->dev, "%s: %d after c22 scan\n", __func__, __LINE__);
 		if (err)
 			goto error;
+		dev_err(&bus->dev, "%s: %d c22 scan, no error\n", __func__, __LINE__);
 	}
 	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 
 	prevent_c45_scan = mdiobus_prevent_c45_scan(bus);
 
 	if (!prevent_c45_scan && bus->read_c45) {
+		dev_err(&bus->dev, "%s: %d before c45 scan\n", __func__, __LINE__);
 		err = mdiobus_scan_bus_c45(bus);
+		dev_err(&bus->dev, "%s: %d after c45 scan\n", __func__, __LINE__);
 		if (err)
 			goto error;
+		dev_err(&bus->dev, "%s: %d after c45 scan, no error\n", __func__, __LINE__);
 	}
 	dev_err(&bus->dev, "%s: %d\n", __func__, __LINE__);
 
 	mdiobus_setup_mdiodev_from_board_info(bus, mdiobus_create_device);
 
 	bus->state = MDIOBUS_REGISTERED;
-	dev_dbg(&bus->dev, "probed\n");
+	dev_info(&bus->dev, "probed\n");
 	return 0;
 
 error:

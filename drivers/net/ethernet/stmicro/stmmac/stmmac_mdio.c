@@ -454,6 +454,7 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 		struct gpio_desc *reset_gpio;
 		u32 delays[3] = { 0, 0, 0 };
 
+		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		reset_gpio = devm_gpiod_get_optional(priv->device,
 						     "snps,reset",
 						     GPIOD_OUT_LOW);
@@ -464,16 +465,20 @@ int stmmac_mdio_reset(struct mii_bus *bus)
 					       "snps,reset-delays-us",
 					       delays, ARRAY_SIZE(delays));
 
+		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		if (delays[0])
 			msleep(DIV_ROUND_UP(delays[0], 1000));
 
+		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		gpiod_set_value_cansleep(reset_gpio, 1);
 		if (delays[1])
 			msleep(DIV_ROUND_UP(delays[1], 1000));
 
+		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		gpiod_set_value_cansleep(reset_gpio, 0);
 		if (delays[2])
 			msleep(DIV_ROUND_UP(delays[2], 1000));
+		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	}
 #endif
 
