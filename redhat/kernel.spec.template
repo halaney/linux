@@ -106,8 +106,11 @@ Summary: The Linux kernel
 %global zipmodules 1
 %endif
 
+# Default compression algorithm
+%global compression xz
+%global compext xz
 %if %{zipmodules}
-%global zipsed -e 's/\.ko$/\.ko.xz/'
+%global zipsed -e 's/\.ko$/\.ko.%compext/'
 %endif
 
 %if 0%{?fedora}
@@ -605,7 +608,7 @@ Provides: installonlypkg(kernel)
 # List the packages used during the kernel build
 #
 BuildRequires: kmod, bash, coreutils, tar, git-core, which
-BuildRequires: bzip2, xz, findutils, gzip, m4, perl-interpreter, perl-Carp, perl-devel, perl-generators, make, diffutils, gawk
+BuildRequires: bzip2, xz, findutils, m4, perl-interpreter, perl-Carp, perl-devel, perl-generators, make, diffutils, gawk
 BuildRequires: gcc, binutils, redhat-rpm-config, hmaccalc, bison, flex, gcc-c++
 BuildRequires: net-tools, hostname, bc, elfutils-devel
 BuildRequires: dwarves
@@ -1850,14 +1853,7 @@ BuildKernel() {
         CopyKernel=cp
     fi
 
-    # Sign the image if we're using EFI
-    # aarch64 kernels are gziped EFI images
-    KernelExtension=${KernelImage##*.}
-    if [ "$KernelExtension" == "gz" ]; then
-        SignImage=${KernelImage%.*}
-    else
-        SignImage=$KernelImage
-    fi
+    SignImage=$KernelImage
 
     %ifarch x86_64 aarch64
     %pesign -s -i $SignImage -o vmlinuz.tmp -a %{secureboot_ca_0} -c %{secureboot_key_0} -n %{pesign_name_0}
@@ -1880,9 +1876,6 @@ BuildKernel() {
         exit 1
     fi
     mv vmlinuz.signed $SignImage
-    if [ "$KernelExtension" == "gz" ]; then
-        gzip -f9 $SignImage
-    fi
     # signkernel
     %endif
 
@@ -1959,8 +1952,8 @@ BuildKernel() {
     # NOTENOTE: checksums to the rpm metadata provides list.
     # NOTENOTE: if you change the symvers name, update the backend too
     echo "**** GENERATING kernel ABI metadata ****"
-    gzip -c9 < Module.symvers > $RPM_BUILD_ROOT/boot/symvers-$KernelVer.gz
-    cp $RPM_BUILD_ROOT/boot/symvers-$KernelVer.gz $RPM_BUILD_ROOT/lib/modules/$KernelVer/symvers.gz
+    %compression -c9 < Module.symvers > $RPM_BUILD_ROOT/boot/symvers-$KernelVer.%compext
+    cp $RPM_BUILD_ROOT/boot/symvers-$KernelVer.%compext $RPM_BUILD_ROOT/lib/modules/$KernelVer/symvers.%compext
 
 %if %{with_kabichk}
     echo "**** kABI checking is enabled in kernel SPEC file. ****"
@@ -2612,7 +2605,7 @@ find Documentation -type d | xargs chmod u+w
   fi \
   if [ "%{zipmodules}" -eq "1" ]; then \
     echo "Compressing kernel modules ..." \
-    find $RPM_BUILD_ROOT/lib/modules/ -type f -name '*.ko' | xargs -n 16 -P${RPM_BUILD_NCPUS} -r xz; \
+    find $RPM_BUILD_ROOT/lib/modules/ -type f -name '*.ko' | xargs -n 16 -P${RPM_BUILD_NCPUS} -r %compression; \
   fi \
 %{nil}
 
@@ -3040,9 +3033,9 @@ fi\
 %endif\
 rm -f %{_localstatedir}/lib/rpm-state/%{name}/installing_core_%{KVERREL}%{?1:+%{1}}\
 /bin/kernel-install add %{KVERREL}%{?1:+%{1}} /lib/modules/%{KVERREL}%{?1:+%{1}}/vmlinuz || exit $?\
-if [[ ! -e "/boot/symvers-%{KVERREL}%{?1:+%{1}}.gz" ]]; then\
-    ln -s "/lib/modules/%{KVERREL}%{?1:+%{1}}/symvers.gz" "/boot/symvers-%{KVERREL}%{?1:+%{1}}.gz"\
-    command -v restorecon &>/dev/null && restorecon "/boot/symvers-%{KVERREL}%{?1:+%{1}}.gz" \
+if [[ ! -e "/boot/symvers-%{KVERREL}%{?1:+%{1}}.%compext" ]]; then\
+    ln -s "/lib/modules/%{KVERREL}%{?1:+%{1}}/symvers.%compext" "/boot/symvers-%{KVERREL}%{?1:+%{1}}.%compext"\
+    command -v restorecon &>/dev/null && restorecon "/boot/symvers-%{KVERREL}%{?1:+%{1}}.%compext" \
 fi\
 %{nil}
 
@@ -3316,10 +3309,10 @@ fi
 %endif\
 %attr(0600, root, root) /lib/modules/%{KVERREL}%{?3:+%{3}}/System.map\
 %ghost %attr(0600, root, root) /boot/System.map-%{KVERREL}%{?3:+%{3}}\
-/lib/modules/%{KVERREL}%{?3:+%{3}}/symvers.gz\
+/lib/modules/%{KVERREL}%{?3:+%{3}}/symvers.%compext\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/config\
 /lib/modules/%{KVERREL}%{?3:+%{3}}/modules.builtin*\
-%ghost %attr(0600, root, root) /boot/symvers-%{KVERREL}%{?3:+%{3}}.gz\
+%ghost %attr(0600, root, root) /boot/symvers-%{KVERREL}%{?3:+%{3}}.%compext\
 %ghost %attr(0600, root, root) /boot/initramfs-%{KVERREL}%{?3:+%{3}}.img\
 %ghost %attr(0644, root, root) /boot/config-%{KVERREL}%{?3:+%{3}}\
 %{expand:%%files -f kernel-%{?3:%{3}-}modules-core.list %{?3:%{3}-}modules-core}\
