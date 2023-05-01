@@ -1392,6 +1392,39 @@
 
 			#freq-domain-cells = <1>;
 		};
+
+		ethernet: ethernet@23040000 {
+			/* TODO: serdes is a phy and shouldn't be in here */
+			compatible = "qcom,sa8775p-ethqos";
+			reg = <0x0 0x23040000 0x0 0x10000>,
+			      <0x0 0x23056000 0x0 0x100>,
+			      <0x0 0x08901000 0x0 0xe10>,
+			      <0x0 0x23056100 0x0 0x100>;
+			reg-names = "stmmaceth", "rgmii", "serdes", "reseteth";
+
+			clocks = <&gcc GCC_EMAC0_AXI_CLK>,
+				 <&gcc GCC_EMAC0_SLV_AHB_CLK>,
+				 <&gcc GCC_EMAC0_PTP_CLK>,
+				 <&gcc GCC_EMAC0_PHY_AUX_CLK>,
+				 <&gcc GCC_SGMI_CLKREF_EN>;
+			clock-names = "stmmaceth", "pclk", "ptp_ref", "phyaux", "sgmi_ref";
+
+			power-domains = <&gcc EMAC0_GDSC>;
+
+			/* TODO: Find other IRQ names for dt-binding sake */
+			/* TODO: ask Ning for the other IRQ */
+			interrupts = <GIC_SPI 946 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "macirq";
+
+			iommus = <&apps_smmu 0x120 0xf>;
+
+			snps,tso;
+			snps,pbl = <32>;
+			rx-fifo-depth = <16384>;
+			tx-fifo-depth = <16384>;
+
+			status = "disabled";
+		};
 	};
 
 	arch_timer: timer {
