@@ -403,31 +403,19 @@
 };
 
 &tlmm {
-	emac {
-		emac_mdc: emac_mdc {
-			mux {
-				pins = "gpio8";
-				function = "emac0_mdc";
-			};
-
-			config {
-				pins = "gpio8";
-				bias-pull-up;
-				drive-strength = <16>;
-			};
+	ethernet_default: ethernet-default-state {
+		mdc-pins {
+			pins = "gpio8";
+			function = "emac0_mdc";
+			drive-strength = <16>;
+			bias-pull-up;
 		};
 
-		emac_mdio: emac_mdio {
-			mux {
-				pins = "gpio9";
-				function = "emac0_mdio";
-			};
-
-			config {
-				pins = "gpio9";
-				bias-pull-up;
-				drive-strength = <16>;
-			};
+		mdio-pins {
+			pins = "gpio9";
+			function = "emac0_mdio";
+			drive-strength = <16>;
+			bias-pull-up;
 		};
 	};
 
@@ -479,5 +467,134 @@
 };
 
 &ethqos_hw {
+	phy-mode = "sgmii";
+	phy-handle = <&sgmii_phy>;
+
+	pinctrl-0 = <&ethernet_default>;
+	pinctrl-names = "default";
+
+	snps,mtl-rx-config = <&mtl_rx_setup>;
+	snps,mtl-tx-config = <&mtl_tx_setup>;
+
+	/* TODO: Figure out if this is a board level option (like as currently described in the
+		 the dts, or if its a SoC level thing that would never change between designs)
+	/* TODO: this is actually used, but we're the only example in the kernel... */
+	/* TODO: figure out if this is necessary or not, if it changes max-speed, if the
+	   MAC2MAC in qdrive3 should do it too since its mentioned in the binding */
+	snps,ps-speed = <1000>;
+
+	status = "okay";
+
+	/* TODO: sus out what these do, if they're needed, etc,
+	   qdrive3 needed none. only one that was on the board at
+	   all related to rgmii or io pads and it wasn't connected
+	   to the phy in the end */
+	// QUalcomm has this commented out /* vreg_rgmii-supply = <&pm8775_a_l4>; */
+	vreg_emac_phy-supply =  <&vreg_l5a>;
+	vreg_rgmii_io_pads-supply = <&vreg_l1c>;
+
+	#if 0
 	snps,reset-gpios = <&pm8775_3_gpios 8 GPIO_ACTIVE_HIGH>;
+	snps,reset-delays-us = <0 11000 70000>;
+	snps,reset-active-low;
+	#endif
+
+
+	mdio {
+		compatible = "snps,dwmac-mdio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* TODO: other options:
+		    1. pinctrl to the ethernet node and put back in phy
+		    2. figure out where the mdio code is doing things
+		       and pull each out phy out of reset prior
+		*/
+		/* The below phy is the only one on the bus, so
+		 * this gpio is the bus reset as well. By default
+		 * it is in reset, and to find the phy at all
+		 * it must be pulled out prior to mdio access.
+		 * So let's describe it at the bus level.
+		 */
+		reset-gpios = <&pm8775_3_gpios 8 GPIO_ACTIVE_LOW>;
+		reset-assert-us = <11000>;
+		reset-deassert-us = <70000>;
+
+		/* Marvell 88EA1512 */
+		sgmii_phy: phy@8 {
+			reg = <0x8>;
+
+			#if 0
+			/* interrupts-extended is accurate, but for some reason the
+			   driver isn't getting an IRQ (but it looks asserted).
+
+			   For now leave it out and using polling until that can be figure out.
+			*/
+			interrupts-extended = <&tlmm 7 IRQ_TYPE_EDGE_FALLING>;
+			/* TODO: remove below hack used for debugging irq issue */
+			intr-gpios = <&tlmm 7 GPIO_ACTIVE_LOW>;
+			#endif
+
+			device_type = "ethernet-phy";
+		};
+	};
+
+	mtl_rx_setup: rx-queues-config {
+		snps,rx-queues-to-use = <4>;
+		snps,rx-sched-sp;
+
+		queue0 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x0>;
+			snps,route-up;
+			snps,priority = <0x1>;
+		};
+
+		queue1 {
+			snps,dcb-algorithm;
+			snps,map-to-dma-channel = <0x1>;
+			snps,route-ptp;
+		};
+
+		queue2 {
+			snps,avb-algorithm;
+			snps,map-to-dma-channel = <0x2>;
+			snps,route-avcp;
+		};
+
+		queue3 {
+			snps,avb-algorithm;
+			snps,map-to-dma-channel = <0x3>;
+			snps,priority = <0xC>;
+		};
+	};
+
+	mtl_tx_setup: tx-queues-config {
+		snps,tx-queues-to-use = <4>;
+		snps,tx-sched-sp;
+		queue0 {
+			snps,dcb-algorithm;
+		};
+
+		queue1 {
+			snps,dcb-algorithm;
+		};
+
+		queue2 {
+			snps,avb-algorithm;
+			snps,send_slope = <0x1000>;
+			snps,idle_slope = <0x1000>;
+			snps,high_credit = <0x3E800>;
+			snps,low_credit = <0xFFC18000>;
+		};
+
+		queue3 {
+			snps,avb-algorithm;
+			snps,send_slope = <0x1000>;
+			snps,idle_slope = <0x1000>;
+			snps,high_credit = <0x3E800>;
+			snps,low_credit = <0xFFC18000>;
+		};
+	};
+
 };
