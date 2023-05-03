@@ -2632,9 +2632,8 @@ static int stmmac_tx_clean(struct stmmac_priv *priv, int budget, u32 queue)
 	}
 	tx_q->dirty_tx = entry;
 
-	if (!priv->tx_coal_timer_disable)
-		netdev_tx_completed_queue(netdev_get_tx_queue(priv->dev, queue),
-					  pkts_compl, bytes_compl);
+	netdev_tx_completed_queue(netdev_get_tx_queue(priv->dev, queue),
+				  pkts_compl, bytes_compl);
 
 	if (unlikely(netif_tx_queue_stopped(netdev_get_tx_queue(priv->dev,
 								queue))) &&
@@ -2673,16 +2672,11 @@ static int stmmac_tx_clean(struct stmmac_priv *priv, int budget, u32 queue)
 		mod_timer(&priv->eee_ctrl_timer, STMMAC_LPI_T(priv->tx_lpi_timer));
 	}
 
-	if (!priv->tx_coal_timer_disable) {
-		/**
-		 * We still have pending packets,
-		 * let's call for a new scheduling
-		 */
-		if (tx_q->dirty_tx != tx_q->cur_tx)
-			hrtimer_start(&tx_q->txtimer,
-				      STMMAC_COAL_TIMER(priv->tx_coal_timer[queue]),
-				      HRTIMER_MODE_REL);
-	}
+	/* We still have pending packets, let's call for a new scheduling */
+	if (tx_q->dirty_tx != tx_q->cur_tx)
+		hrtimer_start(&tx_q->txtimer,
+			      STMMAC_COAL_TIMER(priv->tx_coal_timer[queue]),
+			      HRTIMER_MODE_REL);
 
 	__netif_tx_unlock_bh(netdev_get_tx_queue(priv->dev, queue));
 
@@ -3740,7 +3734,6 @@ int stmmac_open(struct net_device *dev)
 	int bfsize = 0;
 	u32 chan;
 	int ret;
-	u32 rx_channel_count = priv->plat->rx_queues_to_use;
 
 	ret = pm_runtime_get_sync(priv->device);
 	if (ret < 0) {
@@ -3817,12 +3810,7 @@ int stmmac_open(struct net_device *dev)
 		goto init_error;
 	}
 
-	if (!priv->tx_coal_timer_disable) {
-		stmmac_init_coalesce(priv);
-	} else {
-		for (chan = 0; chan < rx_channel_count; chan++)
-			priv->rx_coal_frames[chan] = STMMAC_RX_FRAMES;
-	}
+	stmmac_init_coalesce(priv);
 
 	if (!priv->plat->mac2mac_en) {
 		phylink_start(priv->phylink);
@@ -3849,10 +3837,9 @@ int stmmac_open(struct net_device *dev)
 irq_error:
 	if (!priv->plat->mac2mac_en)
 		phylink_stop(priv->phylink);
-	if (!priv->tx_coal_timer_disable) {
-		for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
-			hrtimer_cancel(&priv->tx_queue[chan].txtimer);
-	}
+	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
+		hrtimer_cancel(&priv->tx_queue[chan].txtimer);
+
 	stmmac_hw_teardown(dev);
 init_error:
 	free_dma_desc_resources(priv);
@@ -3895,10 +3882,8 @@ int stmmac_release(struct net_device *dev)
 
 	stmmac_disable_all_queues(priv);
 
-	if (!priv->tx_coal_timer_disable) {
-		for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
-			hrtimer_cancel(&priv->tx_queue[chan].txtimer);
-	}
+	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
+		hrtimer_cancel(&priv->tx_queue[chan].txtimer);
 
 	/* Free the IRQ lines */
 	stmmac_free_irq(dev, REQ_IRQ_ERR_ALL, 0);
@@ -4278,13 +4263,10 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
 		print_pkt(skb->data, skb_headlen(skb));
 	}
 
-	if (!priv->tx_coal_timer_disable)
-		netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue),
-				     skb->len);
+	netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), skb->len);
 
 	stmmac_flush_tx_descriptors(priv, queue);
-	if (!priv->tx_coal_timer_disable)
-		stmmac_tx_timer_arm(priv, queue);
+	stmmac_tx_timer_arm(priv, queue);
 
 	return NETDEV_TX_OK;
 
@@ -4523,15 +4505,12 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	stmmac_set_tx_owner(priv, first);
 
-	if (!priv->tx_coal_timer_disable)
-		netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue),
-				     skb->len);
+	netdev_tx_sent_queue(netdev_get_tx_queue(dev, queue), skb->len);
 
 	stmmac_enable_dma_transmission(priv, priv->ioaddr);
 
 	stmmac_flush_tx_descriptors(priv, queue);
-	if (!priv->tx_coal_timer_disable)
-		stmmac_tx_timer_arm(priv, queue);
+	stmmac_tx_timer_arm(priv, queue);
 
 	return NETDEV_TX_OK;
 
@@ -4857,7 +4836,7 @@ static void stmmac_finalize_xdp_rx(struct stmmac_priv *priv,
 
 	queue = stmmac_xdp_get_tx_queue(priv, cpu);
 
-	if (xdp_status & STMMAC_XDP_TX && !priv->tx_coal_timer_disable)
+	if (xdp_status & STMMAC_XDP_TX)
 		stmmac_tx_timer_arm(priv, queue);
 
 	if (xdp_status & STMMAC_XDP_REDIRECT)
@@ -6487,8 +6466,7 @@ static int stmmac_xdp_xmit(struct net_device *dev, int num_frames,
 
 	if (flags & XDP_XMIT_FLUSH) {
 		stmmac_flush_tx_descriptors(priv, queue);
-		if (!priv->tx_coal_timer_disable)
-			stmmac_tx_timer_arm(priv, queue);
+		stmmac_tx_timer_arm(priv, queue);
 	}
 
 	__netif_tx_unlock(nq);
@@ -7232,10 +7210,6 @@ int stmmac_dvr_probe(struct device *device,
 			goto error_serdes_powerup;
 	}
 
-	/* Disable tx_coal_timer if plat provides callback */
-	priv->tx_coal_timer_disable =
-		plat_dat->get_plat_tx_coal_frames ? true : false;
-
 #ifdef CONFIG_DEBUG_FS
 	stmmac_init_fs(ndev);
 #endif
@@ -7338,10 +7312,8 @@ int stmmac_suspend(struct device *dev)
 
 	stmmac_disable_all_queues(priv);
 
-	if (!priv->tx_coal_timer_disable) {
-		for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
-			hrtimer_cancel(&priv->tx_queue[chan].txtimer);
-	}
+	for (chan = 0; chan < priv->plat->tx_queues_to_use; chan++)
+		hrtimer_cancel(&priv->tx_queue[chan].txtimer);
 
 	if (priv->eee_enabled) {
 		priv->tx_path_in_lpi_mode = false;
@@ -7436,8 +7408,6 @@ int stmmac_resume(struct device *dev)
 	struct net_device *ndev = dev_get_drvdata(dev);
 	struct stmmac_priv *priv = netdev_priv(ndev);
 	int ret;
-	u32 chan;
-	u32 rx_channel_count = priv->plat->rx_queues_to_use;
 
 	if (!netif_running(ndev))
 		return 0;
@@ -7493,14 +7463,7 @@ int stmmac_resume(struct device *dev)
 	stmmac_clear_descriptors(priv);
 
 	stmmac_hw_setup(ndev, false);
-
-	if (!priv->tx_coal_timer_disable) {
-		stmmac_init_coalesce(priv);
-	} else {
-		for (chan = 0; chan < rx_channel_count; chan++)
-			priv->rx_coal_frames[chan] = STMMAC_RX_FRAMES;
-	}
-
+	stmmac_init_coalesce(priv);
 	stmmac_set_rx_mode(ndev);
 
 	stmmac_restore_hw_vlan_rx_fltr(priv, ndev, priv->hw);
