@@ -370,10 +370,7 @@ static int stmmac_ethtool_get_link_ksettings(struct net_device *dev,
 		return 0;
 	}
 
-	if (!priv->plat->mac2mac_en)
-		return phylink_ethtool_ksettings_get(priv->phylink, cmd);
-	else
-		return 0;
+	return phylink_ethtool_ksettings_get(priv->phylink, cmd);
 }
 
 static int
@@ -411,11 +408,7 @@ stmmac_ethtool_set_link_ksettings(struct net_device *dev,
 		return 0;
 	}
 
-	if (!priv->plat->mac2mac_en)
-		return phylink_ethtool_ksettings_set(priv->phylink, cmd);
-	else
-		return 0;
-
+	return phylink_ethtool_ksettings_set(priv->phylink, cmd);
 }
 
 static u32 stmmac_ethtool_getmsglevel(struct net_device *dev)
@@ -468,11 +461,7 @@ static int stmmac_nway_reset(struct net_device *dev)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
-	if (!priv->plat->mac2mac_en)
-		return phylink_ethtool_nway_reset(priv->phylink);
-	else
-		return 0;
-
+	return phylink_ethtool_nway_reset(priv->phylink);
 }
 
 static void stmmac_get_ringparam(struct net_device *netdev,
@@ -518,8 +507,7 @@ stmmac_get_pauseparam(struct net_device *netdev,
 		if (!adv_lp.pause)
 			return;
 	} else {
-		if (!priv->plat->mac2mac_en)
-			phylink_ethtool_get_pauseparam(priv->phylink, pause);
+		phylink_ethtool_get_pauseparam(priv->phylink, pause);
 	}
 }
 
@@ -544,10 +532,7 @@ stmmac_set_pauseparam(struct net_device *netdev,
 			return -EOPNOTSUPP;
 		return 0;
 	} else {
-		if (!priv->plat->mac2mac_en)
-			return phylink_ethtool_set_pauseparam(priv->phylink, pause);
-		else
-			return 0;
+		return phylink_ethtool_set_pauseparam(priv->phylink, pause);
 	}
 }
 
@@ -586,12 +571,9 @@ static void stmmac_get_ethtool_stats(struct net_device *dev,
 			}
 		}
 		if (priv->eee_enabled) {
-			if (!priv->plat->mac2mac_en) {
-				int val = phylink_get_eee_err(priv->phylink);
-
-				if (val)
-					priv->xstats.phy_eee_wakeup_error_n = val;
-			}
+			int val = phylink_get_eee_err(priv->phylink);
+			if (val)
+				priv->xstats.phy_eee_wakeup_error_n = val;
 		}
 
 		if (priv->synopsys_id >= DWMAC_CORE_3_50)
@@ -681,7 +663,7 @@ static void stmmac_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
-	if (!priv->plat->mac2mac_en && !priv->plat->pmt)
+	if (!priv->plat->pmt)
 		return phylink_ethtool_get_wol(priv->phylink, wol);
 
 	mutex_lock(&priv->lock);
@@ -702,7 +684,7 @@ static int stmmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 	if (!device_can_wakeup(priv->device))
 		return -EOPNOTSUPP;
 
-	if (!priv->plat->mac2mac_en && !priv->plat->pmt) {
+	if (!priv->plat->pmt) {
 		int ret = phylink_ethtool_set_wol(priv->phylink, wol);
 
 		if (!ret)
@@ -748,10 +730,7 @@ static int stmmac_ethtool_op_get_eee(struct net_device *dev,
 	edata->tx_lpi_timer = priv->tx_lpi_timer;
 	edata->tx_lpi_enabled = priv->tx_lpi_enabled;
 
-	if (!priv->plat->mac2mac_en)
-		return phylink_ethtool_get_eee(priv->phylink, edata);
-	else
-		return 0;
+	return phylink_ethtool_get_eee(priv->phylink, edata);
 }
 
 static int stmmac_ethtool_op_set_eee(struct net_device *dev,
@@ -778,11 +757,9 @@ static int stmmac_ethtool_op_set_eee(struct net_device *dev,
 	if (!edata->eee_enabled)
 		stmmac_disable_eee_mode(priv);
 
-	if (!priv->plat->mac2mac_en) {
-		ret = phylink_ethtool_set_eee(priv->phylink, edata);
-		if (ret)
-			return ret;
-	}
+	ret = phylink_ethtool_set_eee(priv->phylink, edata);
+	if (ret)
+		return ret;
 
 	if (edata->eee_enabled &&
 	    priv->tx_lpi_timer != edata->tx_lpi_timer) {
