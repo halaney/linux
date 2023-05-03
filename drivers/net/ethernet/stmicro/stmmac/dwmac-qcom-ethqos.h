@@ -14,7 +14,6 @@
 
 #define RGMII_IO_MACRO_CONFIG		0x0
 #define SDCC_HC_REG_DLL_CONFIG		0x4
-#define SDCC_TEST_CTL			0x8
 #define SDCC_HC_REG_DDR_CONFIG		0xC
 #define SDCC_HC_REG_DLL_CONFIG2		0x10
 #define SDC4_STATUS			0x14
@@ -40,7 +39,7 @@ struct qcom_ethqos {
 	struct clk *rgmii_clk;
 	unsigned int speed;
 
-	struct ethqos_emac_por *por;
+	const struct ethqos_emac_por *por;
 	unsigned int num_por;
 	unsigned int emac_ver;
 
