@@ -2663,11 +2663,11 @@
 		reg = <0x03d00000 0x69000>,
 				<0x03d69000 0x97000>,
 				<0x0b210000 0x400000>,
-				<0x00780188 0x1000>,
+				<0x00780000 0x7000>,
 				<0x01fc8000 0x1000>,
 				<0x01fc0000 0x30000>;
 		reg-names = "gpu_reg", "gmu_reg",
-					"rpmh_pdc", "qfprom_reg",
+					"rpmh_pdc", "security_control_core",
 					"tcsr_hwver_reg", "tcsr_tcsr_reg";
 
 		interrupts = <0 300 IRQ_TYPE_LEVEL_HIGH>,
