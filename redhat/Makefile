@@ -106,12 +106,16 @@ LOCVERFILE:=../localversion
 # create an empty localversion file if you don't want a local buildid
 ifneq ($(wildcard $(LOCVERFILE)),)
   DISTLOCALVERSION:=$(shell cat $(LOCVERFILE))
-  $(info DISTLOCALVERSION is "$(DISTLOCALVERSION)". Update '$(shell dirname $(REDHAT))/localversion' to change.)
+  ifeq (,$(findstring s,$(firstword -$(MAKEFLAGS))))
+    $(info DISTLOCALVERSION is "$(DISTLOCALVERSION)". Update '$(shell dirname $(REDHAT))/localversion' to change.)
+  endif
 else
   ifeq ($(DISTLOCALVERSION),)
     DISTLOCALVERSION:=.test
   endif
-  $(info DISTLOCALVERSION is "$(DISTLOCALVERSION)".)
+  ifeq (,$(findstring s,$(firstword -$(MAKEFLAGS))))
+    $(info DISTLOCALVERSION is "$(DISTLOCALVERSION)".)
+  endif
 endif
 
 # options for process_configs.sh script
@@ -137,7 +141,14 @@ endif
 # opposed to any adjusted version for snapshotting.
 ifneq ($(SPECKEXTRAVERSION),)
   UPSTREAMBUILD:=0$(shell echo $(SPECKEXTRAVERSION) | sed -e s/-/./).
-  UPSTREAM_TARBALL_NAME:=$(SPECKVERSION).$(SPECKPATCHLEVEL)$(SPECKEXTRAVERSION)
+  ifeq ($(SPECKSUBLEVEL),0)
+    UPSTREAM_TARBALL_NAME:=$(SPECKVERSION).$(SPECKPATCHLEVEL)$(SPECKEXTRAVERSION)
+  else
+    UPSTREAM_TARBALL_NAME:=$(SPECKVERSION).$(SPECKPATCHLEVEL).$(SPECKSUBLEVEL)$(SPECKEXTRAVERSION)
+    # stable-rc's are not tagged
+    STABLERC_MARKER:=$(shell $(GIT) rev-parse -q --verify origin/$(UPSTREAM_BRANCH) | cut -c 1-12 || \
+            $(GIT) rev-parse -q --verify $(UPSTREAM_BRANCH) | cut -c 1-12)
+  endif
 else
   ifeq ($(SPECKSUBLEVEL),0)
     UPSTREAM_TARBALL_NAME:=$(SPECKVERSION).$(SPECKPATCHLEVEL)
@@ -150,7 +161,11 @@ else
   endif
   UPSTREAMBUILD:=
 endif
-MARKER:=v$(UPSTREAM_TARBALL_NAME)
+ifneq ($(STABLERC_MARKER),)
+  MARKER:=$(STABLERC_MARKER)
+else
+  MARKER:=v$(UPSTREAM_TARBALL_NAME)
+endif
 
 # If VERSION_ON_UPSTREAM is set, the versioning of the rpm package is based
 # on a branch tracking upstream. This allows for generating rpms
@@ -166,7 +181,19 @@ endif
 UPSTREAM:=$(shell $(GIT) rev-parse -q --verify origin/$(UPSTREAM_BRANCH) || \
             $(GIT) rev-parse -q --verify $(UPSTREAM_BRANCH))
 
-ifeq ($(VERSION_ON_UPSTREAM),1)
+ifneq ("$(wildcard $(TOPDIR)/localversion-next)", "")
+  # we are building linux-next
+  MARKER:=$(shell $(GIT) describe $(UPSTREAM))
+  # The merge window is weird because the actual versioning hasn't
+  # been updated but we still need something that works for
+  # packaging. Fix this by bumping the patch level.
+  ifeq ($(SPECKEXTRAVERSION),)
+    SPECKPATCHLEVEL:=$(shell expr $(SPECKPATCHLEVEL) + 1)
+  endif
+  LINUXNEXT_VERSION:=$(shell echo $(MARKER) | sed 's!next-!!')
+  UPSTREAMBUILD:=0.0.next.$(LINUXNEXT_VERSION).
+  UPSTREAM_TARBALL_NAME:=$(MARKER)
+else ifeq ($(VERSION_ON_UPSTREAM),1)
   # UPSTREAM_BRANCH is expected to track mainline.
   ifeq ($(UPSTREAM),)
       $(error "Missing an $(UPSTREAM_BRANCH) branch")
@@ -753,6 +780,9 @@ dist-release-changed:
 dist-release: dist-clean-sources
 	@$(MAKE) dist-release-changed
 
+dist-get-tag:
+	$(info $(DISTRELEASETAG))
+
 dist-release-tag:
 	@$(GIT) tag -a -m "$(DISTRELEASETAG)" $(DISTRELEASETAG)
 
@@ -972,6 +1002,7 @@ dist-full-help:
 	@echo  '  dist-get-latest - Returns the latest "known good" kernel from brew. This'
 	@echo  '                    should not be confused with the latest top-of-tree'
 	@echo  '                    development tag.'
+	@echo  '  dist-get-tag    - Returns the latest release tag'
 	@echo  '  dist-os-version - Displays the current Red Hat Enterprise Linux versioni'
 	@echo  '                    target used by the current branch/tree.'
 	@echo  '  dist-self-test  - Runs self-tests from the redhat/self-test directory'
