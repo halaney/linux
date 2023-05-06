@@ -10556,12 +10556,6 @@ F:	drivers/hwmon/intel-m10-bmc-hwmon.c
 F:	drivers/mfd/intel-m10-bmc*
 F:	include/linux/mfd/intel-m10-bmc.h
 
-INTEL MENLOW THERMAL DRIVER
-M:	Sujith Thomas <sujith.thomas@intel.com>
-L:	linux-pm@vger.kernel.org
-S:	Supported
-F:	drivers/thermal/intel/intel_menlow.c
-
 INTEL P-Unit IPC DRIVER
 M:	Zha Qipeng <qipeng.zha@intel.com>
 L:	platform-driver-x86@vger.kernel.org
@@ -15709,6 +15703,7 @@ K:	of_overlay_remove
 OPEN FIRMWARE AND FLATTENED DEVICE TREE BINDINGS
 M:	Rob Herring <robh+dt@kernel.org>
 M:	Krzysztof Kozlowski <krzysztof.kozlowski+dt@linaro.org>
+M:	Conor Dooley <conor+dt@kernel.org>
 L:	devicetree@vger.kernel.org
 S:	Maintained
 C:	irc://irc.libera.chat/devicetree
@@ -19064,6 +19059,7 @@ SFC NETWORK DRIVER
 M:	Edward Cree <ecree.xilinx@gmail.com>
 M:	Martin Habets <habetsm.xilinx@gmail.com>
 L:	netdev@vger.kernel.org
+L:	linux-net-drivers@amd.com
 S:	Supported
 F:	Documentation/networking/devlink/sfc.rst
 F:	drivers/net/ethernet/sfc/
