@@ -828,7 +828,7 @@ static int stmmac_hwtstamp_set(struct net_device *dev, struct ifreq *ifr)
 
 		/* program Sub Second Increment reg */
 		stmmac_config_sub_second_increment(priv,
-				priv->ptpaddr, priv->plat->clk_ptp_rate,
+				priv->ptpaddr, priv->plat->clk_ptp_req_rate,
 				xmac, &sec_inc);
 
 		/* Store sub second increment and flags for later use */
