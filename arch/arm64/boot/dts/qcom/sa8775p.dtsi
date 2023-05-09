@@ -890,6 +890,15 @@
 			#hwlock-cells = <1>;
 		};
 
+		serdes_phy: phy@0x8901000 {
+			compatible = "qcom,sa8775p-dwmac-sgmii-phy";
+			reg = <0 0x08901000 0 0xe10>;
+			reg-names = "serdes";
+			clocks = <&gcc GCC_SGMI_CLKREF_EN>;
+			clock-names = "sgmi_ref";
+			#phy-cells = <0>;
+		};
+
 		gpucc: clock-controller@3d90000 {
 			compatible = "qcom,sa8775p-gpucc";
 			reg = <0x0 0x03d90000 0x0 0xa000>;
@@ -1398,16 +1407,14 @@
 			compatible = "qcom,sa8775p-ethqos";
 			reg = <0x0 0x23040000 0x0 0x10000>,
 			      <0x0 0x23056000 0x0 0x100>,
-			      <0x0 0x08901000 0x0 0xe10>,
 			      <0x0 0x23056100 0x0 0x100>;
-			reg-names = "stmmaceth", "rgmii", "serdes", "reseteth";
+			reg-names = "stmmaceth", "rgmii", "reseteth";
 
 			clocks = <&gcc GCC_EMAC0_AXI_CLK>,
 				 <&gcc GCC_EMAC0_SLV_AHB_CLK>,
 				 <&gcc GCC_EMAC0_PTP_CLK>,
-				 <&gcc GCC_EMAC0_PHY_AUX_CLK>,
-				 <&gcc GCC_SGMI_CLKREF_EN>;
-			clock-names = "stmmaceth", "pclk", "ptp_ref", "phyaux", "sgmi_ref";
+				 <&gcc GCC_EMAC0_PHY_AUX_CLK>;
+			clock-names = "stmmaceth", "pclk", "ptp_ref", "phyaux";
 
 			power-domains = <&gcc EMAC0_GDSC>;
 
@@ -1417,6 +1424,9 @@
 			interrupt-names = "macirq";
 
 			iommus = <&apps_smmu 0x120 0xf>;
+
+			phys = <&serdes_phy>;
+			phy-names = "serdesphy";
 
 			snps,tso;
 			snps,pbl = <32>;

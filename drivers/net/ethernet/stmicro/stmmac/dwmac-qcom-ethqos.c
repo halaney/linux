@@ -6,6 +6,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
+#include <linux/phy/phy.h>
 #include "stmmac.h"
 #include "stmmac_platform.h"
 
@@ -91,14 +92,18 @@ struct qcom_ethqos {
 	struct platform_device *pdev;
 	void __iomem *ioaddr;
 	void __iomem *rgmii_base;
+	/* TODO: remove */
 	void __iomem *sgmii_base;
 
 	unsigned int rgmii_clk_rate;
 	struct clk *rgmii_clk;
 	struct clk *phyaux_clk;
+
+	/* TODO: remove */
 	struct clk *sgmiref_clk;
 	unsigned int speed;
 
+	struct phy *serdes_phy;
 	const struct ethqos_emac_por *por;
 	unsigned int num_por;
 	bool rgmii_config_loopback_en;
@@ -128,7 +133,7 @@ static void rgmii_updatel(struct qcom_ethqos *ethqos,
 
 #include "dwmac-qcom-serdes.h"
 
-int configure_serdes_dt(struct qcom_ethqos *ethqos)
+static int configure_serdes_dt(struct qcom_ethqos *ethqos)
 {
 	struct resource *res = NULL;
 	struct platform_device *pdev = ethqos->pdev;
@@ -177,7 +182,7 @@ err_mem:
 	return ret;
 }
 
-void qcom_ethqos_serdes_init(struct qcom_ethqos *ethqos, int speed)
+static void qcom_ethqos_serdes_init(struct qcom_ethqos *ethqos, int speed)
 {
 	int retry = 500;
 	unsigned int val;
@@ -323,7 +328,7 @@ void qcom_ethqos_serdes_init(struct qcom_ethqos *ethqos, int speed)
 #define EMAC_VREG_RGMII_NAME "vreg_rgmii"
 #define EMAC_VREG_EMAC_PHY_NAME "vreg_emac_phy"
 #define EMAC_VREG_RGMII_IO_PADS_NAME "vreg_rgmii_io_pads"
-int ethqos_init_regulators(struct qcom_ethqos *ethqos)
+static int ethqos_init_regulators(struct qcom_ethqos *ethqos)
 {
 	int ret = 0;
 
@@ -754,10 +759,108 @@ static int ethqos_rgmii_macro_init(struct qcom_ethqos *ethqos)
 	return 0;
 }
 
+#define GMAC_CONFIG_PS			BIT(15)
+#define GMAC_CONFIG_FES			BIT(14)
+#define GMAC_AN_CTRL_RAN	BIT(9)
+#define GMAC_AN_CTRL_ANE	BIT(12)
+
+#define DWMAC4_PCS_BASE	0x000000e0
+#define RGMII_CONFIG_10M_CLK_DVD GENMASK(18, 10)
+
+static int ethqos_configure_sgmii_v3_1(struct qcom_ethqos *ethqos)
+{
+	u32 value = 0;
+
+	pr_info("%s speed = %u\n", __func__, ethqos->speed);
+	value = readl(ethqos->ioaddr + MAC_CTRL_REG);
+	switch (ethqos->speed) {
+	case SPEED_2500:
+		value &= ~GMAC_CONFIG_PS;
+		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		rgmii_updatel(ethqos, RGMII_CONFIG2_RGMII_CLK_SEL_CFG,
+			      RGMII_CONFIG2_RGMII_CLK_SEL_CFG, RGMII_IO_MACRO_CONFIG2);
+		value = readl(ethqos->ioaddr + DWMAC4_PCS_BASE);
+		value &= ~GMAC_AN_CTRL_ANE;
+		writel(value, ethqos->ioaddr + DWMAC4_PCS_BASE);
+		break;
+	case SPEED_1000:
+		value &= ~GMAC_CONFIG_PS;
+		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		rgmii_updatel(ethqos, RGMII_CONFIG2_RGMII_CLK_SEL_CFG,
+			      RGMII_CONFIG2_RGMII_CLK_SEL_CFG, RGMII_IO_MACRO_CONFIG2);
+		value = readl(ethqos->ioaddr + DWMAC4_PCS_BASE);
+		value |= GMAC_AN_CTRL_RAN | GMAC_AN_CTRL_ANE;
+		writel(value, ethqos->ioaddr + DWMAC4_PCS_BASE);
+		break;
+
+	case SPEED_100:
+		value |= GMAC_CONFIG_PS | GMAC_CONFIG_FES;
+		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		value = readl(ethqos->ioaddr + DWMAC4_PCS_BASE);
+		value |= GMAC_AN_CTRL_RAN | GMAC_AN_CTRL_ANE;
+		writel(value, ethqos->ioaddr + DWMAC4_PCS_BASE);
+		break;
+	case SPEED_10:
+		value |= GMAC_CONFIG_PS;
+		value &= ~GMAC_CONFIG_FES;
+		writel(value, ethqos->ioaddr + MAC_CTRL_REG);
+		rgmii_updatel(ethqos, RGMII_CONFIG_10M_CLK_DVD, BIT(10) |
+			      GENMASK(15, 14), RGMII_IO_MACRO_CONFIG);
+		value = readl(ethqos->ioaddr + DWMAC4_PCS_BASE);
+		value |= GMAC_AN_CTRL_RAN | GMAC_AN_CTRL_ANE;
+		writel(value, ethqos->ioaddr + DWMAC4_PCS_BASE);
+
+		break;
+
+	default:
+		pr_err("Invalid speed %d\n", ethqos->speed);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ethqos_configure_mac_v3_1(struct qcom_ethqos *ethqos)
+{
+	int ret = 0;
+	int phy_mode = device_get_phy_mode(&ethqos->pdev->dev);
+
+	switch (phy_mode) {
+	case PHY_INTERFACE_MODE_SGMII:
+		ret = ethqos_configure_sgmii_v3_1(ethqos);
+
+		if (!ret && ethqos->serdes_phy) {
+			pr_info("%s : speed = %d interface = %d",
+				   __func__,
+				   ethqos->speed,
+				   phy_mode);
+			phy_set_speed(ethqos->serdes_phy, ethqos->speed);
+			ret = phy_calibrate(ethqos->serdes_phy);
+		}
+		break;
+
+	default:
+		pr_err("Not support interface %d\n",
+			  phy_mode);
+		return -EINVAL;
+	}
+	return ret;
+}
+
 static int ethqos_configure(struct qcom_ethqos *ethqos)
 {
 	volatile unsigned int dll_lock;
 	unsigned int i, retry = 1000;
+
+	/* TODO: Figure out if this is sort of a "if rgmii vs sgmii situation */
+	if (1) {
+		//return ethqos_configure_mac_v3_1(ethqos);
+		ethqos_set_func_clk_en(ethqos);
+		ethqos_configure_mac_v3_1(ethqos);
+		/* TODO: before? after? idk */
+		//ethqos_set_func_clk_en(ethqos);
+		return 0;
+	}
 
 	/* Reset to POR values and enable clk */
 	for (i = 0; i < ethqos->num_por; i++)
@@ -830,7 +933,7 @@ static int ethqos_configure(struct qcom_ethqos *ethqos)
 	return 0;
 }
 
-int ethqos_configureSGMII(struct qcom_ethqos *ethqos)
+static int ethqos_configureSGMII(struct qcom_ethqos *ethqos)
 {
 	u32 value = 0;
 
@@ -877,14 +980,46 @@ int ethqos_configureSGMII(struct qcom_ethqos *ethqos)
 	return value;
 }
 
+static int ethqos_serdes_power_up(struct net_device *ndev, void *priv)
+{
+	struct qcom_ethqos *ethqos = priv;
+	struct net_device *dev = ndev;
+	struct stmmac_priv *s_priv = netdev_priv(dev);
+
+	pr_info("%s : speed = %d interface = %d",
+		   __func__,
+		   ethqos->speed,
+		   s_priv->plat->interface);
+	if (ethqos->serdes_phy) {
+		phy_set_speed(ethqos->serdes_phy, ethqos->speed);
+		return phy_init(ethqos->serdes_phy);
+	}
+
+	pr_err("serdes phy is NULL\n");
+	return -1;
+}
+
+static void ethqos_serdes_power_down(struct net_device *ndev, void *priv)
+{
+	struct qcom_ethqos *ethqos = priv;
+
+	if (ethqos->serdes_phy)
+		phy_exit(ethqos->serdes_phy);
+}
+
+
 static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 {
 	struct qcom_ethqos *ethqos = priv;
 	int phy_mode = device_get_phy_mode(&ethqos->pdev->dev);
 	ethqos->speed = speed;
 
+	/* TODO: maybe pull out the ethqos_configure_mac_v3_1 stuff to here ? */
+	/* TODO: downstream Ning is calling ethqos_update_rgmii_clk(ethqos, speed) unconditionally */
+	//ethqos_update_rgmii_clk(ethqos, speed);
 	if (phy_mode == PHY_INTERFACE_MODE_SGMII)
-		ethqos_configureSGMII(ethqos);
+		//ethqos_configureSGMII(ethqos);
+		ethqos_configure(ethqos);
 	else {
 		ethqos_update_rgmii_clk(ethqos, speed);
 		ethqos_configure(ethqos);
@@ -969,11 +1104,23 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	if (plat_dat->interface == PHY_INTERFACE_MODE_SGMII) {
-		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
-		ret = configure_serdes_dt(ethqos);
-		if (ret)
+		ethqos->phyaux_clk = devm_clk_get(&pdev->dev, "phyaux");
+		if (IS_ERR(ethqos->phyaux_clk)) {
+			ret = PTR_ERR(ethqos->phyaux_clk);
+			pr_err("Failed get phyaux clk\n");
 			goto err_mem;
-		qcom_ethqos_serdes_init(ethqos, ethqos->speed);
+		}
+		ret = clk_prepare_enable(ethqos->phyaux_clk);
+		if (ret) {
+			pr_err("Failed enable phyaux clk ret[%d]\n", ret);
+			goto err_mem;
+		}
+		ethqos->serdes_phy = devm_phy_optional_get(&pdev->dev,
+							   "serdesphy");
+		if (!ethqos->serdes_phy) {
+			pr_err("failed to get serdes phy\n");
+			goto err_mem;
+		}
 	} else {
 		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
@@ -1002,6 +1149,11 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(np, "qcom,qcs404-ethqos"))
 		plat_dat->rx_clk_runs_in_lpi = 1;
 
+	if (plat_dat->interface == PHY_INTERFACE_MODE_SGMII) {
+		plat_dat->serdes_powerup = ethqos_serdes_power_up;
+		plat_dat->serdes_powerdown = ethqos_serdes_power_down;
+	}
+
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
 		goto err_clk;
@@ -1010,6 +1162,9 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 err_clk:
 	ethqos_clks_config(ethqos, false);
+	if (ethqos->phyaux_clk)
+		clk_disable_unprepare(ethqos->phyaux_clk);
+
 
 err_mem:
 	stmmac_remove_config_dt(pdev, plat_dat);
@@ -1028,6 +1183,9 @@ static int qcom_ethqos_remove(struct platform_device *pdev)
 
 	ret = stmmac_pltfr_remove(pdev);
 	ethqos_clks_config(ethqos, false);
+	if (ethqos->phyaux_clk)
+		clk_disable_unprepare(ethqos->phyaux_clk);
+
 
 	return ret;
 }
