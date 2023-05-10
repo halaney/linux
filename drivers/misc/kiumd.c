@@ -27,6 +27,7 @@
 #include <linux/kernel.h>
 #include <linux/kvm_host.h>
 #include <linux/cdev.h>
+#include <linux/module.h>
 #include <linux/qcom_scm.h>
 
 #include "../../drivers/iommu/arm/arm-smmu/arm-smmu.h"
@@ -142,7 +143,7 @@ int kiumd_perprocess_set_user_context(struct kiumd_dev *ki_dev, char __user *arg
 		pr_err("%s:Setting smmu aperture error \n",__func__);
 		return 0;
 	}
-
+        fput(file);
 	return 0;
 }
 
@@ -185,6 +186,8 @@ int kiumd_perprocess_pt_alloc(struct kiumd_dev *ki_dev, char __user *arg)
 	kismmu_pproc.asid = smmu_dom->cfg.asid;
 	kismmu_pproc.pgtbl_ops_ptr = (long int)alloc_io_pgtable_ops(ARM_64_LPAE_S1, &cfg, NULL);
 	kismmu_pproc.ttbr0 = cfg.arm_lpae_s1_cfg.ttbr;
+        fput(file);
+
 	copy_to_user(arg, &kismmu_pproc, sizeof(kismmu_pproc));
 	return 0;
 }
@@ -230,6 +233,8 @@ int kiumd_perprocess_pgtble_set(struct kiumd_dev *ki_dev, char __user *arg)
 	arm_smmu_write_context_bank(smmu_dom->smmu, cb->cfg->cbndx);*/
 	ki_pgtbl_ops = (struct io_pgtable_ops*)kismmu_pproc.pgtbl_ops_ptr;
 	smmu_dom->pgtbl_ops = ki_pgtbl_ops;
+        fput(file);
+
 	return 0;
 }
 
@@ -257,6 +262,8 @@ int kiumd_perprocess_pgtble_free(struct kiumd_dev *ki_dev, char __user *arg)
         }
 
         free_io_pgtable_ops(ki_pgtbl_ops);
+        fput(file);
+
         return 0;
 }
 
@@ -326,6 +333,7 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 		return -ENOTTY;
 	}
 
+        fput(file);
 	kiusr.sgt_ptr = sgt;
 	kiusr.dmabufattach = dmabufattach;
 	kiusr.dma_addr = sg_dma_address(sgt->sgl);
@@ -481,6 +489,8 @@ int kiumd_iova_ctrl(struct kiumd_dev *ki_dev, char __user *arg)
 	}
 	cookie->type = cookie_type;
 	cookie->msi_iova = iova_usr;
+        fput(file);
+
 	return 0;
 }
 
