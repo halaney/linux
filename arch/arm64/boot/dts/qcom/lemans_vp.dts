@@ -28,7 +28,7 @@
 		reg = <0 0x90880000 0 0x10>;
 	};
 
-	reserved_memory {
+	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -144,6 +144,11 @@
 		pil_video_mem: pil_video_region@9fc00000 {
 			no-map;
 			reg = <0x0 0x9fc00000 0x0 0x700000>;
+		};
+
+		reserved_mem_u: pilu_qseecom@adc00000 {
+			no-map;
+			reg = <0x0 0xadc00000 0x0 0x1400000>;
 		};
 
 		hyptz_reserved_mem: hyptz_reserved_region@beb00000 {
