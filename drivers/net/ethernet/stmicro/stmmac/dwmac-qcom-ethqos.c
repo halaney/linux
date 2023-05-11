@@ -6,6 +6,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/phy.h>
+#include <linux/phy/phy.h>
 #include "stmmac.h"
 #include "stmmac_platform.h"
 
@@ -97,6 +98,7 @@ struct qcom_ethqos {
 	struct clk *rgmii_clk;
 	struct clk *phyaux_clk;
 	struct clk *sgmiref_clk;
+	struct phy *serdes_phy;
 	unsigned int speed;
 
 	const struct ethqos_emac_por *por;
@@ -873,9 +875,14 @@ static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 	int phy_mode = device_get_phy_mode(&ethqos->pdev->dev);
 	ethqos->speed = speed;
 
-	if (phy_mode == PHY_INTERFACE_MODE_SGMII)
+	if (phy_mode == PHY_INTERFACE_MODE_SGMII) {
 		ethqos_configureSGMII(ethqos);
-		/* TODO: set phy_speed() */
+		/* TODO: set phy_speed(), and validate that call order makes sense */
+		/* TODO: if not working, remove below, this is Ning's doing for 2.5G etc */
+		phy_set_speed(ethqos->serdes_phy, ethqos->speed);
+		phy_calibrate(ethqos->serdes_phy);
+	}
+
 	else {
 		ethqos_update_rgmii_clk(ethqos, speed);
 		ethqos_configure(ethqos);
@@ -916,14 +923,19 @@ static int ethqos_clks_config(void *priv, bool enabled)
 
 static int qcom_ethqos_serdes_powerup(struct net_device *ndev, void *priv) {
 	struct qcom_ethqos *ethqos = priv;
-	/* TODO: replace with the standard phy sequence */
-	configure_serdes_dt(ethqos);
-	qcom_ethqos_serdes_init(ethqos, ethqos->speed);
+	/* TODO: replace with the standard phy sequence, need to look it up */
+	phy_set_speed(ethqos->serdes_phy, ethqos->speed);
+	phy_init(ethqos->serdes_phy);
+	return phy_power_on(ethqos->serdes_phy);
+
 	return 0;
 }
 
 static void qcom_ethqos_serdes_powerdown(struct net_device *ndev, void *priv) {
+	struct qcom_ethqos *ethqos = priv;
 	/* TODO: replace with the standard phy sequence */
+	phy_power_off(ethqos->serdes_phy);
+	phy_exit(ethqos->serdes_phy);
 }
 
 static int qcom_ethqos_probe(struct platform_device *pdev)
@@ -985,6 +997,14 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 			/* TODO: clean up path */
 			goto err_mem;
 		}
+		ethqos->serdes_phy = devm_phy_get(&pdev->dev, "serdesphy");
+		if (IS_ERR(ethqos->serdes_phy)) {
+			/* TODO: cleanup */
+			ret = PTR_ERR(ethqos->phyaux_clk);
+			dev_err(&pdev->dev, "Failed to get the phy: %d\n", ret);
+			goto err_mem;
+		}
+
 	} else {
 		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
