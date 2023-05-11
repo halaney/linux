@@ -150,19 +150,9 @@ int configure_serdes_dt(struct qcom_ethqos *ethqos)
 		ethqos->sgmiref_clk = NULL;
 		goto err_mem;
 	}
-	ethqos->phyaux_clk = devm_clk_get(&pdev->dev, "phyaux");
-	if (IS_ERR(ethqos->phyaux_clk)) {
-		ret = PTR_ERR(ethqos->phyaux_clk);
-		goto err_get_phyaux_clk;
-	}
-
 	ret = clk_prepare_enable(ethqos->sgmiref_clk);
 	if (ret)
 		goto err_enable_sgmiref_clk;
-
-	ret = clk_prepare_enable(ethqos->phyaux_clk);
-	if (ret)
-		goto err_enable_phyaux_clk;
 
 	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	return 0;
@@ -885,6 +875,7 @@ static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 
 	if (phy_mode == PHY_INTERFACE_MODE_SGMII)
 		ethqos_configureSGMII(ethqos);
+		/* TODO: set phy_speed() */
 	else {
 		ethqos_update_rgmii_clk(ethqos, speed);
 		ethqos_configure(ethqos);
@@ -902,6 +893,12 @@ static int ethqos_clks_config(void *priv, bool enabled)
 			dev_err(&ethqos->pdev->dev, "rgmii_clk enable failed\n");
 			return ret;
 		}
+		/* TODO: clean up proper, etc */
+		ret = clk_prepare_enable(ethqos->phyaux_clk);
+		if (ret) {
+			dev_err(&ethqos->pdev->dev, "phyaux_clk enable failed\n");
+			return ret;
+		}
 
 		/* Enable functional clock to prevent DMA reset to timeout due
 		 * to lacking PHY clock after the hardware block has been power
@@ -910,10 +907,23 @@ static int ethqos_clks_config(void *priv, bool enabled)
 		 */
 		ethqos_set_func_clk_en(ethqos);
 	} else {
+		clk_disable_unprepare(ethqos->phyaux_clk);
 		clk_disable_unprepare(ethqos->rgmii_clk);
 	}
 
 	return ret;
+}
+
+static int qcom_ethqos_serdes_powerup(struct net_device *ndev, void *priv) {
+	struct qcom_ethqos *ethqos = priv;
+	/* TODO: replace with the standard phy sequence */
+	configure_serdes_dt(ethqos);
+	qcom_ethqos_serdes_init(ethqos, ethqos->speed);
+	return 0;
+}
+
+static void qcom_ethqos_serdes_powerdown(struct net_device *ndev, void *priv) {
+	/* TODO: replace with the standard phy sequence */
 }
 
 static int qcom_ethqos_probe(struct platform_device *pdev)
@@ -969,11 +979,12 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 
 	printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 	if (plat_dat->interface == PHY_INTERFACE_MODE_SGMII) {
-		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
-		ret = configure_serdes_dt(ethqos);
-		if (ret)
+		ethqos->phyaux_clk = devm_clk_get(&pdev->dev, "phyaux");
+		if (IS_ERR(ethqos->phyaux_clk)) {
+			ret = PTR_ERR(ethqos->phyaux_clk);
+			/* TODO: clean up path */
 			goto err_mem;
-		qcom_ethqos_serdes_init(ethqos, ethqos->speed);
+		}
 	} else {
 		printk(KERN_ERR "%s: %d\n", __func__, __LINE__);
 		ethqos->rgmii_clk = devm_clk_get(&pdev->dev, "rgmii");
@@ -981,15 +992,14 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 			ret = PTR_ERR(ethqos->rgmii_clk);
 			goto err_mem;
 		}
-
-		ret = ethqos_clks_config(ethqos, true);
-		if (ret)
-			goto err_mem;
-
-		ethqos->speed = SPEED_1000;
-		ethqos_update_rgmii_clk(ethqos, SPEED_1000);
 	}
 
+	ret = ethqos_clks_config(ethqos, true);
+	if (ret)
+		goto err_mem;
+
+	ethqos->speed = SPEED_1000;
+	ethqos_update_rgmii_clk(ethqos, SPEED_1000);
 	ethqos_set_func_clk_en(ethqos);
 
 	plat_dat->bsp_priv = ethqos;
@@ -999,6 +1009,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->dwmac4_addrs = &data->dwmac4_addrs;
 	plat_dat->pmt = 1;
 	plat_dat->tso_en = of_property_read_bool(np, "snps,tso");
+	plat_dat->serdes_powerup = qcom_ethqos_serdes_powerup;
+	plat_dat->serdes_powerdown  = qcom_ethqos_serdes_powerdown;
 	if (of_device_is_compatible(np, "qcom,qcs404-ethqos"))
 		plat_dat->rx_clk_runs_in_lpi = 1;
 
