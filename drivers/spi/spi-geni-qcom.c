@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2017-2018, The Linux foundation. All rights reserved.
+// Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
 
 #include <linux/clk.h>
 #include <linux/dmaengine.h>
@@ -12,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
+#include <linux/property.h>
 #include <linux/qcom-geni-se.h>
 #include <linux/spi/spi.h>
 #include <linux/spinlock.h>
@@ -51,6 +53,10 @@
 #define SPI_INTER_WORDS_DELAY_MSK	GENMASK(9, 0)
 #define SPI_CS_CLK_DELAY_MSK		GENMASK(19, 10)
 #define SPI_CS_CLK_DELAY_SHFT		10
+
+#define SE_SPI_SLAVE_EN				(0x2BC)
+#define SPI_SLAVE_EN				BIT(0)
+#define START_TRIGGER				BIT(0)
 
 /* M_CMD OP codes for SPI */
 #define SPI_TX_ONLY		1
@@ -99,7 +105,111 @@ struct spi_geni_master {
 	int cur_xfer_mode;
 	dma_addr_t tx_se_dma;
 	dma_addr_t rx_se_dma;
+	bool slave_state;
 };
+
+/**
+ * get_spi_master - get pointer to spi master
+ *
+ * @dev - pointer to struct device
+ *
+ * return: address of spi_master structure
+ *
+ */
+static struct spi_master *get_spi_master(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct spi_master *spi = platform_get_drvdata(pdev);
+
+	return spi;
+}
+
+/**
+ * spi_slave_state_show - show spi slave state
+ *
+ * @dev - pointer to struct device
+ * @attr - pointer to struct device_attribute
+ * @buf - pointer to buffer
+ *
+ * return: number of bytes copied
+ */
+static ssize_t spi_slave_state_show(struct device *dev,
+				    struct device_attribute *attr,
+				    char *buf)
+{
+	ssize_t ret = 0;
+	struct platform_device *pdev = container_of(dev, struct
+						platform_device, dev);
+	struct spi_master *spi = platform_get_drvdata(pdev);
+	struct spi_geni_master *mas;
+
+	mas = spi_master_get_devdata(spi);
+
+	if (mas)
+		ret = scnprintf(buf, sizeof(int), "%d\n",
+				mas->slave_state);
+	return ret;
+}
+
+/**
+ * spi_slave_state_store - store spi slave state
+ *
+ * @dev - pointer to struct device
+ * @attr - pointer to struct device_attribute
+ * @buf - pointer to buffer
+ * @count - number of bytes
+ *
+ * return: 1
+ */
+static ssize_t spi_slave_state_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	struct platform_device *pdev = container_of(dev, struct
+						platform_device, dev);
+	struct spi_master *spi = platform_get_drvdata(pdev);
+	struct spi_geni_master *mas;
+
+	mas = spi_master_get_devdata(spi);
+	if (mas)
+		dev_info(mas->dev, "%s: slave_state:%d\n",
+			 __func__, mas->slave_state);
+	return 1;
+}
+static DEVICE_ATTR_RW(spi_slave_state);
+
+/**
+ * spi_slv_setup - setup spi slave configuration
+ *
+ * @mas - pointer to struct spi_geni_master
+ *
+ * return: none
+ */
+static void spi_slv_setup(struct spi_geni_master *mas)
+{
+	struct geni_se *se = &mas->se;
+
+	writel(SPI_SLAVE_EN, se->base + SE_SPI_SLAVE_EN);
+	writel(GENI_IO_MUX_0_EN, se->base + GENI_OUTPUT_CTRL);
+	writel(START_TRIGGER, se->base + SE_GENI_CFG_SEQ_START);
+	dev_info(mas->dev, "spi slave setup done\n");
+}
+
+/**
+ * spi_slv_abort - abort the spi slave tx and rx
+ *
+ * @spi - pointer to struct spi_master
+ *
+ * return: 0 as success
+ */
+static int spi_slv_abort(struct spi_master *spi)
+{
+	struct spi_geni_master *mas = spi_master_get_devdata(spi);
+
+	complete_all(&mas->tx_reset_done);
+	complete_all(&mas->rx_reset_done);
+	return 0;
+}
 
 static int get_spi_clk_cfg(unsigned int speed_hz,
 			struct spi_geni_master *mas,
@@ -148,6 +258,12 @@ static void handle_se_timeout(struct spi_master *spi,
 
 	xfer = mas->cur_xfer;
 	mas->cur_xfer = NULL;
+
+	if (spi->slave) {
+		spin_unlock_irq(&mas->lock);
+		goto unmap_if_dma;
+	}
+
 	geni_se_cancel_m_cmd(se);
 	spin_unlock_irq(&mas->lock);
 
@@ -202,6 +318,8 @@ unmap_if_dma:
 			 */
 			dev_warn(mas->dev, "Cancel/Abort on completed SPI transfer\n");
 		}
+		if (spi->slave)
+			mas->slave_state = false;
 	}
 }
 
@@ -602,6 +720,7 @@ static void spi_geni_release_dma_chan(struct spi_geni_master *mas)
 
 static int spi_geni_init(struct spi_geni_master *mas)
 {
+	struct spi_master *spi = get_spi_master(mas->dev);
 	struct geni_se *se = &mas->se;
 	unsigned int proto, major, minor, ver;
 	u32 spi_tx_cfg, fifo_disable;
@@ -610,7 +729,14 @@ static int spi_geni_init(struct spi_geni_master *mas)
 	pm_runtime_get_sync(mas->dev);
 
 	proto = geni_se_read_proto(se);
-	if (proto != GENI_SE_SPI) {
+
+	if (spi->slave) {
+		if (proto != GENI_SE_SPI_SLAVE) {
+			dev_err(mas->dev, "Invalid proto %d\n", proto);
+			goto out_pm;
+		}
+		spi_slv_setup(mas);
+	} else if (proto != GENI_SE_SPI) {
 		dev_err(mas->dev, "Invalid proto %d\n", proto);
 		goto out_pm;
 	}
@@ -660,9 +786,11 @@ static int spi_geni_init(struct spi_geni_master *mas)
 	}
 
 	/* We always control CS manually */
-	spi_tx_cfg = readl(se->base + SE_SPI_TRANS_CFG);
-	spi_tx_cfg &= ~CS_TOGGLE;
-	writel(spi_tx_cfg, se->base + SE_SPI_TRANS_CFG);
+	if (!spi->slave) {
+		spi_tx_cfg = readl(se->base + SE_SPI_TRANS_CFG);
+		spi_tx_cfg &= ~CS_TOGGLE;
+		writel(spi_tx_cfg, se->base + SE_SPI_TRANS_CFG);
+	}
 
 out_pm:
 	pm_runtime_put(mas->dev);
@@ -822,8 +950,13 @@ static int setup_se_xfer(struct spi_transfer *xfer,
 	}
 
 	/* Select transfer mode based on transfer length */
-	fifo_size = mas->tx_fifo_depth * mas->fifo_width_bits / mas->cur_bits_per_word;
-	mas->cur_xfer_mode = (len <= fifo_size) ? GENI_SE_FIFO : GENI_SE_DMA;
+	if (spi->slave) {
+		mas->cur_xfer_mode = GENI_SE_DMA;
+	} else {
+		fifo_size = mas->tx_fifo_depth *
+			    mas->fifo_width_bits / mas->cur_bits_per_word;
+		mas->cur_xfer_mode = (len <= fifo_size) ? GENI_SE_FIFO : GENI_SE_DMA;
+	}
 	geni_se_select_mode(se, mas->cur_xfer_mode);
 
 	/*
@@ -882,6 +1015,8 @@ static int spi_geni_transfer_one(struct spi_master *spi,
 		return 0;
 
 	if (mas->cur_xfer_mode == GENI_SE_FIFO || mas->cur_xfer_mode == GENI_SE_DMA) {
+		if (spi->slave)
+			mas->slave_state = true;
 		ret = setup_se_xfer(xfer, mas, slv->mode, spi);
 		/* SPI framework expects +ve ret code to wait for transfer complete */
 		if (!ret)
@@ -973,6 +1108,8 @@ static irqreturn_t geni_spi_isr(int irq, void *data)
 			}
 			spi_finalize_current_transfer(spi);
 			mas->cur_xfer = NULL;
+			if (spi->slave)
+				mas->slave_state = false;
 		}
 	}
 
@@ -1073,6 +1210,11 @@ static int spi_geni_probe(struct platform_device *pdev)
 	pm_runtime_set_autosuspend_delay(&pdev->dev, 250);
 	pm_runtime_enable(dev);
 
+	if (device_property_read_bool(&pdev->dev, "qcom,slv-ctrl")) {
+		spi->slave = true;
+		spi->slave_abort = spi_slv_abort;
+	}
+
 	ret = geni_icc_get(&mas->se, NULL);
 	if (ret)
 		goto spi_geni_probe_runtime_disable;
@@ -1093,7 +1235,7 @@ static int spi_geni_probe(struct platform_device *pdev)
 	 * for dma (gsi) mode, the gsi will set cs based on params passed in
 	 * TRE
 	 */
-	if (mas->cur_xfer_mode == GENI_SE_FIFO)
+	if (!spi->slave && mas->cur_xfer_mode == GENI_SE_FIFO)
 		spi->set_cs = spi_geni_set_cs;
 
 	ret = request_irq(mas->irq, geni_spi_isr, 0, dev_name(dev), spi);
@@ -1103,6 +1245,10 @@ static int spi_geni_probe(struct platform_device *pdev)
 	ret = spi_register_master(spi);
 	if (ret)
 		goto spi_geni_probe_free_irq;
+
+	if (spi->slave)
+		sysfs_create_file(&mas->dev->kobj,
+				  &dev_attr_spi_slave_state.attr);
 
 	return 0;
 spi_geni_probe_free_irq:
@@ -1119,6 +1265,8 @@ static int spi_geni_remove(struct platform_device *pdev)
 	struct spi_master *spi = platform_get_drvdata(pdev);
 	struct spi_geni_master *mas = spi_master_get_devdata(spi);
 
+	if (spi->slave)
+		sysfs_remove_file(&pdev->dev.kobj, &dev_attr_spi_slave_state.attr);
 	/* Unregister _before_ disabling pm_runtime() so we stop transfers */
 	spi_unregister_master(spi);
 
