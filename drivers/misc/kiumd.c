@@ -27,6 +27,7 @@
 #include <linux/kernel.h>
 #include <linux/kvm_host.h>
 #include <linux/cdev.h>
+#include <linux/module.h>
 #include <linux/qcom_scm.h>
 
 #include "../../drivers/iommu/arm/arm-smmu/arm-smmu.h"
@@ -142,7 +143,7 @@ int kiumd_perprocess_set_user_context(struct kiumd_dev *ki_dev, char __user *arg
 		pr_err("%s:Setting smmu aperture error \n",__func__);
 		return 0;
 	}
-
+        fput(file);
 	return 0;
 }
 
@@ -185,6 +186,8 @@ int kiumd_perprocess_pt_alloc(struct kiumd_dev *ki_dev, char __user *arg)
 	kismmu_pproc.asid = smmu_dom->cfg.asid;
 	kismmu_pproc.pgtbl_ops_ptr = (long int)alloc_io_pgtable_ops(ARM_64_LPAE_S1, &cfg, NULL);
 	kismmu_pproc.ttbr0 = cfg.arm_lpae_s1_cfg.ttbr;
+        fput(file);
+
 	copy_to_user(arg, &kismmu_pproc, sizeof(kismmu_pproc));
 	return 0;
 }
@@ -230,6 +233,8 @@ int kiumd_perprocess_pgtble_set(struct kiumd_dev *ki_dev, char __user *arg)
 	arm_smmu_write_context_bank(smmu_dom->smmu, cb->cfg->cbndx);*/
 	ki_pgtbl_ops = (struct io_pgtable_ops*)kismmu_pproc.pgtbl_ops_ptr;
 	smmu_dom->pgtbl_ops = ki_pgtbl_ops;
+        fput(file);
+
 	return 0;
 }
 
@@ -257,6 +262,8 @@ int kiumd_perprocess_pgtble_free(struct kiumd_dev *ki_dev, char __user *arg)
         }
 
         free_io_pgtable_ops(ki_pgtbl_ops);
+        fput(file);
+
         return 0;
 }
 
@@ -314,7 +321,6 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 	else
 		dmabufattach->dma_map_attrs = 0;
 
-
 	if(kiusr.dma_direction == 1 )
 		kiumd_dma_direction = kiusr.dma_direction;
 	else
@@ -327,6 +333,7 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 		return -ENOTTY;
 	}
 
+        fput(file);
 	kiusr.sgt_ptr = sgt;
 	kiusr.dmabufattach = dmabufattach;
 	kiusr.dma_addr = sg_dma_address(sgt->sgl);
@@ -482,7 +489,61 @@ int kiumd_iova_ctrl(struct kiumd_dev *ki_dev, char __user *arg)
 	}
 	cookie->type = cookie_type;
 	cookie->msi_iova = iova_usr;
+        fput(file);
+
 	return 0;
+}
+
+
+DEFINE_IDR(idr);
+
+int kiumd_fd_dmabuf_handler(struct kiumd_dev *ki_dev, char __user *arg)
+{
+	struct kiumd_user kiusr;
+	static struct dma_buf *kiumd_dmabuf = NULL, *orig_buf;
+        uint32_t local_id = 0;
+	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
+		return -EFAULT;
+
+
+        if (kiusr.dma_buf_fd > 0 && kiusr.dmabuf_ptr == 0)
+	{
+	        //printk(KERN_DEBUG "%s:FD to HANDLE kiusr.dma_buf_fd:%d \n",__func__, kiusr.dma_buf_fd);
+	        kiusr.dmabuf_ptr  = dma_buf_get(kiusr.dma_buf_fd);
+                //orig_buf = kiusr.dmabuf_ptr;
+                //idr_preload(GFP_KERNEL);
+                //local_id = idr_alloc(&idr, kiusr.dmabuf_ptr, 1, 0, GFP_NOWAIT);
+                //idr_preload_end();
+                //kiusr.dmabuf_ptr = local_id;
+                //printk(KERN_DEBUG "%s:Calling  dma_buf_get %x \n",__func__, kiusr.dmabuf_ptr);
+        }
+	else if (kiusr.dma_buf_fd == -1 )
+        {
+		//printk(KERN_DEBUG "%s:  HANDLE to FD  %pK \n",__func__, kiusr.dmabuf_ptr);
+                //local_id = kiusr.dmabuf_ptr;
+                //printk("%s:FD to HANDLE Local IDR number after allocation:%d \n", __func__, local_id );
+                kiumd_dmabuf = (struct dma_buf *)kiusr.dmabuf_ptr;//idr_find(&idr,local_id);
+	        if (kiumd_dmabuf != NULL)
+	                kiusr.dma_buf_fd = dma_buf_fd((struct dma_buf *)kiumd_dmabuf, (O_CLOEXEC));
+                else
+                        kiusr.dma_buf_fd = -1;
+		//printk(KERN_DEBUG "%s:dma_buf_fd %p \n",__func__, kiusr.dma_buf_fd );
+	}
+        else if (kiusr.dma_buf_fd == -2 && kiusr.dmabuf_ptr > 0)
+        {
+                //printk(KERN_DEBUG "%s:Closing out the buffer  %pK \n",__func__, kiusr.dmabuf_ptr);
+                dma_buf_put((struct dma_buf *)kiusr.dmabuf_ptr);
+                kiusr.dma_buf_fd = 0;
+                //printk(KERN_DEBUG "%s:dma_buf_fd %p \n",__func__, kiusr.dma_buf_fd );
+        }
+
+	if (copy_to_user(arg, &kiusr, sizeof(kiusr))) {
+		printk(KERN_DEBUG "%s: copy_to_user failed... \n",__func__);
+                return -EFAULT;
+	}
+
+        return 0;
+
 }
 
 static int kiumd_open(struct inode *inode, struct file *filp)
@@ -524,7 +585,10 @@ static long kiumd_ioctl(struct file *file, unsigned int cmd,
 	case KIUMD_PER_PROCESS_FREE:
 		err = kiumd_perprocess_pgtble_free(ki_dev, argp);
 		break;
-	default:
+        case KIUMD_FD_DMABUF_HANDLE:
+                err = kiumd_fd_dmabuf_handler(ki_dev, argp);
+                break;
+        default:
 		err = -ENOTTY;
 		break;
 	}

@@ -23,7 +23,12 @@
 		};
 	};
 
-	reserved_memory {
+	kaslr_store {
+		compatible = "qcom,kaslr-off-store";
+		reg = <0 0x90880000 0 0x10>;
+	};
+
+	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -52,6 +57,11 @@
 			compatible = "qcom,cmd-db";
 			no-map;
 			reg = <0x0 0x90860000 0x0 0x20000>;
+		};
+
+		kaslr_off_reg: kasr_off_reg@90880000 {
+			reg = <0 0x90880000 0 0x10>;
+			no-map;
 		};
 
 		uefi_log: uefi_log_region@908b0000 {
@@ -136,6 +146,11 @@
 			reg = <0x0 0x9fc00000 0x0 0x700000>;
 		};
 
+		reserved_mem_u: pilu_qseecom@adc00000 {
+			no-map;
+			reg = <0x0 0xadc00000 0x0 0x1400000>;
+		};
+
 		hyptz_reserved_mem: hyptz_reserved_region@beb00000 {
 			no-map;
 			reg = <0x0 0xbeb00000 0x0 0x11500000>;
@@ -181,7 +196,7 @@
 	soc: soc { };
 
 	memory@80000000 {
-		reg = <0x0 0x80000000 0x00000001 0x00000000>;
+		reg = <0x00 0x80000000 0x00 0x3EE00000 0x00 0xc0000000 0x00 0x40000000 0x0d 0x00 0x02 0x52c00000 0x00000001 0x00000000 0x00000003 0x00000000>;
 		device_type = "memory";
 	};
 
@@ -197,6 +212,13 @@
 		dma-coherent;
 		interrupts = <GIC_SPI 0x2e IRQ_TYPE_LEVEL_HIGH>;
 		reg = <0x0 0x160d0000 0x0 0x2000>;
+		compatible = "virtio,mmio";
+	};
+
+	virtio_mmio@160d2000 {
+		dma-coherent;
+		interrupts = <GIC_SPI 0x2f IRQ_TYPE_LEVEL_HIGH>;
+		reg = <0x0 0x160d2000 0x0 0x2000>;
 		compatible = "virtio,mmio";
 	};
 
@@ -297,9 +319,9 @@
 	};
 
 	chosen {
-		bootargs = "rw root=/dev/vda rdinit=/bin/bash earlyprintk=serial,ttyAMA0 console=ttyAMA0";
+		bootargs = "rw root=/dev/vda rdinit=/bin/bash earlyprintk=serial,ttyAMA0 console=ttyAMA0 firmware_class.path=/firmware";
 		stdout-path = "/pl011@40000000";
-		kaslr-seed = <0xdec2698b 0x996c3b6b>;
+		kaslr-seed = <0x0 0x0>;
 	};
 
 };
@@ -776,5 +798,9 @@
 		compatible = "qcom,tcsr-mutex";
 		reg = <0x1f40000 0x20000>;
 		#hwlock-cells = <1>;
+	};
+
+	secure_buffer: qcom,secure-buffer {
+		compatible = "qcom,secure-buffer";
 	};
 };
