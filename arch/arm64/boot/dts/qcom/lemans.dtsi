@@ -883,7 +883,12 @@
                                   <&ipcc IPCC_CLIENT_NSP1  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>,
                                   <&ipcc IPCC_CLIENT_SLPI  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>,
                                   <&ipcc IPCC_CLIENT_GPDSP0  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>,
-                                  <&ipcc IPCC_CLIENT_GPDSP1  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>;
+                                  <&ipcc IPCC_CLIENT_GPDSP1  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>,
+                                  <&intc GIC_SPI 486 IRQ_TYPE_LEVEL_HIGH>,
+                                  <&intc GIC_SPI 578 IRQ_TYPE_LEVEL_HIGH>,
+                                  <&intc GIC_SPI 887 IRQ_TYPE_LEVEL_HIGH>,
+                                  <&intc GIC_SPI 768 IRQ_TYPE_LEVEL_HIGH>,
+                                  <&intc GIC_SPI 624 IRQ_TYPE_LEVEL_HIGH>;
             iommus = <&apps_smmu 0x0 0x0>;
         };
 
