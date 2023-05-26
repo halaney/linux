@@ -5140,8 +5140,8 @@ S:	Supported
 W:	https://wiki.samba.org/index.php/LinuxCIFS
 T:	git git://git.samba.org/sfrench/cifs-2.6.git
 F:	Documentation/admin-guide/cifs/
-F:	fs/cifs/
-F:	fs/smbfs_common/
+F:	fs/smb/client/
+F:	fs/smb/common/
 F:	include/uapi/linux/cifs
 
 COMPACTPCI HOTPLUG CORE
@@ -8153,6 +8153,7 @@ F:	include/linux/spi/spi-fsl-dspi.h
 
 FREESCALE ENETC ETHERNET DRIVERS
 M:	Claudiu Manoil <claudiu.manoil@nxp.com>
+M:	Vladimir Oltean <vladimir.oltean@nxp.com>
 L:	netdev@vger.kernel.org
 S:	Maintained
 F:	drivers/net/ethernet/freescale/enetc/
@@ -11300,9 +11301,9 @@ R:	Tom Talpey <tom@talpey.com>
 L:	linux-cifs@vger.kernel.org
 S:	Maintained
 T:	git git://git.samba.org/ksmbd.git
-F:	Documentation/filesystems/cifs/ksmbd.rst
-F:	fs/ksmbd/
-F:	fs/smbfs_common/
+F:	Documentation/filesystems/smb/ksmbd.rst
+F:	fs/smb/common/
+F:	fs/smb/server/
 
 KERNEL UNIT TESTING FRAMEWORK (KUnit)
 M:	Brendan Higgins <brendanhiggins@google.com>
@@ -14926,6 +14927,7 @@ F:	drivers/ntb/hw/intel/
 
 NTFS FILESYSTEM
 M:	Anton Altaparmakov <anton@tuxera.com>
+R:	Namjae Jeon <linkinjeon@kernel.org>
 L:	linux-ntfs-dev@lists.sourceforge.net
 S:	Supported
 W:	http://www.tuxera.com/
