@@ -2558,6 +2558,20 @@
 			};
 		};
 
+		cci1_default: cci1_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio52","gpio53";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio52","gpio53";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
 		cci2_default: cci2_default {
 			mux {
 				/* CLK, DATA */
@@ -2566,6 +2580,76 @@
 			};
 			config {
 				pins = "gpio62","gpio63";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci3_default: cci3_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio54","gpio55";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio54","gpio55";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+		
+		cci4_default: cci4_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio64","gpio65";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio64","gpio65";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci5_default: cci5_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio56","gpio57";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio56","gpio57";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci6_default: cci6_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio66","gpio67";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio66","gpio67";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci7_default: cci7_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio58","gpio59";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio58","gpio59";
 				bias-pull-up; /* PULL UP*/
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -2634,12 +2718,28 @@
 		compatible = "qcom,apps-pinctlr";
 		pinctrl-names = "default";
 		pinctrl-0 = <&cci0_default>;
+		pinctrl-1 = <&cci1_default>;
 	};
 
-	vfio_cci2@1 {
+	vfio_cci1@1 {
 		compatible = "qcom,apps-pinctlr";
 		pinctrl-names = "default";
 		pinctrl-0 = <&cci2_default>;
+		pinctrl-1 = <&cci3_default>;
+	};
+
+	vfio_cci2@2 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cci4_default>;
+		pinctrl-1 = <&cci5_default>;
+	};
+
+	vfio_cci3@3 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cci6_default>;
+		pinctrl-1 = <&cci7_default>;
 	};
 
 	vfio_dpu_00@ae00000 {
