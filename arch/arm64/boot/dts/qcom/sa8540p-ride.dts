@@ -169,15 +169,16 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
+		reset-gpios = <&pmm8540c_gpios 1 GPIO_ACTIVE_LOW>;
+		reset-assert-us = <11000>;
+		reset-deassert-us = <70000>;
+
+
 		/* Marvell 88EA1512 */
 		rgmii_phy: phy@8 {
 			reg = <0x8>;
 
 			interrupts-extended = <&tlmm 127 IRQ_TYPE_EDGE_FALLING>;
-
-			reset-gpios = <&pmm8540c_gpios 1 GPIO_ACTIVE_LOW>;
-			reset-assert-us = <11000>;
-			reset-deassert-us = <70000>;
 
 			device_type = "ethernet-phy";
 
