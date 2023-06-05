@@ -1056,6 +1056,15 @@ static int _set_opp(struct device *dev, struct opp_table *opp_table,
 			return ret;
 		}
 
+               if (opp->provider == DEV_PM_OPP_TYPE_GENPD) {
+                       ret = dev_pm_genpd_set_performance_state(dev, opp->level);
+                       if (ret) {
+                               dev_err(dev, "Failed to set performance level: %d\n",
+                                       ret);
+                               return ret;
+                       }
+               }
+
 		ret = _set_opp_bw(opp_table, opp, dev);
 		if (ret) {
 			dev_err(dev, "Failed to set bw: %d\n", ret);
@@ -1083,6 +1092,15 @@ static int _set_opp(struct device *dev, struct opp_table *opp_table,
 			dev_err(dev, "Failed to set bw: %d\n", ret);
 			return ret;
 		}
+
+               if (opp->provider == DEV_PM_OPP_TYPE_GENPD) {
+                       ret = dev_pm_genpd_set_performance_state(dev, opp->level);
+                       if (ret) {
+                               dev_err(dev, "Failed to set performance level: %d\n",
+                                       ret);
+                               return ret;
+                       }
+               }
 
 		ret = _set_required_opps(dev, opp_table, opp, false);
 		if (ret) {
@@ -1799,6 +1817,7 @@ int _opp_add_v1(struct opp_table *opp_table, struct device *dev,
 	/* populate the opp table */
 	new_opp->rate = opp->freq;
 	new_opp->level = opp->level;
+	new_opp->provider = opp->provider;
 	tol = u_volt * opp_table->voltage_tolerance_v1 / 100;
 	new_opp->supplies[0].u_volt = u_volt;
 	new_opp->supplies[0].u_volt_min = u_volt - tol;

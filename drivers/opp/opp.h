@@ -83,6 +83,7 @@ struct dev_pm_opp {
 	unsigned int pstate;
 	unsigned long rate;
 	unsigned int level;
+	enum dev_pm_opp_provider_type provider;
 
 	struct dev_pm_opp_supply *supplies;
 	struct dev_pm_opp_icc_bw *bandwidth;
