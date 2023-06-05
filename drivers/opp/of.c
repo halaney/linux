@@ -1064,13 +1064,16 @@ static int _of_add_opp_table_v1(struct device *dev, struct opp_table *opp_table)
 
 	val = prop->value;
 	while (nr) {
-		unsigned long freq = be32_to_cpup(val++) * 1000;
-		unsigned long volt = be32_to_cpup(val++);
+		struct dev_pm_opp_data opp;
 
-		ret = _opp_add_v1(opp_table, dev, freq, volt, false);
+		memset(&opp, 0, sizeof(opp));
+		opp.freq = be32_to_cpup(val++) * 1000;
+		opp.u_volt = be32_to_cpup(val++);
+
+		ret = _opp_add_v1(opp_table, dev, &opp, false);
 		if (ret) {
 			dev_err(dev, "%s: Failed to add OPP %ld (%d)\n",
-				__func__, freq, ret);
+				__func__, opp.freq, ret);
 			goto remove_static_opp;
 		}
 		nr -= 2;

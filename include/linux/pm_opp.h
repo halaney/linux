@@ -90,6 +90,16 @@ struct dev_pm_set_opp_data {
 	struct device *dev;
 };
 
+/**
+ * struct dev_pm_opp_data - The data to use to initialize an OPP.
+ * @freq: The clock rate in Hz for the OPP.
+ * @u_volt: The voltage in uV for the OPP.
+ */
+struct dev_pm_opp_data {
+       unsigned long freq;
+       unsigned long u_volt;
+};
+
 #if defined(CONFIG_PM_OPP)
 
 struct opp_table *dev_pm_opp_get_opp_table(struct device *dev);
@@ -133,6 +143,8 @@ void dev_pm_opp_put(struct dev_pm_opp *opp);
 
 int dev_pm_opp_add(struct device *dev, unsigned long freq,
 		   unsigned long u_volt);
+int dev_pm_opp_add_dynamic(struct device *dev, struct dev_pm_opp_data *opp);
+
 void dev_pm_opp_remove(struct device *dev, unsigned long freq);
 void dev_pm_opp_remove_all_dynamic(struct device *dev);
 
@@ -285,6 +297,12 @@ static inline int dev_pm_opp_add(struct device *dev, unsigned long freq,
 					unsigned long u_volt)
 {
 	return -EOPNOTSUPP;
+}
+
+static inline int
+dev_pm_opp_add_dynamic(struct device *dev, struct dev_pm_opp_data *opp)
+{
+       return -EOPNOTSUPP;
 }
 
 static inline void dev_pm_opp_remove(struct device *dev, unsigned long freq)
