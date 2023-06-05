@@ -229,6 +229,9 @@ static int stmmac_mdio_read(struct mii_bus *bus, int phyaddr, int phyreg)
 	int data = 0;
 	u32 v;
 
+	if(priv->plat->bus_id == 1)
+		return priv->plat->mdio_read(priv, phyaddr, phyreg);
+
 	data = pm_runtime_get_sync(priv->device);
 	if (data < 0) {
 		pm_runtime_put_noidle(priv->device);
@@ -296,6 +299,9 @@ static int stmmac_mdio_write(struct mii_bus *bus, int phyaddr, int phyreg,
 	int ret, data = phydata;
 	u32 value = MII_BUSY;
 	u32 v;
+
+	if(priv->plat->bus_id == 1)
+		return priv->plat->mdio_write(priv, phyaddr, phyreg, phydata);
 
 	ret = pm_runtime_get_sync(priv->device);
 	if (ret < 0) {
@@ -449,7 +455,8 @@ int stmmac_mdio_register(struct net_device *ndev)
 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
 	struct device_node *mdio_node = priv->plat->mdio_node;
 	struct device *dev = ndev->dev.parent;
-	int addr, found, max_addr;
+	int addr, found, max_addr, bypass_phy;
+	int phyread;
 
 	if (!mdio_bus_data)
 		return 0;
@@ -506,11 +513,21 @@ int stmmac_mdio_register(struct net_device *ndev)
 		goto bus_register_done;
 
 	found = 0;
+	bypass_phy = 1;
 	for (addr = 0; addr < max_addr; addr++) {
 		struct phy_device *phydev = mdiobus_get_phy(new_bus, addr);
 
+		phyread = stmmac_mdio_read(new_bus, addr, MII_BMCR);
+
 		if (!phydev || !phydev->drv)
 			continue;
+
+		if(priv->plat->bus_id == 1) {
+			if(bypass_phy){
+				bypass_phy=0;
+				continue;
+			}
+		}
 
 		/*
 		 * If an IRQ was provided to be assigned after

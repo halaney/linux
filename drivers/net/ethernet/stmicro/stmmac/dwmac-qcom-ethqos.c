@@ -132,6 +132,9 @@ struct qcom_ethqos *get_pethqos(void)
 	return pethqos;
 }
 
+#define GET_MDIO_IOAD (priv->plat->bus_id ? \
+		ethqos->mdio : priv->ioaddr)
+
 static struct ethqos_emac_por emac_por[] = {
 	{ .offset = RGMII_IO_MACRO_CONFIG,	.value = 0x0 },
 	{ .offset = SDCC_HC_REG_DLL_CONFIG,	.value = 0x0 },
@@ -1065,13 +1068,15 @@ static void ethqos_fix_mac_speed(void *priv, unsigned int speed)
 		ETHQOSERR("HSR configuration has failed\n");
 }
 
-static int ethqos_mdio_read(struct stmmac_priv  *priv, int phyaddr, int phyreg)
+static int ethqos_mdio_read(void *stm_priv, int phyaddr, int phyreg)
 {
+	struct stmmac_priv *priv = stm_priv;
 	unsigned int mii_address = priv->hw->mii.addr;
 	unsigned int mii_data = priv->hw->mii.data;
 	u32 v;
 	int data;
 	u32 value = MII_BUSY;
+	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
 
 	value |= (phyaddr << priv->hw->mii.addr_shift)
 		& priv->hw->mii.addr_mask;
@@ -1081,20 +1086,55 @@ static int ethqos_mdio_read(struct stmmac_priv  *priv, int phyaddr, int phyreg)
 	if (priv->plat->has_gmac4)
 		value |= MII_GMAC4_READ;
 
-	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
+	if (readl_poll_timeout(GET_MDIO_IOAD + mii_address, v, !(v & MII_BUSY),
 			       100, 10000))
 		return -EBUSY;
 
-	writel_relaxed(value, priv->ioaddr + mii_address);
+	writel_relaxed(value, GET_MDIO_IOAD + mii_address);
 
-	if (readl_poll_timeout(priv->ioaddr + mii_address, v, !(v & MII_BUSY),
+	if (readl_poll_timeout(GET_MDIO_IOAD + mii_address, v, !(v & MII_BUSY),
 			       100, 10000))
 		return -EBUSY;
 
 	/* Read the data from the MII data register */
-	data = (int)readl_relaxed(priv->ioaddr + mii_data);
+	data = (int)readl_relaxed(GET_MDIO_IOAD + mii_data);
 
 	return data;
+}
+
+static int ethqos_mdio_write(void *stm_priv, int phyaddr, int phyreg,
+			     u16 phydata)
+{
+	struct stmmac_priv *priv = stm_priv;
+	unsigned int mii_address = priv->hw->mii.addr;
+	unsigned int mii_data = priv->hw->mii.data;
+	u32 v;
+	u32 value = MII_BUSY;
+	struct qcom_ethqos *ethqos = priv->plat->bsp_priv;
+
+	value |= (phyaddr << priv->hw->mii.addr_shift)
+		& priv->hw->mii.addr_mask;
+	value |= (phyreg << priv->hw->mii.reg_shift) & priv->hw->mii.reg_mask;
+
+	value |= (priv->clk_csr << priv->hw->mii.clk_csr_shift)
+		& priv->hw->mii.clk_csr_mask;
+	if (priv->plat->has_gmac4)
+		value |= MII_GMAC4_WRITE;
+	else
+		value |= MII_WRITE;
+
+	/* Wait until any existing MII operation is complete */
+	if (readl_poll_timeout(GET_MDIO_IOAD + mii_address, v, !(v & MII_BUSY),
+			       100, 10000))
+		return -EBUSY;
+
+	/* Set the MII address register to write */
+	writel_relaxed(phydata, GET_MDIO_IOAD + mii_data);
+	writel_relaxed(value, GET_MDIO_IOAD + mii_address);
+
+	/* Wait until any existing MII operation is complete */
+	return readl_poll_timeout(GET_MDIO_IOAD + mii_address, v,
+			!(v & MII_BUSY), 100, 10000);
 }
 
 static int ethqos_phy_intr_config(struct qcom_ethqos *ethqos)
@@ -1636,6 +1676,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	int ret;
 	struct net_device *ndev;
 	struct stmmac_priv *priv;
+	struct resource *resource;
 
 	if (of_device_is_compatible(pdev->dev.of_node,
 				    "qcom,emac-smmu-embedded"))
@@ -1665,6 +1706,10 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		return PTR_ERR(plat_dat);
 	}
 
+	if (of_device_is_compatible(pdev->dev.of_node,
+				    "qcom,stmmac-ethqos-emac1"))
+		plat_dat->bus_id = 1;
+
 	ethqos->ioaddr = (&stmmac_res)->addr;
 
 	ethqos->rgmii_base = devm_platform_ioremap_resource_byname(pdev, "rgmii");
@@ -1672,6 +1717,20 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 		ret = PTR_ERR(ethqos->rgmii_base);
 		goto err_mem;
 	}
+
+	if(plat_dat->bus_id) {
+		resource =
+		platform_get_resource_byname(pdev,
+					     IORESOURCE_MEM, "mdio");
+
+		ethqos->mdio = ioremap(resource->start,
+				       resource_size(resource));
+		if (IS_ERR(ethqos->mdio)) {
+			ret = PTR_ERR(ethqos->mdio);
+			goto err_mem;
+		}
+	}
+
 
 	ethqos->speed = SPEED_10;
 	if (plat_dat->interface == PHY_INTERFACE_MODE_SGMII) {
@@ -1703,6 +1762,8 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	plat_dat->handle_prv_ioctl = ethqos_handle_prv_ioctl;
 	plat_dat->init_pps = ethqos_init_pps;
 	plat_dat->phy_intr_enable = ethqos_phy_intr_enable;
+	plat_dat->mdio_write = ethqos_mdio_write;
+	plat_dat->mdio_read = ethqos_mdio_read;
 
 	/* Get rgmii interface speed for mac2c from device tree */
 	if (of_property_read_u32(np, "mac2mac-rgmii-speed",

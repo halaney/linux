@@ -121,6 +121,7 @@ struct qcom_ethqos {
 	void __iomem *rgmii_base;
 	void __iomem *sgmii_base;
 	void __iomem *ioaddr;
+	void __iomem *mdio;
 
 
 	unsigned int rgmii_clk_rate;
