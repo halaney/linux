@@ -481,3 +481,7 @@
 &ethqos_hw {
 	snps,reset-gpios = <&pm8775_3_gpios 8 GPIO_ACTIVE_HIGH>;
 };
+
+&ethqos_hw1 {
+	snps,reset-gpios = <&pm8775_3_gpios 9 GPIO_ACTIVE_HIGH>;
+};

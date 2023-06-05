@@ -4466,6 +4466,61 @@
 		};
 	};
 
+	ethqos_hw1: qcom,ethernet@023000000 {
+		compatible = "qcom,stmmac-ethqos-emac1";
+		reg = <0x23000000 0x10000>,
+			<0x23016000 0x100>,
+			<0x8902000 0xE10>,
+			<0x23040000 0x10000>;
+
+		reg-names = "stmmaceth", "rgmii","serdes","mdio";
+		clocks = <&gcc GCC_EMAC1_AXI_CLK>,
+			<&gcc GCC_EMAC1_SLV_AHB_CLK>,
+			<&gcc GCC_EMAC1_PTP_CLK>,
+			<&gcc GCC_EMAC1_PHY_AUX_CLK>,
+			<&gcc GCC_SGMI_CLKREF_EN>;
+		clock-names = "stmmaceth", "pclk", "ptp_ref", "phyaux","sgmi_ref";
+		snps,ptp-ref-clk-rate = <250000000>;
+		snps,ptp-req-clk-rate = <96000000>;
+		interrupts-extended = <&intc 0 929 4>;
+		qcom,arm-smmu;
+
+		interrupt-names = "macirq";
+
+		snps,tso;
+		snps,pbl = <32>;
+		rx-fifo-depth = <16384>;
+		tx-fifo-depth = <16384>;
+
+		snps,mtl-rx-config = <&mtl_rx_setup>;
+		snps,mtl-tx-config = <&mtl_tx_setup>;
+
+		/* vreg_rgmii-supply = <&pm8775_a_l4>; */
+		vreg_emac_phy-supply =  <&vreg_l5a>;
+		vreg_rgmii_io_pads-supply = <&vreg_l1c>;
+
+		power-domains = <&gcc EMAC1_GDSC>;
+
+		phy-mode = "sgmii";
+		snps,reset-delays-us = <0 11000 70000>;
+		pinctrl-names = "dev-emac-mdc",
+			"dev-emac-mdio";
+
+		pinctrl-0 = <&emac_mdc>;
+		pinctrl-1 = <&emac_mdio>;
+
+		snps,ps-speed = <1000>;
+
+		status = "disabled";
+
+		ethqos_emb_smmu1: ethqos_emb_smmu1 {
+			compatible = "qcom,emac-smmu-embedded";
+
+			iommus = <&apps_smmu 0x140 0xf>;
+			qcom,iommu-dma = "fastmap";
+		};
+	};
+
 	audio@1000 {
 		compatible = "qcom,vfio-platform";
 		reg = <0x1000 0x0 0x0 0x0>;
