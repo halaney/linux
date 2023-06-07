@@ -2654,6 +2654,62 @@
 				drive-strength = <2>; /* 2 MA */
 			};
 		};
+
+		fsync0_default: fsync0_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio68";
+				function = "cci_timer0";
+			};
+
+			config {
+				pins = "gpio68";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		fsync1_default: fsync1_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio69";
+				function = "cci_timer1";
+			};
+
+			config {
+				pins = "gpio69";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		fsync2_default: fsync2_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio70";
+				function = "cci_timer2";
+			};
+
+			config {
+				pins = "gpio70";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		fsync3_default: fsync3_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio71";
+				function = "cci_timer3";
+			};
+
+			config {
+				pins = "gpio71";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
 	};
 
 	qcom-wdt@17c10000 {
@@ -2740,6 +2796,30 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&cci6_default>;
 		pinctrl-1 = <&cci7_default>;
+	};
+
+	vfio_fsync0@0 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsync0_default>;
+	};
+
+	vfio_fsync1@1 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsync1_default>;
+	};
+
+	vfio_fsync2@2 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsync2_default>;
+	};
+
+	vfio_fsync3@3 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsync3_default>;
 	};
 
 	vfio_dpu_00@ae00000 {
