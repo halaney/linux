@@ -30,6 +30,10 @@
 	};
 };
 
+&auto_vm_0_mem {
+	reg = <0x0 0xE0000000 0x0 0X20000000>;
+};
+
 &apps_rsc {
 	pmm8775-a-regulators {
 		compatible = "qcom,pmm8775-rpmh-regulators";
