@@ -359,7 +359,7 @@
 		no-map;
 	};
 
-	uefi_log: uefi_log_region@908b0000 {
+	uefi_log: uefi-log@908b0000 {
 		no-map;
 		reg = <0x0 0x908b0000 0x0 0x10000>;
 	};
