@@ -273,4 +273,18 @@ config HYP_ASSIGN_DEBUG
 	  Detects double-assign and double-unassign scenarios.
 	  If unsure, say 'N' here.
 
+config DUMP_XBL_LOG
+        tristate "Print secondary bootloader (xbl) logs on console from sysfs"
+        help
+           This driver is used to capture secondary bootloader (xbl) log
+           from reserved memory region and provide a sysfs entry for reading
+           logs captured from this memory region. User can use below command
+           to print xbl log to console:
+
+                cat /sys/kernel/xbl_log/xbl_log
+
+           These logs help to identify firmware configuration information
+           on the SoC
+
 endmenu
+
