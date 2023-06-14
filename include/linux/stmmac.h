@@ -246,6 +246,8 @@ struct plat_stmmacenet_data {
 	int (*clks_config)(void *priv, bool enabled);
 	int (*crosststamp)(ktime_t *device, struct system_counterval_t *system,
 			   void *ctx);
+	int (*mdio_read)(void *stm_priv, int phyaddr, int phyreg);
+	int (*mdio_write)(void *stm_priv, int phyaddr, int phyreg, u16 phydata);
 	void *bsp_priv;
 	struct clk *stmmac_clk;
 	struct clk *pclk;

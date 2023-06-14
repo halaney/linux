@@ -359,7 +359,7 @@
 		no-map;
 	};
 
-	uefi_log: uefi_log_region@908b0000 {
+	uefi_log: uefi-log@908b0000 {
 		no-map;
 		reg = <0x0 0x908b0000 0x0 0x10000>;
 	};
@@ -441,9 +441,9 @@
 		reg = <0x0 0x9fc00000 0x0 0x700000>;
 	};
 
-        reserved_mem_u: pilu_qseecom@adc00000 {
+        audio_mdf_mem: audio_mdf_region@ae000000 {
                 no-map;
-                reg = <0x0 0xadc00000 0x0 0x1400000>;
+                reg = <0x0 0xae000000 0x0 0x1000000>;
         };
 
 	hyptz_reserved_mem: hyptz_reserved_region@beb00000 {
@@ -883,7 +883,12 @@
                                   <&ipcc IPCC_CLIENT_NSP1  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>,
                                   <&ipcc IPCC_CLIENT_SLPI  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>,
                                   <&ipcc IPCC_CLIENT_GPDSP0  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>,
-                                  <&ipcc IPCC_CLIENT_GPDSP1  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>;
+                                  <&ipcc IPCC_CLIENT_GPDSP1  IPCC_MPROC_SIGNAL_SMP2P IRQ_TYPE_EDGE_RISING>,
+                                  <&intc GIC_SPI 486 IRQ_TYPE_LEVEL_HIGH>,
+                                  <&intc GIC_SPI 578 IRQ_TYPE_LEVEL_HIGH>,
+                                  <&intc GIC_SPI 887 IRQ_TYPE_LEVEL_HIGH>,
+                                  <&intc GIC_SPI 768 IRQ_TYPE_LEVEL_HIGH>,
+                                  <&intc GIC_SPI 624 IRQ_TYPE_LEVEL_HIGH>;
             iommus = <&apps_smmu 0x0 0x0>;
         };
 
@@ -2553,6 +2558,20 @@
 			};
 		};
 
+		cci1_default: cci1_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio52","gpio53";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio52","gpio53";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
 		cci2_default: cci2_default {
 			mux {
 				/* CLK, DATA */
@@ -2561,6 +2580,132 @@
 			};
 			config {
 				pins = "gpio62","gpio63";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci3_default: cci3_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio54","gpio55";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio54","gpio55";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+		
+		cci4_default: cci4_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio64","gpio65";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio64","gpio65";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci5_default: cci5_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio56","gpio57";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio56","gpio57";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci6_default: cci6_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio66","gpio67";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio66","gpio67";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		cci7_default: cci7_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio58","gpio59";
+				function = "cci_i2c";
+			};
+	
+			config {
+				pins = "gpio58","gpio59";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		fsync0_default: fsync0_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio68";
+				function = "cci_timer0";
+			};
+
+			config {
+				pins = "gpio68";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		fsync1_default: fsync1_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio69";
+				function = "cci_timer1";
+			};
+
+			config {
+				pins = "gpio69";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		fsync2_default: fsync2_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio70";
+				function = "cci_timer2";
+			};
+
+			config {
+				pins = "gpio70";
+				bias-pull-up; /* PULL UP*/
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		fsync3_default: fsync3_default {
+			mux {
+				/* CLK, DATA */
+				pins = "gpio71";
+				function = "cci_timer3";
+			};
+
+			config {
+				pins = "gpio71";
 				bias-pull-up; /* PULL UP*/
 				drive-strength = <2>; /* 2 MA */
 			};
@@ -2629,12 +2774,52 @@
 		compatible = "qcom,apps-pinctlr";
 		pinctrl-names = "default";
 		pinctrl-0 = <&cci0_default>;
+		pinctrl-1 = <&cci1_default>;
 	};
 
-	vfio_cci2@1 {
+	vfio_cci1@1 {
 		compatible = "qcom,apps-pinctlr";
 		pinctrl-names = "default";
 		pinctrl-0 = <&cci2_default>;
+		pinctrl-1 = <&cci3_default>;
+	};
+
+	vfio_cci2@2 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cci4_default>;
+		pinctrl-1 = <&cci5_default>;
+	};
+
+	vfio_cci3@3 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&cci6_default>;
+		pinctrl-1 = <&cci7_default>;
+	};
+
+	vfio_fsync0@0 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsync0_default>;
+	};
+
+	vfio_fsync1@1 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsync1_default>;
+	};
+
+	vfio_fsync2@2 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsync2_default>;
+	};
+
+	vfio_fsync3@3 {
+		compatible = "qcom,apps-pinctlr";
+		pinctrl-names = "default";
+		pinctrl-0 = <&fsync3_default>;
 	};
 
 	vfio_dpu_00@ae00000 {
@@ -4240,8 +4425,8 @@
 			<&gcc GCC_EMAC0_PHY_AUX_CLK>,
 			<&gcc GCC_SGMI_CLKREF_EN>;
 		clock-names = "stmmaceth", "pclk", "ptp_ref", "phyaux","sgmi_ref";
-		snps,ptp-ref-clk-rate = <250000000>;
-		snps,ptp-req-clk-rate = <96000000>;
+		snps,ptp-ref-clk-rate = <230400000>;
+		snps,ptp-req-clk-rate = <125000000>;
 		interrupts-extended = <&intc 0 946 4>;
 		qcom,arm-smmu;
 
@@ -4277,6 +4462,61 @@
 			compatible = "qcom,emac-smmu-embedded";
 
 			iommus = <&apps_smmu 0x120 0xf>;
+			qcom,iommu-dma = "fastmap";
+		};
+	};
+
+	ethqos_hw1: qcom,ethernet@023000000 {
+		compatible = "qcom,stmmac-ethqos-emac1";
+		reg = <0x23000000 0x10000>,
+			<0x23016000 0x100>,
+			<0x8902000 0xE10>,
+			<0x23040000 0x10000>;
+
+		reg-names = "stmmaceth", "rgmii","serdes","mdio";
+		clocks = <&gcc GCC_EMAC1_AXI_CLK>,
+			<&gcc GCC_EMAC1_SLV_AHB_CLK>,
+			<&gcc GCC_EMAC1_PTP_CLK>,
+			<&gcc GCC_EMAC1_PHY_AUX_CLK>,
+			<&gcc GCC_SGMI_CLKREF_EN>;
+		clock-names = "stmmaceth", "pclk", "ptp_ref", "phyaux","sgmi_ref";
+		snps,ptp-ref-clk-rate = <250000000>;
+		snps,ptp-req-clk-rate = <96000000>;
+		interrupts-extended = <&intc 0 929 4>;
+		qcom,arm-smmu;
+
+		interrupt-names = "macirq";
+
+		snps,tso;
+		snps,pbl = <32>;
+		rx-fifo-depth = <16384>;
+		tx-fifo-depth = <16384>;
+
+		snps,mtl-rx-config = <&mtl_rx_setup>;
+		snps,mtl-tx-config = <&mtl_tx_setup>;
+
+		/* vreg_rgmii-supply = <&pm8775_a_l4>; */
+		vreg_emac_phy-supply =  <&vreg_l5a>;
+		vreg_rgmii_io_pads-supply = <&vreg_l1c>;
+
+		power-domains = <&gcc EMAC1_GDSC>;
+
+		phy-mode = "sgmii";
+		snps,reset-delays-us = <0 11000 70000>;
+		pinctrl-names = "dev-emac-mdc",
+			"dev-emac-mdio";
+
+		pinctrl-0 = <&emac_mdc>;
+		pinctrl-1 = <&emac_mdio>;
+
+		snps,ps-speed = <1000>;
+
+		status = "disabled";
+
+		ethqos_emb_smmu1: ethqos_emb_smmu1 {
+			compatible = "qcom,emac-smmu-embedded";
+
+			iommus = <&apps_smmu 0x140 0xf>;
 			qcom,iommu-dma = "fastmap";
 		};
 	};
