@@ -391,6 +391,9 @@
 };
 
 &pcie0_phy {
+	vdda-phy-supply = <&vreg_l1c>;
+	vdda-pll-supply = <&vreg_l5a>;
+
 	status = "okay";
 };
 
@@ -399,6 +402,9 @@
 };
 
 &pcie1_phy {
+	vdda-phy-supply = <&vreg_l1c>;
+	vdda-pll-supply = <&vreg_l5a>;
+
 	status = "okay";
 };
 
