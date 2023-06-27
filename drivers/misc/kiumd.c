@@ -116,7 +116,7 @@ int kiumd_perprocess_set_user_context(struct kiumd_dev *ki_dev, char __user *arg
 		return -ENOTTY;
 	}
 
-	iommu_dom = iommu_get_dma_domain(vfio_dev->dev);
+	iommu_dom = iommu_get_domain_for_dev(vfio_dev->dev);
 	smmu_dom = container_of(iommu_dom, struct arm_smmu_domain, domain);
 	if(smmu_dom->pgtbl_ops == NULL){
 		pr_err("%s:pagetable ops is NULL \n",__func__);
@@ -167,7 +167,7 @@ int kiumd_perprocess_pt_alloc(struct kiumd_dev *ki_dev, char __user *arg)
 		return -ENOTTY;
 	}
 
-	iommu_dom = iommu_get_dma_domain(vfio_dev->dev);
+	iommu_dom = iommu_get_domain_for_dev(vfio_dev->dev);
 	smmu_dom = container_of(iommu_dom, struct arm_smmu_domain, domain);
 	if(smmu_dom->pgtbl_ops == NULL) {
 		pr_err("%s:pagetable ops is NULL \n",__func__);
@@ -214,7 +214,7 @@ int kiumd_perprocess_pgtble_set(struct kiumd_dev *ki_dev, char __user *arg)
 		return -ENOTTY;
 	}
 
-	iommu_dom = iommu_get_dma_domain(vfio_dev->dev);
+	iommu_dom = iommu_get_domain_for_dev(vfio_dev->dev);
 	if(iommu_dom == NULL) {
 		pr_err("%s:IOMMU domain is NULL \n",__func__);
 		return -ENOTTY;
@@ -481,7 +481,7 @@ int kiumd_iova_ctrl(struct kiumd_dev *ki_dev, char __user *arg)
 
 	file = fget(iovausr.vfio_fd);
 	vfio_dev = (struct vfio_device *)file->private_data;
-	domain = iommu_get_dma_domain(vfio_dev->dev);
+	domain = iommu_get_domain_for_dev(vfio_dev->dev);
 	cookie = (struct kiumd_iommu_dma_cookie*)domain->iova_cookie;
 	if(!cookie)	{
 		printk(KERN_INFO "kiumd_iova_ctrl: cookie not found\n");
