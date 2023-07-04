@@ -885,7 +885,7 @@
                                       <&ipcc IPCC_CLIENT_SLPI  IPCC_MPROC_SIGNAL_GLINK_QMP IRQ_TYPE_EDGE_RISING>,
                                       <&ipcc IPCC_CLIENT_GPDSP0  IPCC_MPROC_SIGNAL_GLINK_QMP IRQ_TYPE_EDGE_RISING>,
                                       <&ipcc IPCC_CLIENT_GPDSP1  IPCC_MPROC_SIGNAL_GLINK_QMP IRQ_TYPE_EDGE_RISING>;
-                iommus = <&apps_smmu 0x580 0x0>;
+                iommus = <&apps_smmu 0x5E0 0x0>;
         };
 
         umd_pil@408000 {
@@ -913,7 +913,7 @@
                                   <&intc GIC_SPI 887 IRQ_TYPE_LEVEL_HIGH>,
                                   <&intc GIC_SPI 768 IRQ_TYPE_LEVEL_HIGH>,
                                   <&intc GIC_SPI 624 IRQ_TYPE_LEVEL_HIGH>;
-            iommus = <&apps_smmu 0x0 0x0>;
+            iommus = <&apps_smmu 0x2A00 0x0>;
         };
 
         subsystem_ramdump_util@90900000 {
