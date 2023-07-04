@@ -29,6 +29,7 @@
 #include <linux/cdev.h>
 #include <linux/module.h>
 #include <linux/qcom_scm.h>
+#include <linux/iommu_iova_map.h>
 
 #include "../../drivers/iommu/arm/arm-smmu/arm-smmu.h"
 
@@ -267,6 +268,53 @@ int kiumd_perprocess_pgtble_free(struct kiumd_dev *ki_dev, char __user *arg)
         return 0;
 }
 
+int kiumd_dmabuf_custom_iova_init(struct kiumd_dev *ki_dev, char __user *arg)
+{
+	struct kiumd_user kiusr;
+	struct vfio_device *vfio_dev;
+	struct file *file;
+	struct kiumd_iommu_dma_cookie *cookie = NULL;
+	struct iommu_domain *domain = NULL;
+	struct iova_domain *iovad = NULL;
+	struct iommu_resv_region *region;
+	unsigned long lo, hi;
+
+	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
+		return -EFAULT;
+
+	file = fget(kiusr.vfio_fd);
+	if (file == NULL) {
+		pr_err("%s:Invalid vfio fd \n",__func__);
+		return -EBADF;
+	}
+
+	vfio_dev = (struct vfio_device *)file->private_data;
+	if (vfio_dev == NULL) {
+		pr_err("%s:vfio_dev is NULL \n",__func__);
+		return -ENOTTY;
+	}
+
+	domain = iommu_get_domain_for_dev(vfio_dev->dev);
+	if (domain == NULL) {
+		pr_err("%s:vfio_dev is NULL \n",__func__);
+		return -ENOTTY;
+	}
+
+	cookie = (struct kiumd_iommu_dma_cookie*)domain->iova_cookie;
+	iovad = &cookie->iovad;
+
+	LIST_HEAD(resrvd);
+	qcom_iommu_generate_resv_regions(vfio_dev->dev, &resrvd);
+	list_for_each_entry(region, &resrvd, list) {
+		lo = iova_pfn(iovad, region->start);
+		hi = iova_pfn(iovad, region->start + region->length - 1);
+		reserve_iova(iovad, lo, hi);
+	}
+
+	fput(file);
+	return 0;
+}
+
 /**
  * kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
  *
@@ -278,6 +326,7 @@ int kiumd_perprocess_pgtble_free(struct kiumd_dev *ki_dev, char __user *arg)
  *
  * return value is errno or 0 in case of successful mapping
  * */
+
 int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 {
 	struct kiumd_user kiusr;
@@ -588,6 +637,9 @@ static long kiumd_ioctl(struct file *file, unsigned int cmd,
         case KIUMD_FD_DMABUF_HANDLE:
                 err = kiumd_fd_dmabuf_handler(ki_dev, argp);
                 break;
+	case KIUMD_CUSTOM_IOVA_INIT:
+		err = kiumd_dmabuf_custom_iova_init(ki_dev, argp);
+		break;
         default:
 		err = -ENOTTY;
 		break;
