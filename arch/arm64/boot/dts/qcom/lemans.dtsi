@@ -4521,8 +4521,6 @@
 
 		snps,ps-speed = <1000>;
 
-		status = "disabled";
-
 		ethqos_emb_smmu1: ethqos_emb_smmu1 {
 			compatible = "qcom,emac-smmu-embedded";
 
