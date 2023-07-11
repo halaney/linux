@@ -30,6 +30,7 @@
 #include <linux/module.h>
 #include <linux/qcom_scm.h>
 #include <linux/iommu_iova_map.h>
+#include <linux/sizes.h>
 
 #include "../../drivers/iommu/arm/arm-smmu/arm-smmu.h"
 
@@ -38,6 +39,16 @@ extern int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie, const struct io_pg
 /*Global Data structures needed for buffer sharing */
 static DEFINE_MUTEX(g_kiumd_lock);
 //static DEFINE_HASHTABLE(g_dmabuf_kiumd_table, 10);
+
+unsigned long *global_map = NULL;
+unsigned long *perprocess_map = NULL;
+
+#define KGSL_PT_MEM_SIZE (1024 * SZ_1M)
+#define KGSL_PT_MEM_PAGES (KGSL_PT_MEM_SIZE >> PAGE_SHIFT)
+#define KGSL_GLOBAL_PT_BASE_IOVA 0xFFFFFF8000000000
+#define KGSL_PER_PROCESS_PT_BASE_IOVA 0x60000000
+#define KGSL_GLOBAL_PT 1
+#define KGSL_PER_PROCESS_PT 2
 
 struct dmabuf_fd {
 	struct dma_buf *kiumd_dmabuf; //Value
@@ -95,6 +106,8 @@ static const struct iommu_flush_ops kgsl_iopgtbl_tlb_ops = {
 	.tlb_add_page = _tlb_add_page,
 };
 
+struct io_pgtable *pgtable;
+
 int kiumd_perprocess_set_user_context(struct kiumd_dev *ki_dev, char __user *arg)
 {
 	struct kiumd_smmu_user kismmu_pproc;
@@ -102,7 +115,6 @@ int kiumd_perprocess_set_user_context(struct kiumd_dev *ki_dev, char __user *arg
 	struct vfio_device *vfio_dev;
 	struct io_pgtable_cfg cfg;
 	struct arm_smmu_domain *smmu_dom;
-	struct io_pgtable *pgtable;
 	struct iommu_domain *iommu_dom;
 	int cbindx, ret;
 	void *cookie;
@@ -121,19 +133,24 @@ int kiumd_perprocess_set_user_context(struct kiumd_dev *ki_dev, char __user *arg
 	smmu_dom = container_of(iommu_dom, struct arm_smmu_domain, domain);
 	if(smmu_dom->pgtbl_ops == NULL){
 		pr_err("%s:pagetable ops is NULL \n",__func__);
-		return 0;
+		return -ENOMEM;
 	}
 
 	pgtable = io_pgtable_ops_to_pgtable(smmu_dom->pgtbl_ops);
-	if(pgtable == NULL)
+	if(pgtable == NULL) {
 		pr_err("%s:pagetable is NULL \n",__func__);
-
+		return -ENOMEM;
+	}
 	cbindx = smmu_dom->cfg.cbndx;
 	memcpy(&cfg, &pgtable->cfg, sizeof(struct io_pgtable_cfg));
 	cfg.quirks &= ~IO_PGTABLE_QUIRK_ARM_TTBR1;
 	cfg.tlb = &kgsl_iopgtbl_tlb_ops;
 	/*Allocate a default pagetable for TTBR0 in case per process allocation fails*/
 	kismmu_pproc.pgtbl_ops_ptr = (long int)alloc_io_pgtable_ops(ARM_64_LPAE_S1, &cfg, NULL);
+	if(kismmu_pproc.pgtbl_ops_ptr == NULL) {
+		pr_err("%s:failed to allocate pagetable ops \n",__func__);
+		return -ENOMEM;
+	}
 	cookie = (void*)smmu_dom;
 	qcom_adreno_smmu_set_ttbr0_cfg(cookie, &cfg);
 	ret = qcom_scm_kgsl_set_smmu_aperture(cbindx);
@@ -142,7 +159,7 @@ int kiumd_perprocess_set_user_context(struct kiumd_dev *ki_dev, char __user *arg
 
 	if (ret) {
 		pr_err("%s:Setting smmu aperture error \n",__func__);
-		return 0;
+		return ret;
 	}
         fput(file);
 	return 0;
@@ -155,7 +172,6 @@ int kiumd_perprocess_pt_alloc(struct kiumd_dev *ki_dev, char __user *arg)
 	struct vfio_device *vfio_dev;
 	struct io_pgtable_cfg cfg;
 	struct arm_smmu_domain *smmu_dom;
-	struct io_pgtable *pgtable;
 	struct iommu_domain *iommu_dom;
 
 	if (copy_from_user(&kismmu_pproc, arg, sizeof(struct kiumd_smmu_user)))
@@ -172,13 +188,7 @@ int kiumd_perprocess_pt_alloc(struct kiumd_dev *ki_dev, char __user *arg)
 	smmu_dom = container_of(iommu_dom, struct arm_smmu_domain, domain);
 	if(smmu_dom->pgtbl_ops == NULL) {
 		pr_err("%s:pagetable ops is NULL \n",__func__);
-		return 0;
-	}
-
-	pgtable = io_pgtable_ops_to_pgtable(smmu_dom->pgtbl_ops);
-	if(pgtable == NULL) {
-		pr_err("%s:pagetable is NULL \n",__func__);
-		return 0;
+		return -ENOMEM;
 	}
 
 	memcpy(&cfg, &pgtable->cfg, sizeof(struct io_pgtable_cfg));
@@ -186,6 +196,11 @@ int kiumd_perprocess_pt_alloc(struct kiumd_dev *ki_dev, char __user *arg)
 	cfg.tlb = &kgsl_iopgtbl_tlb_ops;
 	kismmu_pproc.asid = smmu_dom->cfg.asid;
 	kismmu_pproc.pgtbl_ops_ptr = (long int)alloc_io_pgtable_ops(ARM_64_LPAE_S1, &cfg, NULL);
+	if(kismmu_pproc.pgtbl_ops_ptr == NULL) {
+		pr_err("%s:failed to allocate pagetable ops \n",__func__);
+		return -ENOMEM;
+	}
+
 	kismmu_pproc.ttbr0 = cfg.arm_lpae_s1_cfg.ttbr;
         fput(file);
 
@@ -218,13 +233,13 @@ int kiumd_perprocess_pgtble_set(struct kiumd_dev *ki_dev, char __user *arg)
 	iommu_dom = iommu_get_domain_for_dev(vfio_dev->dev);
 	if(iommu_dom == NULL) {
 		pr_err("%s:IOMMU domain is NULL \n",__func__);
-		return -ENOTTY;
+		return -ENOMEM;
 	}
 
 	smmu_dom = container_of(iommu_dom, struct arm_smmu_domain, domain);
 	if(smmu_dom == NULL) {
 		pr_err("%s:SMMU domain is NULL \n",__func__);
-		return -ENOTTY;
+		return -ENOMEM;
 	}
 
 	/*Debug changes to validate per process mappings in test case.*/
@@ -259,7 +274,7 @@ int kiumd_perprocess_pgtble_free(struct kiumd_dev *ki_dev, char __user *arg)
         ki_pgtbl_ops = (struct io_pgtable_ops*)kismmu_pproc.pgtbl_ops_ptr;
         if(ki_pgtbl_ops == NULL) {
                 pr_err("%s:pagegetable ops is NULL \n",__func__);
-                return -ENOTTY;
+                return -ENOMEM;
         }
 
         free_io_pgtable_ops(ki_pgtbl_ops);
@@ -315,6 +330,82 @@ int kiumd_dmabuf_custom_iova_init(struct kiumd_dev *ki_dev, char __user *arg)
 	return 0;
 }
 
+void clear_map_iova(u64 iova, u64 size, int ptselect)
+{
+	u64 bit;
+	if(ptselect == KGSL_GLOBAL_PT) {
+		bit = (iova & ~KGSL_GLOBAL_PT_BASE_IOVA) >> PAGE_SHIFT;
+		bitmap_clear(global_map, bit, size >> PAGE_SHIFT);
+	}
+	else if (ptselect == KGSL_PER_PROCESS_PT) {
+		bit = (iova - KGSL_PER_PROCESS_PT_BASE_IOVA) >> PAGE_SHIFT;
+		bitmap_clear(perprocess_map, bit, size >> PAGE_SHIFT);
+	}
+}
+
+u64 get_map_offset(u64 size, int ptselect)
+{
+	int start = 0;
+	u64 bit, offset;
+	if (ptselect == KGSL_GLOBAL_PT){
+		if(global_map == NULL) {
+			global_map = kcalloc(BITS_TO_LONGS(KGSL_PT_MEM_PAGES),
+                                        sizeof(unsigned long), GFP_KERNEL);
+			if (!global_map)
+				return (u64) -ENOMEM;
+		}
+		bit = bitmap_find_next_zero_area(global_map, KGSL_PT_MEM_PAGES, start, size >> PAGE_SHIFT, 0);
+		if(bit < 0) {
+			pr_err( "Invalid next zero area in bitmap\n");
+			return (u64) -ENOTTY;
+		}
+		bitmap_set(global_map, bit, size >> PAGE_SHIFT);
+		offset = bit << PAGE_SHIFT;
+	}
+	else if (ptselect == KGSL_PER_PROCESS_PT)
+	{
+		if(perprocess_map == NULL) {
+			perprocess_map = kcalloc(BITS_TO_LONGS(KGSL_PT_MEM_PAGES),
+						sizeof(unsigned long), GFP_KERNEL);
+			if (!perprocess_map)
+				return (u64) -ENOMEM;
+		}
+		bit = bitmap_find_next_zero_area(perprocess_map, KGSL_PT_MEM_PAGES, start, size >> PAGE_SHIFT, 0);
+		if(bit < 0) {
+			pr_err("Invalid next zero area in bitmap\n");
+			return (u64) -ENOTTY;
+		}
+		bitmap_set(perprocess_map, bit, size >> PAGE_SHIFT);
+		offset = bit << PAGE_SHIFT;
+	}
+	else {
+		pr_err("Invalid ptselect\n");
+		return (u64) -EINVAL;
+	}
+
+	return offset;
+}
+
+int set_map_iova(u64 offset, struct vfio_device *vfio_dev, int ptselect)
+{
+	struct iommu_domain *domain = NULL;
+	struct kiumd_iommu_dma_cookie *cookie = NULL;
+	domain = iommu_get_domain_for_dev(vfio_dev->dev);
+	cookie = (struct kiumd_iommu_dma_cookie*)domain->iova_cookie;
+	if(!cookie){
+		pr_err("kiumd_iova_ctrl: cookie not found\n");
+		return -ENOMEM;
+	}
+
+	cookie->type = 1;
+	if (ptselect == KGSL_GLOBAL_PT)
+	        cookie->msi_iova = KGSL_GLOBAL_PT_BASE_IOVA + offset;
+	else if (ptselect == KGSL_PER_PROCESS_PT)
+		cookie->msi_iova = KGSL_PER_PROCESS_PT_BASE_IOVA + offset;
+
+        return 0;
+}
+
 /**
  * kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
  *
@@ -335,7 +426,8 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 	struct dma_buf *kiumd_dmabuf = NULL;
 	struct dma_buf_attachment *dmabufattach = NULL;
 	struct sg_table *sgt = NULL;
-	int kiumd_dma_direction;
+	int kiumd_dma_direction, ret;
+	u64 offset, size;
 
 	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
 		return -EFAULT;
@@ -357,7 +449,22 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 		return -ENOTTY;
 	}
 
-        //dma_buf_attach
+	if ((kiusr.ptselect == KGSL_GLOBAL_PT) || (kiusr.ptselect == KGSL_PER_PROCESS_PT)) {
+		size = kiumd_dmabuf->size;
+		offset = get_map_offset(size, kiusr.ptselect);
+		if(offset < 0) {
+			 pr_err("%s:failed to get offset \n",__func__);
+			 return -ENOMEM;
+		}
+
+		ret = set_map_iova(offset, vfio_dev, kiusr.ptselect);
+		if(ret < 0) {
+			pr_err("%s:failed to set offset \n",__func__);
+			return -ENOMEM;
+		}
+	}
+
+	//dma_buf_attach
 	if (vfio_dev->dev != NULL)
 		dmabufattach = dma_buf_attach(kiumd_dmabuf, vfio_dev->dev);
 	if(dmabufattach == NULL) {
@@ -377,9 +484,9 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 
         //dma_buf_map_attachment
 	sgt = dma_buf_map_attachment(dmabufattach, kiumd_dma_direction);
-	if(sgt == NULL) {
+	if(IS_ERR_OR_NULL(sgt)) {
 		pr_err("%s:sgt is NULL \n",__func__);
-		return -ENOTTY;
+		return (dmabufattach == NULL ? -ENOTTY: PTR_ERR(sgt));
 	}
 
         fput(file);
@@ -407,17 +514,30 @@ int kiumd_dmabuf_vfio_unmap(struct kiumd_dev *ki_dev, char __user *arg)
 	struct dma_buf_attachment *dmabufattach = NULL;
 	struct dma_buf *kiumd_dmabuf = NULL;
 
-        if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
+	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
 		return -EFAULT;
 
-	dmabufattach = (struct dma_buf_attachment *)kiusr.dmabufattach;
-        dma_buf_unmap_attachment(dmabufattach, (struct sg_table *)kiusr.sgt_ptr,
-							DMA_BIDIRECTIONAL);
 	kiumd_dmabuf = (struct dma_buf *)kiusr.dmabuf_ptr;
-        dma_buf_detach(kiumd_dmabuf, dmabufattach);
-        dma_buf_put(kiumd_dmabuf);
+	if(kiumd_dmabuf == NULL) {
+		pr_err("%s:kiumd_dmabuf is NULL \n",__func__);
+		return -ENOTTY;
+	}
 
-        return 0;
+	dmabufattach = (struct dma_buf_attachment *)kiusr.dmabufattach;
+	if(dmabufattach == NULL) {
+		pr_err("%s:dmabufattach is NULL \n",__func__);
+		return -ENOTTY;
+	}
+
+	if(kiusr.ptselect == KGSL_GLOBAL_PT || kiusr.ptselect == KGSL_PER_PROCESS_PT)
+		clear_map_iova(kiusr.dma_addr, kiumd_dmabuf->size, kiusr.ptselect);
+
+	dma_buf_unmap_attachment(dmabufattach, (struct sg_table *)kiusr.sgt_ptr,
+							DMA_BIDIRECTIONAL);
+	dma_buf_detach(kiumd_dmabuf, dmabufattach);
+	dma_buf_put(kiumd_dmabuf);
+
+	return 0;
 }
 
 int kiumd_export_fd(struct kiumd_dev *ki_dev, char __user *arg)
@@ -533,7 +653,7 @@ int kiumd_iova_ctrl(struct kiumd_dev *ki_dev, char __user *arg)
 	domain = iommu_get_domain_for_dev(vfio_dev->dev);
 	cookie = (struct kiumd_iommu_dma_cookie*)domain->iova_cookie;
 	if(!cookie)	{
-		printk(KERN_INFO "kiumd_iova_ctrl: cookie not found\n");
+		pr_err("kiumd_iova_ctrl: cookie not found\n");
 		return -ENOMEM;
 	}
 	cookie->type = cookie_type;

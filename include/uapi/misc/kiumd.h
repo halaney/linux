@@ -54,6 +54,7 @@ struct kiumd_user {
 	int buf_token;
 	int dma_attr;
 	int dma_direction;
+	int ptselect;
 };
 
 #endif /* __KIUMD_H__ */
