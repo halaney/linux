@@ -602,6 +602,11 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 		plat->clk_ptp_ref = NULL;
 		dev_info(&pdev->dev, "PTP uses main clock\n");
 	} else {
+		/* Get the best resolution possible */
+		rc = clk_set_rate(plat->clk_ptp_ref, ULONG_MAX);
+		if (rc)
+			dev_err(&pdev->dev,
+				"Failed to set clk_ptp_ref rate: %d\n", rc);
 		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
 		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
 	}
