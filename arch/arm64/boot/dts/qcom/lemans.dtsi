@@ -4590,9 +4590,9 @@
 		};
 	};
 
-	audio@1000 {
+	vfio_audio@1 {
 		compatible = "qcom,vfio-platform";
-		reg = <0x1000 0x0 0x0 0x0>;
+		reg = <0x1 0x0 0x0 0x0>;
 		iommus = <&apps_smmu 0x3001 0x0>;
 		dma-coherent;
         };
