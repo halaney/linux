@@ -394,6 +394,16 @@
 		reg = <0x0 0x90b00000 0x0 0x100000>;
 	};
 
+	sail_mailbox_mem: sail_mailbox_region@90d80000 {
+		no-map;
+		reg = <0x0 0x90d80000 0x0 0x80000>;
+	};
+
+	sail_ota_mem: sail_ota_region@0x90e00000 {
+		no-map;
+		reg = <0x0 0x90e00000 0x0 0x300000>;
+	};
+
 	lpass_machine_learning_mem: lpass_machine_learning_region@93b00000 {
 		no-map;
 		reg = <0x0 0x93b00000 0x0 0xf00000>;
@@ -1230,6 +1240,29 @@
 		mboxes = <&ipcc IPCC_CLIENT_AOP IPCC_MPROC_SIGNAL_GLINK_QMP>;
 		interrupts-extended = <&ipcc IPCC_CLIENT_AOP IPCC_MPROC_SIGNAL_GLINK_QMP IRQ_TYPE_EDGE_RISING>;
 		#clock-cells = <0>;
+	};
+
+	sail_mailbox: sail-mailbox@90d80000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x90d80000 0x80000>,
+		      <0x1FFE000 0x1000>,
+		      <0x17C00000 0x1000>,
+		      <0x00408000 0x1000>;
+		interrupts-extended = <&ipcc IPCC_CLIENT_SAIL0 0x2 IRQ_TYPE_EDGE_RISING>,
+				      <&ipcc IPCC_CLIENT_SAIL0 0x3 IRQ_TYPE_EDGE_RISING>,
+				      <&ipcc IPCC_CLIENT_SAIL0 0x4 IRQ_TYPE_EDGE_RISING>,
+				      <&ipcc IPCC_CLIENT_SAIL0 0x5 IRQ_TYPE_EDGE_RISING>,
+				      <&ipcc IPCC_CLIENT_SAIL0 0x6 IRQ_TYPE_EDGE_RISING>,
+				      <&ipcc IPCC_CLIENT_SAIL0 0x7 IRQ_TYPE_EDGE_RISING>;
+		iommus = <&apps_smmu 0x3900 0x00>;
+		dma-coherent;
+	};
+
+	sail_mbox_ota: sail-mailbox-ota@90e00000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x90e00000 0x300000>;
+		iommus = <&apps_smmu 0x3901 0x00>;
+		dma-coherent;
 	};
 
 	ufs_mem_hc: ufs@1d84000 {
