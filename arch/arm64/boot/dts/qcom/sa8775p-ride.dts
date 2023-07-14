@@ -286,6 +286,8 @@
 		sgmii_phy: phy@8 {
 			reg = <0x8>;
 			device_type = "ethernet-phy";
+
+			interrupts-extended = <&tlmm 7 IRQ_TYPE_EDGE_FALLING>;
 		};
 	};
 
