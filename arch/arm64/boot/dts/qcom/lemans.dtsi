@@ -1065,10 +1065,24 @@
                 dma-coherent;
         };
 
+        gpdsp0_cb@3 {
+               compatible = "qcom,vfio-platform";
+                reg = <0x3 0x0>;
+                iommus = <&apps_smmu 0x38A3 0>;
+                dma-coherent;
+        };
+
         gpdsp1_cb@1 {
                compatible = "qcom,vfio-platform";
                 reg = <0x1 0x0>;
                 iommus = <&apps_smmu 0x38C1 0>;
+                dma-coherent;
+        };
+
+        gpdsp1_cb@3 {
+               compatible = "qcom,vfio-platform";
+                reg = <0x3 0x0>;
+                iommus = <&apps_smmu 0x38C3 0>;
                 dma-coherent;
         };
 
