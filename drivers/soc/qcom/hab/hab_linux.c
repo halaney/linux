@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/of_device.h>
 #include "hab.h"
@@ -424,3 +424,4 @@ module_exit(hab_exit);
 
 MODULE_DESCRIPTION("Hypervisor abstraction layer");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(DMA_BUF);
