@@ -1568,8 +1568,6 @@ static void arm_smmu_get_resv_regions(struct device *dev,
 	list_add_tail(&region->list, head);
 
 	iommu_dma_get_resv_regions(dev, head);
-
-	qcom_iommu_generate_resv_regions(dev, head);
 }
 
 static int arm_smmu_def_domain_type(struct device *dev)

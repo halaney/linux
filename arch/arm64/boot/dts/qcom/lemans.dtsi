@@ -364,6 +364,14 @@
 		reg = <0x0 0x908b0000 0x0 0x10000>;
 	};
 
+	tz-start-count {
+		reg = <0x0 0x146D87F8 0x0 0x8>;
+	};
+
+	tz-end-count {
+		reg = <0x0 0x146D87DC  0x0 0x8>;
+	};
+
 	reserved_mem: reserved_region@908f0000 {
 		no-map;
 		reg = <0x0 0x908f0000 0x0 0xf000>;
@@ -2724,6 +2732,7 @@
             interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
             reg = <0x17c23000 0x1000>;
             iommus = <&kgsl_smmu 0x7 0x0>;
+	    qcom,iommu-dma-addr-pool = <0x60002000 0x1FFFE000>;
     	};
 
 	vfio_titan_base@ac00000 {
@@ -2834,7 +2843,8 @@
 	vfio_dpu_10@22000000 {
 		compatible = "qcom,vfio-platform";
 		interrupts = <0 865 IRQ_TYPE_LEVEL_HIGH>;
-		reg = <0x22000000 0x200000>;
+		reg = <0x22000000 0x200000>,
+			<0x786000 0x1000>;
 		iommus = <&apps_smmu 0x1800 0x402>;
 		qcom,iommu-dma-addr-pool = <0x00000000 0xffffffff>;
 		dma-coherent;
@@ -4510,8 +4520,6 @@
 		pinctrl-1 = <&emac_mdio>;
 
 		snps,ps-speed = <1000>;
-
-		status = "disabled";
 
 		ethqos_emb_smmu1: ethqos_emb_smmu1 {
 			compatible = "qcom,emac-smmu-embedded";

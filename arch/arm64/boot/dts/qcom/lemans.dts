@@ -135,7 +135,7 @@
 
 		vreg_l4c: ldo4 {
 			regulator-name = "vreg_l4c";
-			regulator-min-microvolt = <1100000>;
+			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1300000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 			//regulator-allow-set-load; //FIXME:
@@ -391,6 +391,9 @@
 };
 
 &pcie0_phy {
+	vdda-phy-supply = <&vreg_l5a>;
+	vdda-pll-supply = <&vreg_l1c>;
+
 	status = "okay";
 };
 
@@ -399,6 +402,9 @@
 };
 
 &pcie1_phy {
+	vdda-phy-supply = <&vreg_l5a>;
+	vdda-pll-supply = <&vreg_l1c>;
+
 	status = "okay";
 };
 

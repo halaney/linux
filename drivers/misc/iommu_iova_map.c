@@ -218,12 +218,14 @@ void qcom_iommu_generate_resv_regions(struct device *dev,
 		return;
 
 	list_for_each_entry(region, &resv_regions, list) {
-	dev_dbg(dev, "Reserved region %llx-%llx\n",
-				(u64)region->start,
-				(u64)(region->start + region->length - 1));
+		dev_dbg(dev, "Reserved region-2 %llx-%llx\n",
+					(u64)region->start,
+					(u64)(region->start + region->length - 1));
 	}
 	list_splice(&resv_regions, head);
 }
+
+EXPORT_SYMBOL(qcom_iommu_generate_resv_regions);
 
 static int iommu_iova_open(struct inode *inode, struct file *filp)
 {
@@ -267,4 +269,4 @@ static int iommu_iova_init(void)
 
 module_init(iommu_iova_init);
 MODULE_DESCRIPTION("");
-MODULE_LICENSE("GPLv2");
+MODULE_LICENSE("GPL v2");

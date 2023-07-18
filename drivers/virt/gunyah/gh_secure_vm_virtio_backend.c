@@ -444,10 +444,15 @@ loop_back:
 				vb_dev->vdev_event = 0;
 				vb_dev->cur_event_data = vb_dev->vdev_event_data;
 				vb_dev->vdev_event_data = 0;
-				if (vb_dev->cur_event & EVENT_INTERRUPT_ACK)
+				if (vb_dev->cur_event & EVENT_INTERRUPT_ACK) {
+					dev_warn(vm->dev, "%s: No ACK\n",
+							VIRTIO_PRINT_MARKER);
 					vb_dev->cur_event_data = readl_relaxed(ack_reg);
+				}
 			}
 		} else if (vb_dev->vdev_event & EVENT_INTERRUPT_ACK) {
+			dev_warn(vm->dev, "%s: ACK should be disabled\n",
+					VIRTIO_PRINT_MARKER);
 			vb_dev->vdev_event &= ~EVENT_INTERRUPT_ACK;
 			vb_dev->vdev_event_data = 0;
 			vb_dev->cur_event = EVENT_INTERRUPT_ACK;
@@ -1047,10 +1052,14 @@ static irqreturn_t vdev_interrupt(int irq, void *data)
 		return IRQ_HANDLED;
 
 	spin_lock_irqsave(&vb_dev->lock, flags);
-	if (event == EVENT_NEW_BUFFER && vb_dev->ack_driver_ok) {
-		vb_dev->vdev_event_data = event_data;
+	if ((event & EVENT_NEW_BUFFER) && vb_dev->ack_driver_ok) {
+		event &= ~EVENT_NEW_BUFFER;
+		vb_dev->vdev_event_data |= event_data;
 		signal_vqs(vb_dev);
-		goto done;
+		if (!event)
+			goto done;
+		/* event_data should be only for EVENT_NEW_BUFFER */
+		event_data = 0;
 	}
 	vb_dev->vdev_event |= event;
 	vb_dev->vdev_event_data |= event_data;

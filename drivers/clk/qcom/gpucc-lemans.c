@@ -591,6 +591,7 @@ MODULE_DEVICE_TABLE(of, gpu_cc_lemans_match_table);
 static int gpu_cc_lemans_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	int ret;
 
 	regmap = qcom_cc_map(pdev, &gpu_cc_lemans_desc);
 	if (IS_ERR(regmap))
@@ -605,7 +606,11 @@ static int gpu_cc_lemans_probe(struct platform_device *pdev)
 	 */
 	regmap_update_bits(regmap, 0x93a4, BIT(0), BIT(0));
 
-	return qcom_cc_really_probe(pdev, &gpu_cc_lemans_desc, regmap);
+	//return qcom_cc_really_probe(pdev, &gpu_cc_lemans_desc, regmap);
+	ret = qcom_cc_really_probe(pdev, &gpu_cc_lemans_desc, regmap);
+	clk_set_rate(gpu_cc_cx_gmu_clk.clkr.hw.clk, 500000000);
+
+	return ret;
 }
 
 static struct platform_driver gpu_cc_lemans_driver = {
