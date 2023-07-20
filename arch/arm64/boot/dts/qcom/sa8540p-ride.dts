@@ -35,6 +35,13 @@
 		compatible = "qcom,pm8150-rpmh-regulators";
 		qcom,pmic-id = "a";
 
+		vreg_l2a: ldo2 {
+			regulator-name = "vreg_l2a";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2700000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
 		vreg_l3a: ldo3 {
 			regulator-name = "vreg_l3a";
 			regulator-min-microvolt = <1200000>;
@@ -128,6 +135,14 @@
 		compatible = "qcom,pm8150-rpmh-regulators";
 		qcom,pmic-id = "g";
 
+		vreg_l2g: ldo2 {
+			regulator-name = "vreg_l2g";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2700000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+
 		vreg_l3g: ldo3 {
 			regulator-name = "vreg_l3g";
 			regulator-min-microvolt = <1200000>;
@@ -163,6 +178,8 @@
 	pinctrl-0 = <&ethernet0_default>;
 
 	status = "okay";
+
+	vreg-rgmii-supply = <&vreg_l2a>;
 
 	mdio {
 		compatible = "snps,dwmac-mdio";
@@ -263,6 +280,8 @@
 	pinctrl-0 = <&ethernet1_default>;
 
 	status = "okay";
+
+	vreg-rgmii-supply = <&vreg_l2g>;
 
 	fixed-link {
 		speed = <1000>;
