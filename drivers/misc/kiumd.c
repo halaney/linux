@@ -511,8 +511,12 @@ int kiumd_dmabuf_vfio_unmap(struct kiumd_dev *ki_dev, char __user *arg)
 {
 
 	struct kiumd_user kiusr;
+	struct vfio_device *vfio_dev;
 	struct dma_buf_attachment *dmabufattach = NULL;
 	struct dma_buf *kiumd_dmabuf = NULL;
+	struct iommu_domain *iommu_dom;
+	struct file *file;
+	char dev_gpu[] = "3d00000.vfio_kgsl";
 
 	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
 		return -EFAULT;
@@ -523,6 +527,9 @@ int kiumd_dmabuf_vfio_unmap(struct kiumd_dev *ki_dev, char __user *arg)
 		return -ENOTTY;
 	}
 
+	file = fget(kiusr.vfio_fd);
+	vfio_dev = (struct vfio_device *)file->private_data;
+	iommu_dom = iommu_get_domain_for_dev(vfio_dev->dev);
 	dmabufattach = (struct dma_buf_attachment *)kiusr.dmabufattach;
 	if(dmabufattach == NULL) {
 		pr_err("%s:dmabufattach is NULL \n",__func__);
@@ -534,6 +541,10 @@ int kiumd_dmabuf_vfio_unmap(struct kiumd_dev *ki_dev, char __user *arg)
 
 	dma_buf_unmap_attachment(dmabufattach, (struct sg_table *)kiusr.sgt_ptr,
 							DMA_BIDIRECTIONAL);
+	if(!(strcmp(vfio_dev->dev->kobj.name, dev_gpu))) {
+		iommu_flush_iotlb_all(iommu_dom);
+	}
+
 	dma_buf_detach(kiumd_dmabuf, dmabufattach);
 	dma_buf_put(kiumd_dmabuf);
 
