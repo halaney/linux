@@ -459,10 +459,10 @@
 		reg = <0x0 0x9fc00000 0x0 0x700000>;
 	};
 
-        audio_mdf_mem: audio_mdf_region@ae000000 {
-                no-map;
-                reg = <0x0 0xae000000 0x0 0x1000000>;
-        };
+	audio_mdf_mem: audio_mdf_region@ae000000 {
+		no-map;
+		reg = <0x0 0xae000000 0x0 0x1000000>;
+	};
 
 	hyptz_reserved_mem: hyptz_reserved_region@beb00000 {
 		no-map;
@@ -4588,6 +4588,20 @@
 		iommus = <&apps_smmu 0x3001 0x0>;
 		dma-coherent;
         };
+
+	vfio_audio_gpdsp0_cb@2 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x2 0x0 0x0 0x0>;
+		iommus = <&apps_smmu 0x38A2 0x0>;
+		dma-coherent;
+	};
+
+	vfio_audio_gpdsp1_cb@2 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x2 0x0 0x0 0x0>;
+		iommus = <&apps_smmu 0x38C2 0x0>;
+		dma-coherent;
+	};
 
 	audio_cci0@0 {
 		compatible = "qcom,apps-pinctlr";
