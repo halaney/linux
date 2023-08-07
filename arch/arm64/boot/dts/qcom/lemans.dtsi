@@ -916,6 +916,17 @@
             iommus = <&apps_smmu 0x0 0x0>;
         };
 
+        subsystem_ramdump_util@90900000 {
+            compatible = "qcom,vfio-platform";
+            reg = <0x90900000 0x200000>,
+                  <0x9b800000 0x1e00000>,
+                  <0x9d700000 0x1e00000>,
+                  <0x97b00000 0x1e00000>,
+                  <0x99900000 0x1e00000>,
+                  <0x95c00000 0x1e00000>;
+            iommus = <&kgsl_smmu 0x407 0x0>;
+        };
+
         cdsp0_cb@1 {
                compatible = "qcom,vfio-platform";
                 reg = <0x1 0x0>;
