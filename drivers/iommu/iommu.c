@@ -371,17 +371,14 @@ static int iommu_init_device(struct device *dev, const struct iommu_ops *ops)
 	if (ret)
 		goto err_release;
 
-	mutex_lock(&dev_iommu_group_lock);
 	group = ops->device_group(dev);
 	if (WARN_ON_ONCE(group == NULL))
 		group = ERR_PTR(-EINVAL);
 	if (IS_ERR(group)) {
-		mutex_unlock(&dev_iommu_group_lock);
 		ret = PTR_ERR(group);
 		goto err_unlink;
 	}
 	dev->iommu_group = group;
-	mutex_unlock(&dev_iommu_group_lock);
 
 	dev->iommu->iommu_dev = iommu_dev;
 	dev->iommu->max_pasids = dev_iommu_get_max_pasids(dev);
@@ -439,9 +436,7 @@ static void iommu_deinit_device(struct device *dev)
 	}
 
 	/* Caller must put iommu_group */
-	mutex_lock(&dev_iommu_group_lock);
 	dev->iommu_group = NULL;
-	mutex_unlock(&dev_iommu_group_lock);
 	module_put(ops->owner);
 	dev_iommu_free(dev);
 }
@@ -456,11 +451,13 @@ static int __iommu_probe_device(struct device *dev, struct list_head *group_list
 	if (!ops)
 		return -ENODEV;
 	/*
-	 * Allow __iommu_probe_device() to be safely called in parallel,
-	 * both dev->iommu_group and the initial setup of dev->iommu are
-	 * protected this way.
+	 * Serialise to avoid races between IOMMU drivers registering in
+	 * parallel and/or the "replay" calls from ACPI/OF code via client
+	 * driver probe. Once the latter have been cleaned up we should
+	 * probably be able to use device_lock() here to minimise the scope,
+	 * but for now enforcing a simple global ordering is fine.
 	 */
-	device_lock(dev);
+	mutex_lock(&dev_iommu_group_lock);
 
 	/* Device is probed already if in a group */
 	if (dev->iommu_group) {
@@ -506,7 +503,7 @@ static int __iommu_probe_device(struct device *dev, struct list_head *group_list
 			list_add_tail(&group->entry, group_list);
 	}
 	mutex_unlock(&group->mutex);
-	device_unlock(dev);
+	mutex_unlock(&dev_iommu_group_lock);
 
 	if (dev_is_pci(dev))
 		iommu_dma_set_pci_32bit_workaround(dev);
@@ -521,7 +518,8 @@ err_put_group:
 	mutex_unlock(&group->mutex);
 	iommu_group_put(group);
 out_unlock:
-	device_unlock(dev);
+	mutex_unlock(&dev_iommu_group_lock);
+
 	return ret;
 }
 
@@ -570,7 +568,6 @@ static void __iommu_group_remove_device(struct device *dev)
 	struct iommu_group *group = dev->iommu_group;
 	struct group_device *device;
 
-	device_lock_assert(dev);
 	mutex_lock(&group->mutex);
 	for_each_group_device(group, device) {
 		if (device->dev != dev)
@@ -595,23 +592,14 @@ static void __iommu_group_remove_device(struct device *dev)
 
 static void iommu_release_device(struct device *dev)
 {
-	struct iommu_group *group;
+	struct iommu_group *group = dev->iommu_group;
 
-	/*
-	 * This locking for dev->iommu_group is overkill when this is called
-	 * from the BUS_NOTIFY_REMOVED_DEVICE, as we don't expect any other
-	 * threads to have a reference to the device at that point. Keep it
-	 * because this isn't a performance path and helps lockdep analysis.
-	 */
-	device_lock(dev);
-	group = dev->iommu_group;
 	if (group)
 		__iommu_group_remove_device(dev);
 
 	/* Free any fwspec if no iommu_driver was ever attached */
 	if (dev->iommu)
 		dev_iommu_free(dev);
-	device_unlock(dev);
 }
 
 static int __init iommu_set_def_domain_type(char *str)
@@ -1094,8 +1082,6 @@ static struct group_device *iommu_group_alloc_device(struct iommu_group *group,
 	int ret, i = 0;
 	struct group_device *device;
 
-	device_lock_assert(dev);
-
 	device = kzalloc(sizeof(*device), GFP_KERNEL);
 	if (!device)
 		return ERR_PTR(-ENOMEM);
@@ -1157,12 +1143,9 @@ int iommu_group_add_device(struct iommu_group *group, struct device *dev)
 {
 	struct group_device *gdev;
 
-	device_lock(dev);
 	gdev = iommu_group_alloc_device(group, dev);
-	if (IS_ERR(gdev)) {
-		device_unlock(dev);
+	if (IS_ERR(gdev))
 		return PTR_ERR(gdev);
-	}
 
 	iommu_group_ref_get(group);
 	dev->iommu_group = group;
@@ -1170,7 +1153,6 @@ int iommu_group_add_device(struct iommu_group *group, struct device *dev)
 	mutex_lock(&group->mutex);
 	list_add_tail(&gdev->list, &group->devices);
 	mutex_unlock(&group->mutex);
-	device_unlock(dev);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(iommu_group_add_device);
@@ -1184,16 +1166,14 @@ EXPORT_SYMBOL_GPL(iommu_group_add_device);
  */
 void iommu_group_remove_device(struct device *dev)
 {
-	struct iommu_group *group;
+	struct iommu_group *group = dev->iommu_group;
 
-	device_lock(dev);
-	group = dev->iommu_group;
-	if (group) {
-		dev_info(dev, "Removing from iommu group %d\n", group->id);
-		__iommu_group_remove_device(dev);
-	}
-	device_unlock(dev);
+	if (!group)
+		return;
 
+	dev_info(dev, "Removing from iommu group %d\n", group->id);
+
+	__iommu_group_remove_device(dev);
 }
 EXPORT_SYMBOL_GPL(iommu_group_remove_device);
 
