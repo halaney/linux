@@ -39,6 +39,7 @@ static void config_sub_second_increment(void __iomem *ioaddr,
 	 * 2000000000ULL / ptp_clock.
 	 */
 	if (value & PTP_TCR_TSCFUPDT)
+        /* 2 * NSEC_PER_SEC / ptp_clock */
 		data = (2000000000ULL / ptp_clock);
 	else
 		data = (1000000000ULL / ptp_clock);
