@@ -290,11 +290,9 @@ static int scmi_cpufreq_probe(struct scmi_device *sdev)
 	if (IS_ERR(perf_ops))
 		return PTR_ERR(perf_ops);
 
-#ifdef CONFIG_COMMON_CLK
 	/* dummy clock provider as needed by OPP if clocks property is used */
 	if (of_find_property(dev->of_node, "#clock-cells", NULL))
 		devm_of_clk_add_hw_provider(dev, of_clk_hw_simple_get, NULL);
-#endif
 
 	ret = cpufreq_register_driver(&scmi_cpufreq_driver);
 	if (ret) {
