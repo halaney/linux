@@ -511,12 +511,11 @@ int kiumd_dmabuf_vfio_unmap(struct kiumd_dev *ki_dev, char __user *arg)
 {
 
 	struct kiumd_user kiusr;
-	struct vfio_device *vfio_dev;
 	struct dma_buf_attachment *dmabufattach = NULL;
 	struct dma_buf *kiumd_dmabuf = NULL;
+	struct vfio_device *vfio_dev;
 	struct iommu_domain *iommu_dom;
 	struct file *file;
-	char dev_gpu[] = "3d00000.vfio_kgsl";
 
 	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
 		return -EFAULT;
@@ -539,27 +538,31 @@ int kiumd_dmabuf_vfio_unmap(struct kiumd_dev *ki_dev, char __user *arg)
 	dma_buf_unmap_attachment(dmabufattach, (struct sg_table *)kiusr.sgt_ptr,
 							DMA_BIDIRECTIONAL);
 
-	if(kiusr.ptselect == KGSL_GLOBAL_PT || kiusr.ptselect == KGSL_PER_PROCESS_PT) {
+	if (kiusr.ptselect == KGSL_GLOBAL_PT || kiusr.ptselect == KGSL_PER_PROCESS_PT) {
 
 		file = fget(kiusr.vfio_fd);
-		if(file == NULL) {
-			pr_err("%s:fget returns NULL \n",__func__);
+		if (file == NULL) {
+			pr_err("%s:fget returns NULL \n", __func__);
 			return -EFAULT;
 		}
+
 		vfio_dev = (struct vfio_device *)file->private_data;
-		if(vfio_dev == NULL) {
-			pr_err("%s:vfio dev returns NULL \n",__func__);
+		if (vfio_dev == NULL) {
+			pr_err("%s:vfio dev returns NULL \n", __func__);
 			return -EFAULT;
 		}
-		if(vfio_dev->dev == NULL) {
-			pr_err("%s:vfio device returns NULL \n",__func__);
+
+		if (vfio_dev->dev == NULL) {
+			pr_err("%s:vfio device returns NULL \n", __func__);
 			return -EFAULT;
 		}
+
 		iommu_dom = iommu_get_domain_for_dev(vfio_dev->dev);
-		if(iommu_dom == NULL) {
-			pr_err("%s:iommu_dom is NULL \n",__func__);
+		if (iommu_dom == NULL) {
+			pr_err("%s:iommu_dom is NULL \n", __func__);
 			return -EFAULT;
 		}
+
 		iommu_flush_iotlb_all(iommu_dom);
 	}
 
