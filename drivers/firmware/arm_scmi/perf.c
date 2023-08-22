@@ -668,10 +668,10 @@ static void scmi_perf_domain_init_fc(const struct scmi_protocol_handle *ph,
 }
 
 static int scmi_dvfs_device_opps_add(const struct scmi_protocol_handle *ph,
-				     struct device *dev, u32 domain)
+				     struct device *dev, u32 domain, bool genpd)
 {
 	int idx, ret;
-	unsigned long freq;
+	struct dev_pm_opp_data opp_data;
 	struct perf_dom_info *dom;
 
 	dom = scmi_perf_domain_lookup(ph, domain);
@@ -679,11 +679,15 @@ static int scmi_dvfs_device_opps_add(const struct scmi_protocol_handle *ph,
 		return PTR_ERR(dom);
 
 	for (idx = 0; idx < dom->opp_count; idx++) {
-		freq = dom->opp[idx].perf * dom->mult_factor;
+		memset(&opp_data, 0, sizeof(opp_data));
+		opp_data.level = dom->opp[idx].perf;
+		opp_data.freq = dom->opp[idx].perf * dom->mult_factor;
+		opp_data.provider = genpd ? DEV_PM_OPP_TYPE_GENPD :
+					    DEV_PM_OPP_TYPE_NONE;
 
-		ret = dev_pm_opp_add(dev, freq, 0);
+		ret = dev_pm_opp_add_dynamic(dev, &opp_data);
 		if (ret) {
-			dev_warn(dev, "failed to add opp %luHz\n", freq);
+			dev_warn(dev, "failed to add opp %luHz\n", opp_data.freq);
 
 			dev_pm_opp_remove_all_dynamic(dev);
 			return ret;
