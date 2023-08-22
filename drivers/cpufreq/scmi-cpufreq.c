@@ -129,7 +129,7 @@ scmi_get_cpu_power(unsigned long *power, unsigned long *KHz,
 
 static int scmi_cpufreq_init(struct cpufreq_policy *policy)
 {
-	int ret, nr_opp;
+	int ret, nr_opp, domain;
 	unsigned int latency;
 	struct device *cpu_dev;
 	struct scmi_data *priv;
@@ -143,6 +143,10 @@ static int scmi_cpufreq_init(struct cpufreq_policy *policy)
 		pr_err("failed to get cpu%d device\n", policy->cpu);
 		return -ENODEV;
 	}
+
+	domain = scmi_cpu_domain_id(cpu_dev);
+	if (domain < 0)
+		return domain;
 
 	if (!zalloc_cpumask_var(&opp_shared_cpus, GFP_KERNEL))
 		return -ENOMEM;
@@ -176,7 +180,7 @@ static int scmi_cpufreq_init(struct cpufreq_policy *policy)
 	  */
 	nr_opp = dev_pm_opp_get_opp_count(cpu_dev);
 	if (nr_opp <= 0) {
-		ret = perf_ops->device_opps_add(ph, cpu_dev);
+		ret = perf_ops->device_opps_add(ph, cpu_dev, domain);
 		if (ret) {
 			dev_warn(cpu_dev, "failed to add opps to the device\n");
 			goto out_free_cpumask;
@@ -217,7 +221,7 @@ static int scmi_cpufreq_init(struct cpufreq_policy *policy)
 	}
 
 	priv->cpu_dev = cpu_dev;
-	priv->domain_id = scmi_cpu_domain_id(cpu_dev);
+	priv->domain_id = domain;
 
 	policy->driver_data = priv;
 	policy->freq_table = freq_table;
@@ -225,14 +229,14 @@ static int scmi_cpufreq_init(struct cpufreq_policy *policy)
 	/* SCMI allows DVFS request for any domain from any CPU */
 	policy->dvfs_possible_from_any_cpu = true;
 
-	latency = perf_ops->transition_latency_get(ph, cpu_dev);
+	latency = perf_ops->transition_latency_get(ph, domain);
 	if (!latency)
 		latency = CPUFREQ_ETERNAL;
 
 	policy->cpuinfo.transition_latency = latency;
 
 	policy->fast_switch_possible =
-		perf_ops->fast_switch_possible(ph, cpu_dev);
+		perf_ops->fast_switch_possible(ph, domain);
 
 	free_cpumask_var(opp_shared_cpus);
 	return 0;
