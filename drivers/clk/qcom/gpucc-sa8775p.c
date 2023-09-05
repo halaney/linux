@@ -4,6 +4,7 @@
  * Copyright (c) 2023, Linaro Limited
  */
 
+#include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
@@ -590,6 +591,7 @@ MODULE_DEVICE_TABLE(of, gpu_cc_sa8775p_match_table);
 static int gpu_cc_sa8775p_probe(struct platform_device *pdev)
 {
 	struct regmap *regmap;
+	int ret;
 
 	regmap = qcom_cc_map(pdev, &gpu_cc_sa8775p_desc);
 	if (IS_ERR(regmap))
@@ -598,7 +600,11 @@ static int gpu_cc_sa8775p_probe(struct platform_device *pdev)
 	clk_lucid_evo_pll_configure(&gpu_cc_pll0, regmap, &gpu_cc_pll0_config);
 	clk_lucid_evo_pll_configure(&gpu_cc_pll1, regmap, &gpu_cc_pll1_config);
 
-	return qcom_cc_really_probe(pdev, &gpu_cc_sa8775p_desc, regmap);
+	//return qcom_cc_really_probe(pdev, &gpu_cc_sa8775p_desc, regmap);
+	ret = qcom_cc_really_probe(pdev, &gpu_cc_sa8775p_desc, regmap);
+	clk_set_rate(gpu_cc_cx_gmu_clk.clkr.hw.clk, 500000000);
+
+	return ret;
 }
 
 static struct platform_driver gpu_cc_sa8775p_driver = {

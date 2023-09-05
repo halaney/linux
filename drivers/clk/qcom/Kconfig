@@ -870,4 +870,31 @@ config CLK_GFM_LPASS_SM8250
 	  Support for the Glitch Free Mux (GFM) Low power audio
           subsystem (LPASS) clocks found on SM8250 SoCs.
 
+config SA_CAMCC_SA8775P
+	tristate "SA8775P Camera Clock Controller"
+	select SA_GCC_8775P
+	help
+	  Support for the camera clock controller on Qualcomm Technologies, Inc.
+	  SA8775P devices.
+	  Say Y if you want to support camera devices and functionality such as
+	  capturing pictures.
+
+config SA_VIDEOCC_SA8775P
+	tristate "SA8775P Video Clock Controller"
+	select SA_GCC_8775P
+	help
+	  Support for the video clock controller on Qualcomm Technologies, Inc.
+	  SA8775P devices.
+	  Say Y if you want to support video devices and functionality such as
+	  video encode/decode.
+
+config SA_DISPCC_SA8775P
+	tristate "SA8775P Display Clock Controllers"
+	select SA_GCC_8775P
+	help
+	  Support for the display clock controller 0 and 1 on Qualcomm Technologies, Inc.
+	  SA8775P devices.
+	  Say Y if you want to support display devices and functionality such as
+	  splash screen.
+
 endif
