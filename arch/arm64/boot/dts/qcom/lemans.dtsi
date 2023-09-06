@@ -597,6 +597,16 @@
 		size = <0 0x3000000>;
 	};
 
+	safety_mailbox_mem: safety_mailbox_region@90d00000 {
+		no-map;
+		reg = <0x0 0x90d00000 0x0 0x80000>;
+	};
+
+	safety_ddr_training_mem: safety_ddr_training_region@0x908c0000 {
+		no-map;
+		reg = <0x0 0x908c0000 0x0 0x1000>;
+	};
+
 	/* global autoconfigured region for contiguous allocations */
 	linux,cma {
 		compatible = "shared-dma-pool";
@@ -1293,6 +1303,15 @@
 		compatible = "qcom,vfio-platform";
 		reg = <0x90e00000 0x300000>;
 		iommus = <&apps_smmu 0x3901 0x00>;
+		dma-coherent;
+	};
+
+	safety_ddr: safety-ddr@0x90d00000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x90d00000 0x80000>,
+		      <0x00408000 0x1000>,
+		      <0x908c0000 0x1000>;
+		iommus = <&apps_smmu 0x3903 0x0>;
 		dma-coherent;
 	};
 
