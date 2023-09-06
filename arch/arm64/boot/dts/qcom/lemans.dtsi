@@ -4871,6 +4871,7 @@
 	auto_vm_be3: auto_vm_be3@14 {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x14>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be4: auto_vm_be4@15 {
@@ -4891,26 +4892,31 @@
 	auto_vm_be7: auto_vm_be7@18 {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x18>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be8: auto_vm_be8@19 {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x19>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be9: auto_vm_be9@1a {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x1a>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be10: auto_vm_be10@1b {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x1b>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be11: auto_vm_be11@1c {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x1c>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be12: auto_vm_be12@1d {
