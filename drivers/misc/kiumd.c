@@ -741,6 +741,7 @@ int kiumd_fd_dmabuf_handler(struct kiumd_dev *ki_dev, char __user *arg)
 				ret = xa_store(&kiumd_xa, xa_index, dmabuf_xarray_entry, GFP_KERNEL);
 				if (xa_is_err(ret)) {
 					pr_err("%s: xa_store failed \n", __func__);
+					dma_buf_put((struct dma_buf *) dmabuf);
 					return -EFAULT;
 				}
 			}
@@ -797,6 +798,7 @@ int kiumd_fd_dmabuf_handler(struct kiumd_dev *ki_dev, char __user *arg)
 			pr_err("%s:Entry not available in xarray\n", __func__);
 			return -EFAULT;
 		}
+		kiumd_dmabuf = ((struct dma_buf *)dmabuf_handle->dmabuf);
 		if(atomic_dec_and_test(&dmabuf_handle->handle_refcount)) {
 			xa_erase(&kiumd_xa, local_id);
 			kfree(dmabuf_handle);
@@ -808,7 +810,6 @@ int kiumd_fd_dmabuf_handler(struct kiumd_dev *ki_dev, char __user *arg)
 				return -EFAULT;
 			}
 		}
-		kiumd_dmabuf = ((struct dma_buf *)dmabuf_handle->dmabuf);
 		dma_buf_put(kiumd_dmabuf);
 		kiusr.dma_buf_fd = 0;
 	}
