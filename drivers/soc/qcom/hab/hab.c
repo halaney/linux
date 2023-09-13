@@ -393,7 +393,7 @@ struct virtual_channel *backend_listen(struct uhab_context *ctx,
 	struct physical_channel *pchan = NULL;
 	struct hab_device *dev;
 	struct virtual_channel *vchan = NULL;
-	struct hab_open_request request;
+	struct hab_open_request request = {0};
 	struct hab_open_request *recv_request;
 	uint32_t otherend_vchan_id;
 	struct hab_open_node pending_open = { { 0 } };
