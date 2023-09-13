@@ -76,6 +76,9 @@
 #define QCOM_SCM_WAITQ_RESUME			0x02
 #define QCOM_SCM_WAITQ_GET_WQ_CTX		0x03
 
+#define QCOM_SCM_MEMP_SHM_BRIDGE_ENABLE 	0x1c
+#define QCOM_SCM_MEMP_SHM_BRIDGE_DELETE 	0x1d
+
 /**
  * struct qcom_scm_desc
  * @arginfo:    Metadata describing the arguments in args[]
@@ -191,6 +194,8 @@ extern int qcom_scm_assign_mem(phys_addr_t mem_addr, size_t mem_sz,
 			       const struct qcom_scm_vmperm *newvm,
 			       unsigned int dest_cnt);
 
+extern int qcom_scm_enable_shm_bridge(void);
+extern int qcom_scm_delete_shm_bridge(u64 handle);
 extern bool qcom_scm_ocmem_lock_available(void);
 extern int qcom_scm_ocmem_lock(enum qcom_scm_ocmem_client id, u32 offset,
 			       u32 size, u32 mode);
