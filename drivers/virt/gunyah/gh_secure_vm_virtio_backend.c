@@ -117,6 +117,8 @@ struct virtio_backend_device {
 	/* Page shared with frontend */
 	char __iomem *config_shared_buf;
 	u64  config_shared_size;
+	/* Property to enable batched events */
+	bool batch_events;
 };
 
 static struct virt_machine *find_vm_by_name(const char *vm_name)
@@ -886,6 +888,7 @@ static int gh_virtio_backend_probe(struct device *dev, struct device_node *np,
 	struct virtio_backend_device *vb_dev = NULL, *tmp;
 	struct virt_machine *vm;
 	u32 label;
+	bool batch_events;
 
 	if (!np || !str || !dev)
 		return -EINVAL;
@@ -910,6 +913,8 @@ static int gh_virtio_backend_probe(struct device *dev, struct device_node *np,
 		of_node_put(vm_np);
 		return -EINVAL;
 	}
+
+	batch_events = of_property_read_bool(np, "qcom,batch_events");
 
 	mutex_lock(&vm_mutex);
 	vm = find_vm_by_name(str);
@@ -948,6 +953,7 @@ static int gh_virtio_backend_probe(struct device *dev, struct device_node *np,
 		return -ENOMEM;
 	}
 
+	vb_dev->batch_events = batch_events;
 	vb_dev->label = label;
 	vb_dev->vm = vm;
 	spin_lock_init(&vb_dev->lock);
@@ -1046,27 +1052,30 @@ static irqreturn_t vdev_interrupt(int irq, void *data)
 	int ret;
 	unsigned long flags;
 
-	ret = get_event(vb_dev->cap_id, &event_data, &event);
-	trace_gh_virtio_backend_irq(vb_dev->label, event, event_data, ret);
-	if (ret || !event)
-		return IRQ_HANDLED;
-
-	spin_lock_irqsave(&vb_dev->lock, flags);
-	if ((event & EVENT_NEW_BUFFER) && vb_dev->ack_driver_ok) {
-		event &= ~EVENT_NEW_BUFFER;
-		vb_dev->vdev_event_data |= event_data;
-		signal_vqs(vb_dev);
+	while ((ret = get_event(vb_dev->cap_id, &event_data, &event)) == 0) {
 		if (!event)
-			goto done;
-		/* event_data should be only for EVENT_NEW_BUFFER */
-		event_data = 0;
-	}
-	vb_dev->vdev_event |= event;
-	vb_dev->vdev_event_data |= event_data;
-	vb_dev->evt_avail = 1;
-	wake_up_interruptible(&vb_dev->evt_queue);
+			break;
+		trace_gh_virtio_backend_irq(vb_dev->label, event, event_data, ret);
+
+		spin_lock_irqsave(&vb_dev->lock, flags);
+		if ((event & EVENT_NEW_BUFFER) && vb_dev->ack_driver_ok) {
+			event &= ~EVENT_NEW_BUFFER;
+			vb_dev->vdev_event_data |= event_data;
+			signal_vqs(vb_dev);
+			if (!event)
+				goto done;
+			/* event_data should be only for EVENT_NEW_BUFFER */
+			event_data = 0;
+		}
+		vb_dev->vdev_event |= event;
+		vb_dev->vdev_event_data |= event_data;
+		vb_dev->evt_avail = 1;
+		wake_up_interruptible(&vb_dev->evt_queue);
 done:
-	spin_unlock_irqrestore(&vb_dev->lock, flags);
+		spin_unlock_irqrestore(&vb_dev->lock, flags);
+		if (!vb_dev->batch_events)
+                        break;
+	}
 
 	return IRQ_HANDLED;
 }

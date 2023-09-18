@@ -597,6 +597,16 @@
 		size = <0 0x3000000>;
 	};
 
+	safety_mailbox_mem: safety_mailbox_region@90d00000 {
+		no-map;
+		reg = <0x0 0x90d00000 0x0 0x80000>;
+	};
+
+	safety_ddr_training_mem: safety_ddr_training_region@0x908c0000 {
+		no-map;
+		reg = <0x0 0x908c0000 0x0 0x1000>;
+	};
+
 	/* global autoconfigured region for contiguous allocations */
 	linux,cma {
 		compatible = "shared-dma-pool";
@@ -885,7 +895,7 @@
                                       <&ipcc IPCC_CLIENT_SLPI  IPCC_MPROC_SIGNAL_GLINK_QMP IRQ_TYPE_EDGE_RISING>,
                                       <&ipcc IPCC_CLIENT_GPDSP0  IPCC_MPROC_SIGNAL_GLINK_QMP IRQ_TYPE_EDGE_RISING>,
                                       <&ipcc IPCC_CLIENT_GPDSP1  IPCC_MPROC_SIGNAL_GLINK_QMP IRQ_TYPE_EDGE_RISING>;
-                iommus = <&apps_smmu 0x580 0x0>;
+                iommus = <&apps_smmu 0x5E0 0x0>;
         };
 
         umd_pil@408000 {
@@ -913,7 +923,18 @@
                                   <&intc GIC_SPI 887 IRQ_TYPE_LEVEL_HIGH>,
                                   <&intc GIC_SPI 768 IRQ_TYPE_LEVEL_HIGH>,
                                   <&intc GIC_SPI 624 IRQ_TYPE_LEVEL_HIGH>;
-            iommus = <&apps_smmu 0x0 0x0>;
+            iommus = <&apps_smmu 0x2A00 0x0>;
+        };
+
+        subsystem_ramdump_util@90900000 {
+            compatible = "qcom,vfio-platform";
+            reg = <0x90900000 0x200000>,
+                  <0x9b800000 0x1e00000>,
+                  <0x9d700000 0x1e00000>,
+                  <0x97b00000 0x1e00000>,
+                  <0x99900000 0x1e00000>,
+                  <0x95c00000 0x1e00000>;
+            iommus = <&kgsl_smmu 0x407 0x0>;
         };
 
         subsystem_ramdump_util@90900000 {
@@ -1293,6 +1314,15 @@
 		compatible = "qcom,vfio-platform";
 		reg = <0x90e00000 0x300000>;
 		iommus = <&apps_smmu 0x3901 0x00>;
+		dma-coherent;
+	};
+
+	safety_ddr: safety-ddr@0x90d00000 {
+		compatible = "qcom,vfio-platform";
+		reg = <0x90d00000 0x80000>,
+		      <0x00408000 0x1000>,
+		      <0x908c0000 0x1000>;
+		iommus = <&apps_smmu 0x3903 0x0>;
 		dma-coherent;
 	};
 
@@ -4590,9 +4620,9 @@
 		};
 	};
 
-	audio@1000 {
+	vfio_audio@1 {
 		compatible = "qcom,vfio-platform";
-		reg = <0x1000 0x0 0x0 0x0>;
+		reg = <0x1 0x0 0x0 0x0>;
 		iommus = <&apps_smmu 0x3001 0x0>;
 		dma-coherent;
         };
@@ -4871,6 +4901,7 @@
 	auto_vm_be3: auto_vm_be3@14 {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x14>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be4: auto_vm_be4@15 {
@@ -4891,26 +4922,31 @@
 	auto_vm_be7: auto_vm_be7@18 {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x18>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be8: auto_vm_be8@19 {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x19>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be9: auto_vm_be9@1a {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x1a>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be10: auto_vm_be10@1b {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x1b>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be11: auto_vm_be11@1c {
 		qcom,vm = <&auto_vm>;
 		qcom,label = <0x1c>;
+		qcom,batch_events;
 	};
 
 	auto_vm_be12: auto_vm_be12@1d {

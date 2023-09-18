@@ -31,20 +31,20 @@
 #include <linux/qcom_scm.h>
 #include <linux/iommu_iova_map.h>
 #include <linux/sizes.h>
+#include <linux/xarray.h>
 
 #include "../../drivers/iommu/arm/arm-smmu/arm-smmu.h"
 
 extern int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie, const struct io_pgtable_cfg *pgtbl_cfg);
 
-/*Global Data structures needed for buffer sharing */
 static DEFINE_MUTEX(g_kiumd_lock);
-//static DEFINE_HASHTABLE(g_dmabuf_kiumd_table, 10);
+static DEFINE_XARRAY_ALLOC(kiumd_xa);
 
-unsigned long *global_map = NULL;
-unsigned long *perprocess_map = NULL;
+/*No.of pages for 3GB IOVA space with 4K page size*/
+#define KGSL_PT_MEM_PAGES 0xC0000
+static DECLARE_BITMAP(global_map, KGSL_PT_MEM_PAGES);
+static DECLARE_BITMAP(perprocess_map, KGSL_PT_MEM_PAGES);
 
-#define KGSL_PT_MEM_SIZE (1024 * SZ_1M)
-#define KGSL_PT_MEM_PAGES (KGSL_PT_MEM_SIZE >> PAGE_SHIFT)
 #define KGSL_GLOBAL_PT_BASE_IOVA 0xFFFFFF8000000000
 #define KGSL_PER_PROCESS_PT_BASE_IOVA 0x60000000
 #define KGSL_GLOBAL_PT 1
@@ -84,6 +84,11 @@ struct kiumd_iommu_dma_cookie {
          };
          struct list_head                msi_page_list;
          struct iommu_domain             *fq_domain;
+};
+
+struct dma_buf_handle {
+	long int dmabuf;
+	atomic_t handle_refcount;
 };
 
 static void _tlb_flush_all(void *cookie)
@@ -343,44 +348,32 @@ void clear_map_iova(u64 iova, u64 size, int ptselect)
 	}
 }
 
-u64 get_map_offset(u64 size, int ptselect)
+s64 get_map_offset(u64 size, int ptselect)
 {
 	int start = 0;
 	u64 bit, offset;
 	if (ptselect == KGSL_GLOBAL_PT){
-		if(global_map == NULL) {
-			global_map = kcalloc(BITS_TO_LONGS(KGSL_PT_MEM_PAGES),
-                                        sizeof(unsigned long), GFP_KERNEL);
-			if (!global_map)
-				return (u64) -ENOMEM;
-		}
 		bit = bitmap_find_next_zero_area(global_map, KGSL_PT_MEM_PAGES, start, size >> PAGE_SHIFT, 0);
-		if(bit < 0) {
+		if(bit > KGSL_PT_MEM_PAGES-2) {
 			pr_err( "Invalid next zero area in bitmap\n");
-			return (u64) -ENOTTY;
+			return (s64) -ENOTTY;
 		}
 		bitmap_set(global_map, bit, size >> PAGE_SHIFT);
 		offset = bit << PAGE_SHIFT;
 	}
 	else if (ptselect == KGSL_PER_PROCESS_PT)
 	{
-		if(perprocess_map == NULL) {
-			perprocess_map = kcalloc(BITS_TO_LONGS(KGSL_PT_MEM_PAGES),
-						sizeof(unsigned long), GFP_KERNEL);
-			if (!perprocess_map)
-				return (u64) -ENOMEM;
-		}
 		bit = bitmap_find_next_zero_area(perprocess_map, KGSL_PT_MEM_PAGES, start, size >> PAGE_SHIFT, 0);
-		if(bit < 0) {
+		if(bit > KGSL_PT_MEM_PAGES-2) {
 			pr_err("Invalid next zero area in bitmap\n");
-			return (u64) -ENOTTY;
+			return (s64) -ENOTTY;
 		}
 		bitmap_set(perprocess_map, bit, size >> PAGE_SHIFT);
 		offset = bit << PAGE_SHIFT;
 	}
 	else {
 		pr_err("Invalid ptselect\n");
-		return (u64) -EINVAL;
+		return (s64) -EINVAL;
 	}
 
 	return offset;
@@ -427,7 +420,8 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 	struct dma_buf_attachment *dmabufattach = NULL;
 	struct sg_table *sgt = NULL;
 	int kiumd_dma_direction, ret;
-	u64 offset, size;
+	u64 size;
+	s64 offset;
 
 	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
 		return -EFAULT;
@@ -457,7 +451,7 @@ int kiumd_dmabuf_vfio_map(struct kiumd_dev *ki_dev, char __user *arg)
 			 return -ENOMEM;
 		}
 
-		ret = set_map_iova(offset, vfio_dev, kiusr.ptselect);
+		ret = set_map_iova((u64)offset, vfio_dev, kiusr.ptselect);
 		if(ret < 0) {
 			pr_err("%s:failed to set offset \n",__func__);
 			return -ENOMEM;
@@ -695,56 +689,125 @@ int kiumd_iova_ctrl(struct kiumd_dev *ki_dev, char __user *arg)
 	return 0;
 }
 
-
-DEFINE_IDR(idr);
-
 int kiumd_fd_dmabuf_handler(struct kiumd_dev *ki_dev, char __user *arg)
 {
 	struct kiumd_user kiusr;
-	static struct dma_buf *kiumd_dmabuf = NULL, *orig_buf;
-        uint32_t local_id = 0;
-	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user)))
+	struct dma_buf *kiumd_dmabuf = NULL;
+	uint32_t local_id = 0;
+	int32_t ret = 0;
+	void *xa_entry;
+	long int dmabuf;
+	long unsigned int  xa_index;
+	bool handle_available = false;
+	struct dma_buf_handle *dmabuf_handle = NULL;
+	struct dma_buf_handle *dmabuf_xarray_entry = NULL;
+
+	if (copy_from_user(&kiusr, arg, sizeof(struct kiumd_user))) {
+		pr_err( "%s: copy_from_user failed\n", __func__);
 		return -EFAULT;
-
-
-        if (kiusr.dma_buf_fd > 0 && kiusr.dmabuf_ptr == 0)
-	{
-	        //printk(KERN_DEBUG "%s:FD to HANDLE kiusr.dma_buf_fd:%d \n",__func__, kiusr.dma_buf_fd);
-	        kiusr.dmabuf_ptr  = dma_buf_get(kiusr.dma_buf_fd);
-                //orig_buf = kiusr.dmabuf_ptr;
-                //idr_preload(GFP_KERNEL);
-                //local_id = idr_alloc(&idr, kiusr.dmabuf_ptr, 1, 0, GFP_NOWAIT);
-                //idr_preload_end();
-                //kiusr.dmabuf_ptr = local_id;
-                //printk(KERN_DEBUG "%s:Calling  dma_buf_get %x \n",__func__, kiusr.dmabuf_ptr);
-        }
-	else if (kiusr.dma_buf_fd == -1 )
-        {
-		//printk(KERN_DEBUG "%s:  HANDLE to FD  %pK \n",__func__, kiusr.dmabuf_ptr);
-                //local_id = kiusr.dmabuf_ptr;
-                //printk("%s:FD to HANDLE Local IDR number after allocation:%d \n", __func__, local_id );
-                kiumd_dmabuf = (struct dma_buf *)kiusr.dmabuf_ptr;//idr_find(&idr,local_id);
-	        if (kiumd_dmabuf != NULL)
-	                kiusr.dma_buf_fd = dma_buf_fd((struct dma_buf *)kiumd_dmabuf, (O_CLOEXEC));
-                else
-                        kiusr.dma_buf_fd = -1;
-		//printk(KERN_DEBUG "%s:dma_buf_fd %p \n",__func__, kiusr.dma_buf_fd );
 	}
-        else if (kiusr.dma_buf_fd == -2 && kiusr.dmabuf_ptr > 0)
-        {
-                //printk(KERN_DEBUG "%s:Closing out the buffer  %pK \n",__func__, kiusr.dmabuf_ptr);
-                dma_buf_put((struct dma_buf *)kiusr.dmabuf_ptr);
-                kiusr.dma_buf_fd = 0;
-                //printk(KERN_DEBUG "%s:dma_buf_fd %p \n",__func__, kiusr.dma_buf_fd );
-        }
+        /* FD to Handle */
+	if (kiusr.handle == FD_TO_HANDLE) {
 
+		if(kiusr.dma_buf_fd < 0) {
+			pr_err("%s: dma_buf_fd is invalid\n", __func__);
+			return -EFAULT;
+		}
+
+		/* Retrieve struct dma_buf from FD*/
+		dmabuf  = dma_buf_get(kiusr.dma_buf_fd);
+		if((struct dma_buf *) dmabuf == NULL) {
+			pr_err("%s: dma_buf_get returns NULL \n", __func__);
+			return -EFAULT;
+		}
+		/* Check if handle for buffer already exists, RCU lock acquired*/
+		xa_for_each(&kiumd_xa, xa_index, xa_entry) {
+			dmabuf_xarray_entry = (struct dma_buf_handle*) xa_entry;
+			if (dmabuf_xarray_entry->dmabuf == dmabuf) {
+				handle_available = true;
+				local_id = xa_index;
+				atomic_inc(&dmabuf_xarray_entry->handle_refcount);
+				ret = xa_store(&kiumd_xa, xa_index, dmabuf_xarray_entry, GFP_KERNEL);
+				if (xa_is_err(ret)) {
+					pr_err("%s: xa_store failed \n", __func__);
+					dma_buf_put((struct dma_buf *) dmabuf);
+					return -EFAULT;
+				}
+			}
+		}
+		/* If Handle does not exist, allocate xa_array entry*/
+		if (!handle_available) {
+			dmabuf_handle = kzalloc(sizeof(struct dma_buf_handle), GFP_KERNEL);
+			dmabuf_handle->dmabuf = dmabuf;
+			atomic_inc(&dmabuf_handle->handle_refcount);
+			ret = xa_alloc(&kiumd_xa, &local_id, dmabuf_handle, xa_limit_32b, GFP_KERNEL);
+			if (ret != 0) {
+				pr_err("%s:xarray alloc failure %d \n", __func__, ERR_PTR(ret) );
+				dma_buf_put((struct dma_buf *) dmabuf);
+				return ERR_PTR(ret);
+			}
+		}
+
+		kiumd_dmabuf = (struct dma_buf *) dmabuf;
+		kiusr.handle = local_id;
+	}
+        /* Handle to FD */
+	else if (kiusr.dma_buf_fd == HANDLE_TO_FD) {
+
+		if(kiusr.handle < 0) {
+			pr_err("%s: dmabuf handle is invalid \n", __func__);
+			return -EFAULT;
+		}
+		local_id = kiusr.handle;
+		dmabuf_handle = xa_load(&kiumd_xa, local_id);
+		if (dmabuf_handle == NULL) {
+			pr_err("%s: dmabuf_handle is NULL \n", __func__);
+			return -ENODEV;
+		}
+
+		kiusr.dma_buf_fd = dma_buf_fd((struct dma_buf *) dmabuf_handle->dmabuf, (O_CLOEXEC));
+		if(kiusr.dma_buf_fd < 0) {
+			pr_err("%s:dma_buf_fd failed\n", __func__);
+			return -EFAULT;
+		}
+		get_dma_buf((struct dma_buf *) dmabuf_handle->dmabuf);
+
+	}
+	/* Close Handle */
+	else if (kiusr.dma_buf_fd == CLOSE_HANDLE) {
+
+		if(kiusr.handle < 0) {
+			pr_err("%s: Invalid dma buf handle.\n", __func__);
+			return -EFAULT;
+		}
+
+		local_id = (int32_t)kiusr.handle;
+		dmabuf_handle = xa_load(&kiumd_xa, local_id);
+		if (dmabuf_handle == NULL) {
+			pr_err("%s:Entry not available in xarray\n", __func__);
+			return -EFAULT;
+		}
+		kiumd_dmabuf = ((struct dma_buf *)dmabuf_handle->dmabuf);
+		if(atomic_dec_and_test(&dmabuf_handle->handle_refcount)) {
+			xa_erase(&kiumd_xa, local_id);
+			kfree(dmabuf_handle);
+		}
+		else {
+			ret = xa_store(&kiumd_xa, local_id, dmabuf_handle, GFP_KERNEL);
+			if (xa_is_err(ret)) {
+				pr_err("%s: xa_store failed in close handle\n", __func__);
+				return -EFAULT;
+			}
+		}
+		dma_buf_put(kiumd_dmabuf);
+		kiusr.dma_buf_fd = 0;
+	}
 	if (copy_to_user(arg, &kiusr, sizeof(kiusr))) {
-		printk(KERN_DEBUG "%s: copy_to_user failed... \n",__func__);
-                return -EFAULT;
+		pr_err("%s: copy_to_user failed... \n", __func__);
+		return -EFAULT;
 	}
 
-        return 0;
-
+	return 0;
 }
 
 static int kiumd_open(struct inode *inode, struct file *filp)
