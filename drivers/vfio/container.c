@@ -432,13 +432,13 @@ int vfio_container_attach_group(struct vfio_container *container,
 		ret = -EPERM;
 		goto out_unlock_container;
 	}
-
+/*
 	if (group->type == VFIO_IOMMU) {
 		ret = iommu_group_claim_dma_owner(group->iommu_group, group);
 		if (ret)
 			goto out_unlock_container;
 	}
-
+*/
 	driver = container->iommu_driver;
 	if (driver) {
 		ret = driver->ops->attach_group(container->iommu_data,
@@ -479,10 +479,10 @@ void vfio_group_detach_container(struct vfio_group *group)
 	if (driver)
 		driver->ops->detach_group(container->iommu_data,
 					  group->iommu_group);
-
+        /*
 	if (group->type == VFIO_IOMMU)
 		iommu_group_release_dma_owner(group->iommu_group);
-
+	*/
 	group->container = NULL;
 	group->container_users = 0;
 	list_del(&group->container_next);
