@@ -579,10 +579,16 @@
 		gunyah-label = <0x1f>;
 	};
 
-	auto_vm_resv_ring: auto_vm_resv_ring@d5358000 {
+	auto_vm_input1_ring: auto_vm_input1_ring@d5358000 {
 		no-map;
-		reg = <0x0 0xd5358000 0x0 0xA8000>;
+		reg = <0x0 0xd5358000 0x0 0x8000>;
 		gunyah-label = <0x20>;
+	};
+
+	auto_vm_resv_ring: auto_vm_resv_ring@d5360000 {
+		no-map;
+		reg = <0x0 0xd5360000 0x0 0xA0000>;
+		gunyah-label = <0x21>;
 	};
 
 	auto_vm_swiotlb: auto_vm_swiotlb@d5400000 {
@@ -4875,7 +4881,7 @@
 	auto_vm: qcom,auto_vm@d5100000 {
 		reg = <0xd5100000 0x1300000>;
 		vm_name = "autoghgvm";
-		shared-buffers = <&auto_vm_vblk0_ring &auto_vm_vblk1_ring &auto_vm_vblk2_ring &auto_vm_vblk3_ring &auto_vm_vblk4_ring &auto_vm_vnet0_ring &auto_vm_vhab0_ring &auto_vm_vhab1_ring &auto_vm_vhab2_ring &auto_vm_vhab3_ring &auto_vm_vhab4_ring &auto_vm_vhab5_ring &auto_vm_input0_ring &auto_vm_vscmi_ring &auto_vm_vconsole_ring &auto_vm_resv_ring &auto_vm_swiotlb>;
+		shared-buffers = <&auto_vm_vblk0_ring &auto_vm_vblk1_ring &auto_vm_vblk2_ring &auto_vm_vblk3_ring &auto_vm_vblk4_ring &auto_vm_vnet0_ring &auto_vm_vhab0_ring &auto_vm_vhab1_ring &auto_vm_vhab2_ring &auto_vm_vhab3_ring &auto_vm_vhab4_ring &auto_vm_vhab5_ring &auto_vm_input0_ring &auto_vm_vscmi_ring &auto_vm_vconsole_ring &auto_vm_input1_ring &auto_vm_resv_ring &auto_vm_swiotlb>;
 	};
 
 	auto_vm_be0: auto_vm_be0@10 {
@@ -4964,13 +4970,18 @@
 		qcom,label = <0x20>;
 	};
 
+	auto_vm_be16: auto_vm_be16@21 {
+		qcom,vm = <&auto_vm>;
+		qcom,label = <0x21>;
+	};
+
 	auto_vm_0: gh-secure-vm-loader@0 {
 		compatible = "qcom,gh-secure-vm-loader";
 		qcom,pas-id = <44>;
 		qcom,vmid = <52>;
 		qcom,firmware-name = "autoghgvm";
 		memory-region = <&auto_vm_0_mem>;
-		virtio-backends = <&auto_vm_be0 &auto_vm_be1 &auto_vm_be2 &auto_vm_be3 &auto_vm_be4 &auto_vm_be5 &auto_vm_be6 &auto_vm_be7 &auto_vm_be8 &auto_vm_be9 &auto_vm_be10 &auto_vm_be11 &auto_vm_be12 &auto_vm_be13 &auto_vm_be14 &auto_vm_be15>;
+		virtio-backends = <&auto_vm_be0 &auto_vm_be1 &auto_vm_be2 &auto_vm_be3 &auto_vm_be4 &auto_vm_be5 &auto_vm_be6 &auto_vm_be7 &auto_vm_be8 &auto_vm_be9 &auto_vm_be10 &auto_vm_be11 &auto_vm_be12 &auto_vm_be13 &auto_vm_be14 &auto_vm_be15 &auto_vm_be16>;
 	};
 
 	watchdog@17c10000 {
