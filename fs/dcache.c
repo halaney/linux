@@ -115,10 +115,13 @@ static inline struct hlist_bl_head *in_lookup_hash(const struct dentry *parent,
 	return in_lookup_hashtable + hash_32(hash, IN_LOOKUP_SHIFT);
 }
 
-
-/* Statistics gathering. */
-struct dentry_stat_t dentry_stat = {
-	.age_limit = 45,
+struct dentry_stat_t {
+	long nr_dentry;
+	long nr_unused;
+	long age_limit;		/* age in seconds */
+	long want_pages;	/* pages requested by system */
+	long nr_negative;	/* # of unused negative dentries */
+	long dummy;		/* Reserved for future use */
 };
 
 static DEFINE_PER_CPU(long, nr_dentry);
@@ -126,6 +129,10 @@ static DEFINE_PER_CPU(long, nr_dentry_unused);
 static DEFINE_PER_CPU(long, nr_dentry_negative);
 
 #if defined(CONFIG_SYSCTL) && defined(CONFIG_PROC_FS)
+/* Statistics gathering. */
+static struct dentry_stat_t dentry_stat = {
+	.age_limit = 45,
+};
 
 /*
  * Here we resort to our own counters instead of using generic per-cpu counters
@@ -167,14 +174,32 @@ static long get_nr_dentry_negative(void)
 	return sum < 0 ? 0 : sum;
 }
 
-int proc_nr_dentry(struct ctl_table *table, int write, void *buffer,
-		   size_t *lenp, loff_t *ppos)
+static int proc_nr_dentry(struct ctl_table *table, int write, void *buffer,
+			  size_t *lenp, loff_t *ppos)
 {
 	dentry_stat.nr_dentry = get_nr_dentry();
 	dentry_stat.nr_unused = get_nr_dentry_unused();
 	dentry_stat.nr_negative = get_nr_dentry_negative();
 	return proc_doulongvec_minmax(table, write, buffer, lenp, ppos);
 }
+
+static struct ctl_table fs_dcache_sysctls[] = {
+	{
+		.procname	= "dentry-state",
+		.data		= &dentry_stat,
+		.maxlen		= 6*sizeof(long),
+		.mode		= 0444,
+		.proc_handler	= proc_nr_dentry,
+	},
+	{ }
+};
+
+static int __init init_fs_dcache_sysctls(void)
+{
+	register_sysctl_init("fs", fs_dcache_sysctls);
+	return 0;
+}
+fs_initcall(init_fs_dcache_sysctls);
 #endif
 
 /*
@@ -2215,6 +2240,7 @@ struct dentry *d_add_ci(struct dentry *dentry, struct inode *inode,
 	}
 	res = d_splice_alias(inode, found);
 	if (res) {
+		d_lookup_done(found);
 		dput(found);
 		return res;
 	}
@@ -2222,10 +2248,16 @@ struct dentry *d_add_ci(struct dentry *dentry, struct inode *inode,
 }
 EXPORT_SYMBOL(d_add_ci);
 
-
-static inline bool d_same_name(const struct dentry *dentry,
-				const struct dentry *parent,
-				const struct qstr *name)
+/**
+ * d_same_name - compare dentry name with case-exact name
+ * @parent: parent dentry
+ * @dentry: the negative dentry that was passed to the parent's lookup func
+ * @name:   the case-exact name to be associated with the returned dentry
+ *
+ * Return: true if names are same, or false
+ */
+bool d_same_name(const struct dentry *dentry, const struct dentry *parent,
+		 const struct qstr *name)
 {
 	if (likely(!(parent->d_flags & DCACHE_OP_COMPARE))) {
 		if (dentry->d_name.len != name->len)
@@ -2236,6 +2268,7 @@ static inline bool d_same_name(const struct dentry *dentry,
 				       dentry->d_name.len, dentry->d_name.name,
 				       name) == 0;
 }
+EXPORT_SYMBOL_GPL(d_same_name);
 
 /**
  * __d_lookup_rcu - search for a dentry (racy, store-free)
@@ -2538,13 +2571,7 @@ EXPORT_SYMBOL(d_rehash);
 
 static inline unsigned start_dir_add(struct inode *dir)
 {
-	/*
-	 * The caller has a spinlock_t (dentry::d_lock) acquired which disables
-	 * preemption on !PREEMPT_RT. On PREEMPT_RT the lock does not disable
-	 * preemption and it has be done explicitly.
-	 */
-	if (IS_ENABLED(CONFIG_PREEMPT_RT))
-		preempt_disable();
+	preempt_disable_nested();
 	for (;;) {
 		unsigned n = dir->i_dir_seq;
 		if (!(n & 1) && cmpxchg(&dir->i_dir_seq, n, n + 1) == n)
@@ -2553,33 +2580,31 @@ static inline unsigned start_dir_add(struct inode *dir)
 	}
 }
 
-static inline void end_dir_add(struct inode *dir, unsigned n)
+static inline void end_dir_add(struct inode *dir, unsigned int n,
+			       wait_queue_head_t *d_wait)
 {
 	smp_store_release(&dir->i_dir_seq, n + 2);
-	if (IS_ENABLED(CONFIG_PREEMPT_RT))
-		preempt_enable();
+	preempt_enable_nested();
+	wake_up_all(d_wait);
 }
 
 static void d_wait_lookup(struct dentry *dentry)
 {
-	struct swait_queue __wait;
-
-	if (!d_in_lookup(dentry))
-		return;
-
-	INIT_LIST_HEAD(&__wait.task_list);
-	do {
-		prepare_to_swait_exclusive(dentry->d_wait, &__wait, TASK_UNINTERRUPTIBLE);
-		spin_unlock(&dentry->d_lock);
-		schedule();
-		spin_lock(&dentry->d_lock);
-	} while (d_in_lookup(dentry));
-	finish_swait(dentry->d_wait, &__wait);
+	if (d_in_lookup(dentry)) {
+		DECLARE_WAITQUEUE(wait, current);
+		add_wait_queue(dentry->d_wait, &wait);
+		do {
+			set_current_state(TASK_UNINTERRUPTIBLE);
+			spin_unlock(&dentry->d_lock);
+			schedule();
+			spin_lock(&dentry->d_lock);
+		} while (d_in_lookup(dentry));
+	}
 }
 
 struct dentry *d_alloc_parallel(struct dentry *parent,
 				const struct qstr *name,
-				struct swait_queue_head *wq)
+				wait_queue_head_t *wq)
 {
 	unsigned int hash = name->hash;
 	struct hlist_bl_head *b = in_lookup_hash(parent, hash);
@@ -2687,32 +2712,50 @@ mismatch:
 }
 EXPORT_SYMBOL(d_alloc_parallel);
 
-void __d_lookup_done(struct dentry *dentry)
+/*
+ * - Unhash the dentry
+ * - Retrieve and clear the waitqueue head in dentry
+ * - Return the waitqueue head
+ */
+static wait_queue_head_t *__d_lookup_unhash(struct dentry *dentry)
 {
-	struct hlist_bl_head *b = in_lookup_hash(dentry->d_parent,
-						 dentry->d_name.hash);
+	wait_queue_head_t *d_wait;
+	struct hlist_bl_head *b;
+
+	lockdep_assert_held(&dentry->d_lock);
+
+	b = in_lookup_hash(dentry->d_parent, dentry->d_name.hash);
 	hlist_bl_lock(b);
 	dentry->d_flags &= ~DCACHE_PAR_LOOKUP;
 	__hlist_bl_del(&dentry->d_u.d_in_lookup_hash);
-	swake_up_all(dentry->d_wait);
+	d_wait = dentry->d_wait;
 	dentry->d_wait = NULL;
 	hlist_bl_unlock(b);
 	INIT_HLIST_NODE(&dentry->d_u.d_alias);
 	INIT_LIST_HEAD(&dentry->d_lru);
+	return d_wait;
 }
-EXPORT_SYMBOL(__d_lookup_done);
+
+void __d_lookup_unhash_wake(struct dentry *dentry)
+{
+	spin_lock(&dentry->d_lock);
+	wake_up_all(__d_lookup_unhash(dentry));
+	spin_unlock(&dentry->d_lock);
+}
+EXPORT_SYMBOL(__d_lookup_unhash_wake);
 
 /* inode->i_lock held if inode is non-NULL */
 
 static inline void __d_add(struct dentry *dentry, struct inode *inode)
 {
+	wait_queue_head_t *d_wait;
 	struct inode *dir = NULL;
 	unsigned n;
 	spin_lock(&dentry->d_lock);
 	if (unlikely(d_in_lookup(dentry))) {
 		dir = dentry->d_parent->d_inode;
 		n = start_dir_add(dir);
-		__d_lookup_done(dentry);
+		d_wait = __d_lookup_unhash(dentry);
 	}
 	if (inode) {
 		unsigned add_flags = d_flags_for_inode(inode);
@@ -2724,7 +2767,7 @@ static inline void __d_add(struct dentry *dentry, struct inode *inode)
 	}
 	__d_rehash(dentry);
 	if (dir)
-		end_dir_add(dir, n);
+		end_dir_add(dir, n, d_wait);
 	spin_unlock(&dentry->d_lock);
 	if (inode)
 		spin_unlock(&inode->i_lock);
@@ -2871,6 +2914,7 @@ static void __d_move(struct dentry *dentry, struct dentry *target,
 		     bool exchange)
 {
 	struct dentry *old_parent, *p;
+	wait_queue_head_t *d_wait;
 	struct inode *dir = NULL;
 	unsigned n;
 
@@ -2901,7 +2945,7 @@ static void __d_move(struct dentry *dentry, struct dentry *target,
 	if (unlikely(d_in_lookup(target))) {
 		dir = target->d_parent->d_inode;
 		n = start_dir_add(dir);
-		__d_lookup_done(target);
+		d_wait = __d_lookup_unhash(target);
 	}
 
 	write_seqcount_begin(&dentry->d_seq);
@@ -2937,7 +2981,7 @@ static void __d_move(struct dentry *dentry, struct dentry *target,
 	write_seqcount_end(&dentry->d_seq);
 
 	if (dir)
-		end_dir_add(dir, n);
+		end_dir_add(dir, n, d_wait);
 
 	if (dentry->d_parent != old_parent)
 		spin_unlock(&dentry->d_parent->d_lock);

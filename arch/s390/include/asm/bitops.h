@@ -184,6 +184,13 @@ static inline bool arch_test_bit(unsigned long nr,
 	return *addr & mask;
 }
 
+static __always_inline bool
+arch_test_bit_acquire(unsigned long nr, const volatile unsigned long *addr)
+{
+	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
+	return 1UL & (smp_load_acquire(p) >> (nr & (BITS_PER_LONG-1)));
+}
+
 static inline bool arch_test_and_set_bit_lock(unsigned long nr,
 					      volatile unsigned long *ptr)
 {
@@ -255,8 +262,6 @@ static inline bool test_bit_inv(unsigned long nr,
 {
 	return test_bit(nr ^ (BITS_PER_LONG - 1), ptr);
 }
-
-#ifdef CONFIG_HAVE_MARCH_Z9_109_FEATURES
 
 /**
  * __flogr - find leftmost one
@@ -376,18 +381,7 @@ static inline int fls(unsigned int word)
 	return fls64(word);
 }
 
-#else /* CONFIG_HAVE_MARCH_Z9_109_FEATURES */
-
-#include <asm-generic/bitops/__ffs.h>
-#include <asm-generic/bitops/ffs.h>
-#include <asm-generic/bitops/__fls.h>
-#include <asm-generic/bitops/fls.h>
-#include <asm-generic/bitops/fls64.h>
-
-#endif /* CONFIG_HAVE_MARCH_Z9_109_FEATURES */
-
 #include <asm-generic/bitops/ffz.h>
-#include <asm-generic/bitops/find.h>
 #include <asm-generic/bitops/hweight.h>
 #include <asm-generic/bitops/sched.h>
 #include <asm-generic/bitops/le.h>

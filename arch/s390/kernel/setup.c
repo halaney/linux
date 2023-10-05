@@ -58,7 +58,7 @@
 #include <asm/smp.h>
 #include <asm/mmu_context.h>
 #include <asm/cpcmd.h>
-#include <asm/lowcore.h>
+#include <asm/abs_lowcore.h>
 #include <asm/nmi.h>
 #include <asm/irq.h>
 #include <asm/page.h>
@@ -74,6 +74,7 @@
 #include <asm/alternative.h>
 #include <asm/nospec-branch.h>
 #include <asm/mem_detect.h>
+#include <asm/maccess.h>
 #include <asm/uv.h>
 #include <asm/asm-offsets.h>
 #include "entry.h"
@@ -95,22 +96,72 @@ char elf_platform[ELF_PLATFORM_SIZE];
 
 unsigned long int_hwcap = 0;
 
+/*
+ * Some code and data needs to stay below 2 GB, even when the kernel would be
+ * relocated above 2 GB, because it has to use 31 bit addresses.
+ * Such code and data is part of the .amode31 section.
+ */
+unsigned long __amode31_ref __samode31 = (unsigned long)&_samode31;
+unsigned long __amode31_ref __eamode31 = (unsigned long)&_eamode31;
+unsigned long __amode31_ref __stext_amode31 = (unsigned long)&_stext_amode31;
+unsigned long __amode31_ref __etext_amode31 = (unsigned long)&_etext_amode31;
+struct exception_table_entry __amode31_ref *__start_amode31_ex_table = _start_amode31_ex_table;
+struct exception_table_entry __amode31_ref *__stop_amode31_ex_table = _stop_amode31_ex_table;
+
+/*
+ * Control registers CR2, CR5 and CR15 are initialized with addresses
+ * of tables that must be placed below 2G which is handled by the AMODE31
+ * sections.
+ * Because the AMODE31 sections are relocated below 2G at startup,
+ * the content of control registers CR2, CR5 and CR15 must be updated
+ * with new addresses after the relocation. The initial initialization of
+ * control registers occurs in head64.S and then gets updated again after AMODE31
+ * relocation. We must access the relevant AMODE31 tables indirectly via
+ * pointers placed in the .amode31.refs linker section. Those pointers get
+ * updated automatically during AMODE31 relocation and always contain a valid
+ * address within AMODE31 sections.
+ */
+
+static __amode31_data u32 __ctl_duct_amode31[16] __aligned(64);
+
+static __amode31_data u64 __ctl_aste_amode31[8] __aligned(64) = {
+	[1] = 0xffffffffffffffff
+};
+
+static __amode31_data u32 __ctl_duald_amode31[32] __aligned(128) = {
+	0x80000000, 0, 0, 0,
+	0x80000000, 0, 0, 0,
+	0x80000000, 0, 0, 0,
+	0x80000000, 0, 0, 0,
+	0x80000000, 0, 0, 0,
+	0x80000000, 0, 0, 0,
+	0x80000000, 0, 0, 0,
+	0x80000000, 0, 0, 0
+};
+
+static __amode31_data u32 __ctl_linkage_stack_amode31[8] __aligned(64) = {
+	0, 0, 0x89000000, 0,
+	0, 0, 0x8a000000, 0
+};
+
+static u64 __amode31_ref *__ctl_aste = __ctl_aste_amode31;
+static u32 __amode31_ref *__ctl_duald = __ctl_duald_amode31;
+static u32 __amode31_ref *__ctl_linkage_stack = __ctl_linkage_stack_amode31;
+static u32 __amode31_ref *__ctl_duct = __ctl_duct_amode31;
+
 int __bootdata(noexec_disabled);
 unsigned long __bootdata(ident_map_size);
 struct mem_detect_info __bootdata(mem_detect);
+struct initrd_data __bootdata(initrd_data);
 
-struct exception_table_entry *__bootdata_preserved(__start_dma_ex_table);
-struct exception_table_entry *__bootdata_preserved(__stop_dma_ex_table);
-unsigned long __bootdata_preserved(__stext_dma);
-unsigned long __bootdata_preserved(__etext_dma);
-unsigned long __bootdata_preserved(__sdma);
-unsigned long __bootdata_preserved(__edma);
 unsigned long __bootdata_preserved(__kaslr_offset);
+unsigned long __bootdata(__amode31_base);
 unsigned int __bootdata_preserved(zlib_dfltcc_support);
 EXPORT_SYMBOL(zlib_dfltcc_support);
 u64 __bootdata_preserved(stfle_fac_list[16]);
 EXPORT_SYMBOL(stfle_fac_list);
 u64 __bootdata_preserved(alt_stfle_fac_list[16]);
+struct oldmem_data __bootdata_preserved(oldmem_data);
 
 unsigned long VMALLOC_START;
 EXPORT_SYMBOL(VMALLOC_START);
@@ -128,6 +179,8 @@ unsigned long MODULES_END;
 /* An array with a pointer to the lowcore of every CPU. */
 struct lowcore *lowcore_ptr[NR_CPUS];
 EXPORT_SYMBOL(lowcore_ptr);
+
+DEFINE_STATIC_KEY_FALSE(cpu_has_bear);
 
 /*
  * The Write Back bit position in the physaddr is given by the SLPC PCI.
@@ -255,7 +308,7 @@ static void __init setup_zfcpdump(void)
 {
 	if (!is_ipl_type_dump())
 		return;
-	if (OLDMEM_BASE)
+	if (oldmem_data.start)
 		return;
 	strcat(boot_command_line, " cio_ignore=all,!ipldev,!condev");
 	console_loglevel = 2;
@@ -345,6 +398,7 @@ void __init arch_call_rest_init(void)
 {
 	unsigned long stack;
 
+	smp_reinit_ipl_cpu();
 	stack = stack_alloc();
 	if (!stack)
 		panic("Couldn't allocate kernel stack");
@@ -361,8 +415,9 @@ void __init arch_call_rest_init(void)
 static void __init setup_lowcore_dat_off(void)
 {
 	unsigned long int_psw_mask = PSW_KERNEL_BITS;
+	struct lowcore *abs_lc, *lc;
 	unsigned long mcck_stack;
-	struct lowcore *lc;
+	unsigned long flags;
 
 	if (IS_ENABLED(CONFIG_KASAN))
 		int_psw_mask |= PSW_MASK_DAT;
@@ -395,7 +450,7 @@ static void __init setup_lowcore_dat_off(void)
 	lc->lpp = LPP_MAGIC;
 	lc->machine_flags = S390_lowcore.machine_flags;
 	lc->preempt_count = S390_lowcore.preempt_count;
-	nmi_alloc_boot_cpu(lc);
+	nmi_alloc_mcesa_early(&lc->mcesad);
 	lc->sys_enter_timer = S390_lowcore.sys_enter_timer;
 	lc->exit_timer = S390_lowcore.exit_timer;
 	lc->user_timer = S390_lowcore.user_timer;
@@ -422,7 +477,16 @@ static void __init setup_lowcore_dat_off(void)
 	lc->restart_stack = (unsigned long) restart_stack;
 	lc->restart_fn = (unsigned long) do_restart;
 	lc->restart_data = 0;
-	lc->restart_source = -1UL;
+	lc->restart_source = -1U;
+
+	abs_lc = get_abs_lowcore(&flags);
+	abs_lc->restart_stack = lc->restart_stack;
+	abs_lc->restart_fn = lc->restart_fn;
+	abs_lc->restart_data = lc->restart_data;
+	abs_lc->restart_source = lc->restart_source;
+	abs_lc->restart_psw = lc->restart_psw;
+	abs_lc->mcesad = lc->mcesad;
+	put_abs_lowcore(abs_lc, flags);
 
 	mcck_stack = (unsigned long)memblock_alloc(THREAD_SIZE, THREAD_SIZE);
 	if (!mcck_stack)
@@ -430,17 +494,9 @@ static void __init setup_lowcore_dat_off(void)
 		      __func__, THREAD_SIZE, THREAD_SIZE);
 	lc->mcck_stack = mcck_stack + STACK_INIT_OFFSET;
 
-	/* Setup absolute zero lowcore */
-	mem_assign_absolute(S390_lowcore.restart_stack, lc->restart_stack);
-	mem_assign_absolute(S390_lowcore.restart_fn, lc->restart_fn);
-	mem_assign_absolute(S390_lowcore.restart_data, lc->restart_data);
-	mem_assign_absolute(S390_lowcore.restart_source, lc->restart_source);
-	mem_assign_absolute(S390_lowcore.restart_psw, lc->restart_psw);
-
 	lc->spinlock_lockval = arch_spin_lockval(0);
 	lc->spinlock_index = 0;
 	arch_spin_lock_setup(0);
-	lc->br_r1_trampoline = 0x07f1;	/* br %r1 */
 	lc->return_lpswe = gen_lpswe(__LC_RETURN_PSW);
 	lc->return_mcck_lpswe = gen_lpswe(__LC_RETURN_MCCK_PSW);
 	lc->preempt_count = PREEMPT_DISABLED;
@@ -451,12 +507,25 @@ static void __init setup_lowcore_dat_off(void)
 
 static void __init setup_lowcore_dat_on(void)
 {
+	struct lowcore *abs_lc;
+	unsigned long flags;
+
 	__ctl_clear_bit(0, 28);
 	S390_lowcore.external_new_psw.mask |= PSW_MASK_DAT;
 	S390_lowcore.svc_new_psw.mask |= PSW_MASK_DAT;
 	S390_lowcore.program_new_psw.mask |= PSW_MASK_DAT;
 	S390_lowcore.io_new_psw.mask |= PSW_MASK_DAT;
 	__ctl_set_bit(0, 28);
+	__ctl_store(S390_lowcore.cregs_save_area, 0, 15);
+	if (abs_lowcore_map(0, lowcore_ptr[0], true))
+		panic("Couldn't setup absolute lowcore");
+	abs_lowcore_mapped = true;
+	abs_lc = get_abs_lowcore(&flags);
+	abs_lc->restart_flags = RESTART_FLAG_CTLREGS;
+	abs_lc->program_new_psw = S390_lowcore.program_new_psw;
+	memcpy(abs_lc->cregs_save_area, S390_lowcore.cregs_save_area,
+	       sizeof(abs_lc->cregs_save_area));
+	put_abs_lowcore(abs_lc, flags);
 }
 
 static struct resource code_resource = {
@@ -539,7 +608,8 @@ static void __init setup_resources(void)
 	 * part of the System RAM resource.
 	 */
 	if (crashk_res.end) {
-		memblock_add_node(crashk_res.start, resource_size(&crashk_res), 0);
+		memblock_add_node(crashk_res.start, resource_size(&crashk_res),
+				  0, MEMBLOCK_NONE);
 		memblock_reserve(crashk_res.start, resource_size(&crashk_res));
 		insert_resource(&iomem_resource, &crashk_res);
 	}
@@ -548,7 +618,7 @@ static void __init setup_resources(void)
 
 static void __init setup_memory_end(void)
 {
-	memblock_remove(ident_map_size, ULONG_MAX);
+	memblock_remove(ident_map_size, PHYS_ADDR_MAX - ident_map_size);
 	max_pfn = max_low_pfn = PFN_DOWN(ident_map_size);
 	pr_notice("The maximum memory size is %luMB\n", ident_map_size >> 20);
 }
@@ -580,14 +650,6 @@ static struct notifier_block kdump_mem_nb = {
 #endif
 
 /*
- * Make sure that the area above identity mapping is protected
- */
-static void __init reserve_above_ident_map(void)
-{
-	memblock_reserve(ident_map_size, ULONG_MAX);
-}
-
-/*
  * Reserve memory for kdump kernel to be loaded with kexec
  */
 static void __init reserve_crashkernel(void)
@@ -611,9 +673,9 @@ static void __init reserve_crashkernel(void)
 		return;
 	}
 
-	low = crash_base ?: OLDMEM_BASE;
+	low = crash_base ?: oldmem_data.start;
 	high = low + crash_size;
-	if (low >= OLDMEM_BASE && high <= OLDMEM_BASE + OLDMEM_SIZE) {
+	if (low >= oldmem_data.start && high <= oldmem_data.start + oldmem_data.size) {
 		/* The crashkernel fits into OLDMEM, reuse OLDMEM */
 		crash_base = low;
 	} else {
@@ -643,7 +705,7 @@ static void __init reserve_crashkernel(void)
 		return;
 	}
 
-	if (!OLDMEM_BASE && MACHINE_IS_VM)
+	if (!oldmem_data.start && MACHINE_IS_VM)
 		diag10_range(PFN_DOWN(crash_base), PFN_DOWN(crash_size));
 	crashk_res.start = crash_base;
 	crashk_res.end = crash_base + crash_size - 1;
@@ -662,11 +724,11 @@ static void __init reserve_crashkernel(void)
 static void __init reserve_initrd(void)
 {
 #ifdef CONFIG_BLK_DEV_INITRD
-	if (!INITRD_START || !INITRD_SIZE)
+	if (!initrd_data.start || !initrd_data.size)
 		return;
-	initrd_start = INITRD_START;
-	initrd_end = initrd_start + INITRD_SIZE;
-	memblock_reserve(INITRD_START, INITRD_SIZE);
+	initrd_start = initrd_data.start;
+	initrd_end = initrd_start + initrd_data.size;
+	memblock_reserve(initrd_data.start, initrd_data.size);
 #endif
 }
 
@@ -694,7 +756,7 @@ static void __init free_mem_detect_info(void)
 
 	get_mem_detect_reserved(&start, &size);
 	if (size)
-		memblock_free(start, size);
+		memblock_phys_free(start, size);
 }
 
 static const char * __init get_mem_info_source(void)
@@ -727,7 +789,6 @@ static void __init memblock_add_mem_detect_info(void)
 	}
 	memblock_set_bottom_up(false);
 	memblock_set_node(0, ULONG_MAX, &memblock.memory, 0);
-	memblock_dump_all();
 }
 
 /*
@@ -736,10 +797,10 @@ static void __init memblock_add_mem_detect_info(void)
 static void __init check_initrd(void)
 {
 #ifdef CONFIG_BLK_DEV_INITRD
-	if (INITRD_START && INITRD_SIZE &&
-	    !memblock_is_region_memory(INITRD_START, INITRD_SIZE)) {
+	if (initrd_data.start && initrd_data.size &&
+	    !memblock_is_region_memory(initrd_data.start, initrd_data.size)) {
 		pr_err("The initial RAM disk does not fit into the memory\n");
-		memblock_phys_free(INITRD_START, INITRD_SIZE);
+		memblock_phys_free(initrd_data.start, initrd_data.size);
 		initrd_start = initrd_end = 0;
 	}
 #endif
@@ -750,12 +811,12 @@ static void __init check_initrd(void)
  */
 static void __init reserve_kernel(void)
 {
-	unsigned long start_pfn = PFN_UP(__pa(_end));
-
-	memblock_reserve(0, HEAD_END);
-	memblock_reserve((unsigned long)_stext, PFN_PHYS(start_pfn)
-			 - (unsigned long)_stext);
-	memblock_reserve(__sdma, __edma - __sdma);
+	memblock_reserve(0, STARTUP_NORMAL_OFFSET);
+	memblock_reserve(OLDMEM_BASE, sizeof(unsigned long));
+	memblock_reserve(OLDMEM_SIZE, sizeof(unsigned long));
+	memblock_reserve(__amode31_base, __eamode31 - __samode31);
+	memblock_reserve(__pa(sclp_early_sccb), EXT_SCCB_READ_SCP);
+	memblock_reserve(__pa(_stext), _end - _stext);
 }
 
 static void __init setup_memory(void)
@@ -770,9 +831,47 @@ static void __init setup_memory(void)
 		storage_key_init_range(start, end);
 
 	psw_set_key(PAGE_DEFAULT_KEY);
+}
 
-	/* Only cosmetics */
-	memblock_enforce_memory_limit(memblock_end_of_DRAM());
+static void __init relocate_amode31_section(void)
+{
+	unsigned long amode31_size = __eamode31 - __samode31;
+	long amode31_offset = __amode31_base - __samode31;
+	long *ptr;
+
+	pr_info("Relocating AMODE31 section of size 0x%08lx\n", amode31_size);
+
+	/* Move original AMODE31 section to the new one */
+	memmove((void *)__amode31_base, (void *)__samode31, amode31_size);
+	/* Zero out the old AMODE31 section to catch invalid accesses within it */
+	memset((void *)__samode31, 0, amode31_size);
+
+	/* Update all AMODE31 region references */
+	for (ptr = _start_amode31_refs; ptr != _end_amode31_refs; ptr++)
+		*ptr += amode31_offset;
+}
+
+/* This must be called after AMODE31 relocation */
+static void __init setup_cr(void)
+{
+	union ctlreg2 cr2;
+	union ctlreg5 cr5;
+	union ctlreg15 cr15;
+
+	__ctl_duct[1] = (unsigned long)__ctl_aste;
+	__ctl_duct[2] = (unsigned long)__ctl_aste;
+	__ctl_duct[4] = (unsigned long)__ctl_duald;
+
+	/* Update control registers CR2, CR5 and CR15 */
+	__ctl_store(cr2.val, 2, 2);
+	__ctl_store(cr5.val, 5, 5);
+	__ctl_store(cr15.val, 15, 15);
+	cr2.ducto = (unsigned long)__ctl_duct >> 6;
+	cr5.pasteo = (unsigned long)__ctl_duct >> 6;
+	cr15.lsea = (unsigned long)__ctl_linkage_stack >> 3;
+	__ctl_load(cr2.val, 2, 2);
+	__ctl_load(cr5.val, 5, 5);
+	__ctl_load(cr15.val, 15, 15);
 }
 
 /*
@@ -879,21 +978,7 @@ static int __init setup_hwcaps(void)
 	get_cpu_id(&cpu_id);
 	add_device_randomness(&cpu_id, sizeof(cpu_id));
 	switch (cpu_id.machine) {
-	case 0x2064:
-	case 0x2066:
-	default:	/* Use "z900" as default for 64 bit kernels. */
-		strcpy(elf_platform, "z900");
-		break;
-	case 0x2084:
-	case 0x2086:
-		strcpy(elf_platform, "z990");
-		break;
-	case 0x2094:
-	case 0x2096:
-		strcpy(elf_platform, "z9-109");
-		break;
-	case 0x2097:
-	case 0x2098:
+	default:        /* Use "z10" as default. */
 		strcpy(elf_platform, "z10");
 		break;
 	case 0x2817:
@@ -942,7 +1027,7 @@ static void __init setup_randomness(void)
 
 	if (stsi(vmms, 3, 2, 2) == 0 && vmms->count)
 		add_device_randomness(&vmms->vm, sizeof(vmms->vm[0]) * vmms->count);
-	memblock_free((unsigned long) vmms, PAGE_SIZE);
+	memblock_free(vmms, PAGE_SIZE);
 }
 
 /*
@@ -1060,21 +1145,24 @@ void __init setup_arch(char **cmdline_p)
 	setup_control_program_code();
 
 	/* Do some memory reservations *before* memory is added to memblock */
-	reserve_above_ident_map();
 	reserve_kernel();
 	reserve_initrd();
 	reserve_certificate_list();
 	reserve_mem_detect_info();
+	memblock_set_current_limit(ident_map_size);
 	memblock_allow_resize();
 
 	/* Get information about *all* installed memory */
 	memblock_add_mem_detect_info();
 
 	free_mem_detect_info();
-
-	setup_uv();
 	setup_memory_end();
+	memblock_dump_all();
 	setup_memory();
+
+	relocate_amode31_section();
+	setup_cr();
+	setup_uv();
 	dma_contiguous_reserve(ident_map_size);
 	vmcp_cma_reserve();
 	if (MACHINE_HAS_EDAT2)
@@ -1084,10 +1172,10 @@ void __init setup_arch(char **cmdline_p)
 	reserve_crashkernel();
 #ifdef CONFIG_CRASH_DUMP
 	/*
-	 * Be aware that smp_save_dump_cpus() triggers a system reset.
+	 * Be aware that smp_save_dump_secondary_cpus() triggers a system reset.
 	 * Therefore CPU and device initialization should be done afterwards.
 	 */
-	smp_save_dump_cpus();
+	smp_save_dump_secondary_cpus();
 #endif
 
 	setup_resources();
@@ -1099,16 +1187,22 @@ void __init setup_arch(char **cmdline_p)
 	smp_detect_cpus();
 	topology_init_early();
 
+	if (test_facility(193))
+		static_branch_enable(&cpu_has_bear);
+
 	/*
 	 * Create kernel page tables and switch to virtual addressing.
 	 */
         paging_init();
-
+	memcpy_real_init();
 	/*
 	 * After paging_init created the kernel page table, the new PSWs
 	 * in lowcore can now run with DAT enabled.
 	 */
 	setup_lowcore_dat_on();
+#ifdef CONFIG_CRASH_DUMP
+	smp_save_dump_ipl_cpu();
+#endif
 
         /* Setup default console */
 	conmode_default();

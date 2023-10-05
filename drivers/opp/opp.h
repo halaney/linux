@@ -28,6 +28,27 @@ extern struct mutex opp_table_lock;
 
 extern struct list_head opp_tables, lazy_opp_tables;
 
+/* OPP Config flags */
+#define OPP_CONFIG_CLK			BIT(0)
+#define OPP_CONFIG_REGULATOR		BIT(1)
+#define OPP_CONFIG_REGULATOR_HELPER	BIT(2)
+#define OPP_CONFIG_PROP_NAME		BIT(3)
+#define OPP_CONFIG_SUPPORTED_HW		BIT(4)
+#define OPP_CONFIG_GENPD		BIT(5)
+
+/**
+ * struct opp_config_data - data for set config operations
+ * @opp_table: OPP table
+ * @flags: OPP config flags
+ *
+ * This structure stores the OPP config information for each OPP table
+ * configuration by the callers.
+ */
+struct opp_config_data {
+	struct opp_table *opp_table;
+	unsigned int flags;
+};
+
 /*
  * Internal data structure organization with the OPP layer library is as
  * follows:
@@ -83,7 +104,6 @@ struct dev_pm_opp {
 	unsigned int pstate;
 	unsigned long rate;
 	unsigned int level;
-	enum dev_pm_opp_provider_type provider;
 
 	struct dev_pm_opp_supply *supplies;
 	struct dev_pm_opp_icc_bw *bandwidth;
@@ -231,7 +251,7 @@ struct dev_pm_opp *_opp_allocate(struct opp_table *opp_table);
 void _opp_free(struct dev_pm_opp *opp);
 int _opp_compare_key(struct dev_pm_opp *opp1, struct dev_pm_opp *opp2);
 int _opp_add(struct device *dev, struct dev_pm_opp *new_opp, struct opp_table *opp_table, bool rate_not_available);
-int _opp_add_v1(struct opp_table *opp_table, struct device *dev, struct dev_pm_opp_data *opp, bool dynamic);
+int _opp_add_v1(struct opp_table *opp_table, struct device *dev, unsigned long freq, long u_volt, bool dynamic);
 void _dev_pm_opp_cpumask_remove_table(const struct cpumask *cpumask, int last_cpu);
 struct opp_table *_add_opp_table_indexed(struct device *dev, int index, bool getclk);
 void _put_opp_list_kref(struct opp_table *opp_table);

@@ -46,7 +46,6 @@
 #define MII_MARVELL_MISC_TEST_PAGE	0x06
 #define MII_MARVELL_VCT7_PAGE		0x07
 #define MII_MARVELL_WOL_PAGE		0x11
-#define MII_MARVELL_CTL_PAGE		0x12
 
 #define MII_M1011_IEVENT		0x13
 #define MII_M1011_IEVENT_CLEAR		0x0000
@@ -105,11 +104,6 @@
 #define MII_88E1510_TEMP_SENSOR		0x1b
 #define MII_88E1510_TEMP_SENSOR_MASK	0xff
 
-#define MII_88EA1512_PHY_MSCR_TX_DELAY	0x50
-#define MII_88EA1512_PHY_MSCR_DELAY_MASK	GENMASK(6, 4)
-#define MII_88EA1512_PHY_SET_DISABLE_AUTOREG	0x8140
-#define MII_88EA1512_PHY_DISABLE_AUTOREG_MASK	GENMASK(15, 6)
-
 #define MII_88E1540_COPPER_CTRL3	0x1a
 #define MII_88E1540_COPPER_CTRL3_LINK_DOWN_DELAY_MASK	GENMASK(11, 10)
 #define MII_88E1540_COPPER_CTRL3_LINK_DOWN_DELAY_00MS	0
@@ -161,6 +155,7 @@
 
 #define MII_88E1318S_PHY_WOL_CTRL				0x10
 #define MII_88E1318S_PHY_WOL_CTRL_CLEAR_WOL_STATUS		BIT(12)
+#define MII_88E1318S_PHY_WOL_CTRL_LINK_UP_ENABLE		BIT(13)
 #define MII_88E1318S_PHY_WOL_CTRL_MAGIC_PACKET_MATCH_ENABLE	BIT(14)
 
 #define MII_PHY_LED_CTRL	        16
@@ -183,8 +178,9 @@
 #define MII_88E1510_GEN_CTRL_REG_1		0x14
 #define MII_88E1510_GEN_CTRL_REG_1_MODE_MASK	0x7
 #define MII_88E1510_GEN_CTRL_REG_1_MODE_SGMII	0x1	/* SGMII to copper */
-#define MII_88EA1512_MODE_RGMII_2_SGMII		0x4
 #define MII_88E1510_GEN_CTRL_REG_1_RESET	0x8000	/* Soft reset */
+
+#define MII_88E1510_MSCR_2		0x15
 
 #define MII_VCT5_TX_RX_MDI0_COUPLING	0x10
 #define MII_VCT5_TX_RX_MDI1_COUPLING	0x11
@@ -1204,82 +1200,6 @@ static int m88e1510_config_init(struct phy_device *phydev)
 	return m88e1318_config_init(phydev);
 }
 
-static int m88ea1512_config_rgmii_tx_delays(struct phy_device *phydev)
-{
-	int err = 0;
-
-	/* set reg 21_2.4(TX delay) and 21_2.6(speed 1000M) */
-	err = phy_modify_paged(phydev, MII_MARVELL_MSCR_PAGE,
-			       MII_88E1121_PHY_MSCR_REG,
-			       MII_88EA1512_PHY_MSCR_DELAY_MASK,
-			       MII_88EA1512_PHY_MSCR_TX_DELAY);
-	if (err < 0)
-		return err;
-	/* do soft reset from page 0 after modification */
-	err = marvell_set_page(phydev, MII_MARVELL_COPPER_PAGE);
-	if (err < 0)
-		return err;
-
-	err = genphy_soft_reset(phydev);
-	if (err < 0)
-		return err;
-
-	return 0;
-}
-
-static int m88ea1512_config_init(struct phy_device *phydev)
-{
-	int err = 0;
-
-	/* SGMII-to-Copper mode initialization */
-	if (phydev->interface == PHY_INTERFACE_MODE_SGMII)
-		return m88e1510_config_init(phydev);
-
-	/* RGMII-to-1000BASE-X mode initialization */
-	if (phy_interface_is_rgmii(phydev)) {
-		err = m88ea1512_config_rgmii_tx_delays(phydev);
-		if (err < 0)
-			return err;
-
-		/* Select page 18 */
-		err = marvell_set_page(phydev, MII_MARVELL_CTL_PAGE);
-		if (err < 0)
-			return err;
-
-		/* In reg 20, write MODE[2:0] = 0x4 (RGMII to SGMII) */
-		err = phy_modify(phydev, MII_88E1510_GEN_CTRL_REG_1,
-				 MII_88E1510_GEN_CTRL_REG_1_MODE_MASK,
-				 MII_88EA1512_MODE_RGMII_2_SGMII);
-		if (err < 0)
-			return err;
-
-		/* PHY reset is necessary after changing MODE[2:0] */
-		err = phy_modify(phydev, MII_88E1510_GEN_CTRL_REG_1, 0,
-				 MII_88E1510_GEN_CTRL_REG_1_RESET);
-		if (err < 0)
-			return err;
-
-		/* Reset page selection */
-		err = marvell_set_page(phydev, MII_MARVELL_FIBER_PAGE);
-		if (err < 0)
-			return err;
-
-		/* Set an disable, speed 1000M, duplex full and soft reset */
-		err = phy_modify(phydev, MII_BMCR,
-				 /* GENMASK(15, 6) */
-				 MII_88EA1512_PHY_DISABLE_AUTOREG_MASK,
-				 /* 0x8140 */
-				 MII_88EA1512_PHY_SET_DISABLE_AUTOREG);
-		if (err < 0)
-			return err;
-	}
-
-	err = phy_read(phydev, MII_M1011_PHY_STATUS);
-	pr_info("%s: reg [17_1] value = 0x%x\n", __func__, err);
-
-	return m88e1318_config_init(phydev);
-}
-
 static int m88e1118_config_aneg(struct phy_device *phydev)
 {
 	int err;
@@ -1829,13 +1749,19 @@ static void m88e1318_get_wol(struct phy_device *phydev,
 {
 	int ret;
 
-	wol->supported = WAKE_MAGIC;
+	wol->supported = WAKE_MAGIC | WAKE_PHY;
 	wol->wolopts = 0;
 
 	ret = phy_read_paged(phydev, MII_MARVELL_WOL_PAGE,
 			     MII_88E1318S_PHY_WOL_CTRL);
-	if (ret >= 0 && ret & MII_88E1318S_PHY_WOL_CTRL_MAGIC_PACKET_MATCH_ENABLE)
+	if (ret < 0)
+		return;
+
+	if (ret & MII_88E1318S_PHY_WOL_CTRL_MAGIC_PACKET_MATCH_ENABLE)
 		wol->wolopts |= WAKE_MAGIC;
+
+	if (ret & MII_88E1318S_PHY_WOL_CTRL_LINK_UP_ENABLE)
+		wol->wolopts |= WAKE_PHY;
 }
 
 static int m88e1318_set_wol(struct phy_device *phydev,
@@ -1847,7 +1773,7 @@ static int m88e1318_set_wol(struct phy_device *phydev,
 	if (oldpage < 0)
 		goto error;
 
-	if (wol->wolopts & WAKE_MAGIC) {
+	if (wol->wolopts & (WAKE_MAGIC | WAKE_PHY)) {
 		/* Explicitly switch to page 0x00, just to be sure */
 		err = marvell_write_page(phydev, MII_MARVELL_COPPER_PAGE);
 		if (err < 0)
@@ -1879,7 +1805,9 @@ static int m88e1318_set_wol(struct phy_device *phydev,
 				   MII_88E1318S_PHY_LED_TCR_INT_ACTIVE_LOW);
 		if (err < 0)
 			goto error;
+	}
 
+	if (wol->wolopts & WAKE_MAGIC) {
 		err = marvell_write_page(phydev, MII_MARVELL_WOL_PAGE);
 		if (err < 0)
 			goto error;
@@ -1920,6 +1848,30 @@ static int m88e1318_set_wol(struct phy_device *phydev,
 			goto error;
 	}
 
+	if (wol->wolopts & WAKE_PHY) {
+		err = marvell_write_page(phydev, MII_MARVELL_WOL_PAGE);
+		if (err < 0)
+			goto error;
+
+		/* Clear WOL status and enable link up event */
+		err = __phy_modify(phydev, MII_88E1318S_PHY_WOL_CTRL, 0,
+				   MII_88E1318S_PHY_WOL_CTRL_CLEAR_WOL_STATUS |
+				   MII_88E1318S_PHY_WOL_CTRL_LINK_UP_ENABLE);
+		if (err < 0)
+			goto error;
+	} else {
+		err = marvell_write_page(phydev, MII_MARVELL_WOL_PAGE);
+		if (err < 0)
+			goto error;
+
+		/* Clear WOL status and disable link up event */
+		err = __phy_modify(phydev, MII_88E1318S_PHY_WOL_CTRL,
+				   MII_88E1318S_PHY_WOL_CTRL_LINK_UP_ENABLE,
+				   MII_88E1318S_PHY_WOL_CTRL_CLEAR_WOL_STATUS);
+		if (err < 0)
+			goto error;
+	}
+
 error:
 	return phy_restore_page(phydev, oldpage, err);
 }
@@ -1939,7 +1891,7 @@ static void marvell_get_strings(struct phy_device *phydev, u8 *data)
 	int i;
 
 	for (i = 0; i < count; i++) {
-		strlcpy(data + i * ETH_GSTRING_LEN,
+		strscpy(data + i * ETH_GSTRING_LEN,
 			marvell_hw_stats[i].string, ETH_GSTRING_LEN);
 	}
 }
@@ -1971,6 +1923,60 @@ static void marvell_get_stats(struct phy_device *phydev,
 
 	for (i = 0; i < count; i++)
 		data[i] = marvell_get_stat(phydev, i);
+}
+
+static int m88e1510_loopback(struct phy_device *phydev, bool enable)
+{
+	int err;
+
+	if (enable) {
+		u16 bmcr_ctl = 0, mscr2_ctl = 0;
+
+		if (phydev->speed == SPEED_1000)
+			bmcr_ctl = BMCR_SPEED1000;
+		else if (phydev->speed == SPEED_100)
+			bmcr_ctl = BMCR_SPEED100;
+
+		if (phydev->duplex == DUPLEX_FULL)
+			bmcr_ctl |= BMCR_FULLDPLX;
+
+		err = phy_write(phydev, MII_BMCR, bmcr_ctl);
+		if (err < 0)
+			return err;
+
+		if (phydev->speed == SPEED_1000)
+			mscr2_ctl = BMCR_SPEED1000;
+		else if (phydev->speed == SPEED_100)
+			mscr2_ctl = BMCR_SPEED100;
+
+		err = phy_modify_paged(phydev, MII_MARVELL_MSCR_PAGE,
+				       MII_88E1510_MSCR_2, BMCR_SPEED1000 |
+				       BMCR_SPEED100, mscr2_ctl);
+		if (err < 0)
+			return err;
+
+		/* Need soft reset to have speed configuration takes effect */
+		err = genphy_soft_reset(phydev);
+		if (err < 0)
+			return err;
+
+		err = phy_modify(phydev, MII_BMCR, BMCR_LOOPBACK,
+				 BMCR_LOOPBACK);
+
+		if (!err) {
+			/* It takes some time for PHY device to switch
+			 * into/out-of loopback mode.
+			 */
+			msleep(1000);
+		}
+		return err;
+	} else {
+		err = phy_modify(phydev, MII_BMCR, BMCR_LOOPBACK, 0);
+		if (err < 0)
+			return err;
+
+		return phy_config_aneg(phydev);
+	}
 }
 
 static int marvell_vct5_wait_complete(struct phy_device *phydev)
@@ -3005,7 +3011,7 @@ static struct phy_driver marvell_drivers[] = {
 	},
 	{
 		.phy_id = MARVELL_PHY_ID_88E1510,
-		.phy_id_mask = MARVELL_PHY_ID_MASK_ALL,
+		.phy_id_mask = MARVELL_PHY_ID_MASK,
 		.name = "Marvell 88E1510",
 		.driver_data = DEF_MARVELL_HWMON_OPS(m88e1510_hwmon_ops),
 		.features = PHY_GBIT_FIBRE_FEATURES,
@@ -3025,7 +3031,7 @@ static struct phy_driver marvell_drivers[] = {
 		.get_sset_count = marvell_get_sset_count,
 		.get_strings = marvell_get_strings,
 		.get_stats = marvell_get_stats,
-		.set_loopback = genphy_loopback,
+		.set_loopback = m88e1510_loopback,
 		.get_tunable = m88e1011_get_tunable,
 		.set_tunable = m88e1011_set_tunable,
 		.cable_test_start = marvell_vct7_cable_test_start,
@@ -3225,27 +3231,6 @@ static struct phy_driver marvell_drivers[] = {
 		.get_tunable = m88e1540_get_tunable,
 		.set_tunable = m88e1540_set_tunable,
 	},
-	{
-		.phy_id = MARVELL_PHY_ID_88EA1512,
-		.phy_id_mask = MARVELL_PHY_ID_MASK_ALL,
-		.name = "Marvell 88EA1512",
-		.features = PHY_GBIT_FIBRE_FEATURES,
-		.probe = marvell_probe,
-		.config_init = &m88ea1512_config_init,
-		.config_aneg = &m88e1510_config_aneg,
-		.read_status = &marvell_read_status,
-		.config_intr = &marvell_config_intr,
-		.handle_interrupt = marvell_handle_interrupt,
-		.get_wol = &m88e1318_get_wol,
-		.set_wol = &m88e1318_set_wol,
-		.resume = &genphy_resume,
-		.suspend = &genphy_suspend,
-		.read_page = marvell_read_page,
-		.write_page = marvell_write_page,
-		.get_sset_count = marvell_get_sset_count,
-		.get_strings = marvell_get_strings,
-		.get_stats = marvell_get_stats,
-	},
 };
 
 module_phy_driver(marvell_drivers);
@@ -3262,7 +3247,7 @@ static struct mdio_device_id __maybe_unused marvell_tbl[] = {
 	{ MARVELL_PHY_ID_88E1240, MARVELL_PHY_ID_MASK },
 	{ MARVELL_PHY_ID_88E1318S, MARVELL_PHY_ID_MASK },
 	{ MARVELL_PHY_ID_88E1116R, MARVELL_PHY_ID_MASK },
-	{ MARVELL_PHY_ID_88E1510, MARVELL_PHY_ID_MASK_ALL },
+	{ MARVELL_PHY_ID_88E1510, MARVELL_PHY_ID_MASK },
 	{ MARVELL_PHY_ID_88E1540, MARVELL_PHY_ID_MASK },
 	{ MARVELL_PHY_ID_88E1545, MARVELL_PHY_ID_MASK },
 	{ MARVELL_PHY_ID_88E3016, MARVELL_PHY_ID_MASK },
@@ -3271,7 +3256,6 @@ static struct mdio_device_id __maybe_unused marvell_tbl[] = {
 	{ MARVELL_PHY_ID_88E6393_FAMILY, MARVELL_PHY_ID_MASK },
 	{ MARVELL_PHY_ID_88E1340S, MARVELL_PHY_ID_MASK },
 	{ MARVELL_PHY_ID_88E1548P, MARVELL_PHY_ID_MASK },
-	{ MARVELL_PHY_ID_88EA1512, MARVELL_PHY_ID_MASK_ALL },
 	{ }
 };
 

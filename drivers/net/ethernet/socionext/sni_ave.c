@@ -395,8 +395,8 @@ static void ave_ethtool_get_drvinfo(struct net_device *ndev,
 {
 	struct device *dev = ndev->dev.parent;
 
-	strlcpy(info->driver, dev->driver->name, sizeof(info->driver));
-	strlcpy(info->bus_info, dev_name(dev), sizeof(info->bus_info));
+	strscpy(info->driver, dev->driver->name, sizeof(info->driver));
+	strscpy(info->bus_info, dev_name(dev), sizeof(info->bus_info));
 	ave_hw_read_version(ndev, info->fw_version, sizeof(info->fw_version));
 }
 
@@ -1506,16 +1506,16 @@ static void ave_get_stats64(struct net_device *ndev,
 	unsigned int start;
 
 	do {
-		start = u64_stats_fetch_begin_irq(&priv->stats_rx.syncp);
+		start = u64_stats_fetch_begin(&priv->stats_rx.syncp);
 		stats->rx_packets = priv->stats_rx.packets;
 		stats->rx_bytes	  = priv->stats_rx.bytes;
-	} while (u64_stats_fetch_retry_irq(&priv->stats_rx.syncp, start));
+	} while (u64_stats_fetch_retry(&priv->stats_rx.syncp, start));
 
 	do {
-		start = u64_stats_fetch_begin_irq(&priv->stats_tx.syncp);
+		start = u64_stats_fetch_begin(&priv->stats_tx.syncp);
 		stats->tx_packets = priv->stats_tx.packets;
 		stats->tx_bytes	  = priv->stats_tx.bytes;
-	} while (u64_stats_fetch_retry_irq(&priv->stats_tx.syncp, start));
+	} while (u64_stats_fetch_retry(&priv->stats_tx.syncp, start));
 
 	stats->rx_errors      = priv->stats_rx.errors;
 	stats->tx_errors      = priv->stats_tx.errors;
@@ -1687,10 +1687,8 @@ static int ave_probe(struct platform_device *pdev)
 		 pdev->name, pdev->id);
 
 	/* Register as a NAPI supported driver */
-	netif_napi_add(ndev, &priv->napi_rx, ave_napi_poll_rx,
-		       NAPI_POLL_WEIGHT);
-	netif_tx_napi_add(ndev, &priv->napi_tx, ave_napi_poll_tx,
-			  NAPI_POLL_WEIGHT);
+	netif_napi_add(ndev, &priv->napi_rx, ave_napi_poll_rx);
+	netif_napi_add_tx(ndev, &priv->napi_tx, ave_napi_poll_tx);
 
 	platform_set_drvdata(pdev, ndev);
 

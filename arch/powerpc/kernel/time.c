@@ -55,6 +55,7 @@
 #include <linux/sched/cputime.h>
 #include <linux/sched/clock.h>
 #include <linux/processor.h>
+#include <linux/platform_device.h>
 #include <asm/trace.h>
 
 #include <asm/interrupt.h>
@@ -64,7 +65,6 @@
 #include <asm/machdep.h>
 #include <linux/uaccess.h>
 #include <asm/time.h>
-#include <asm/prom.h>
 #include <asm/irq.h>
 #include <asm/div64.h>
 #include <asm/smp.h>
@@ -739,7 +739,7 @@ static int __init get_freq(char *name, int cells, unsigned long *val)
 
 static void start_cpu_decrementer(void)
 {
-#if defined(CONFIG_BOOKE) || defined(CONFIG_40x)
+#ifdef CONFIG_BOOKE_OR_40x
 	unsigned int tcr;
 
 	/* Clear any pending timer interrupts */

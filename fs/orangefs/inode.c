@@ -325,9 +325,8 @@ static int orangefs_readpage(struct file *file, struct page *page)
 }
 
 static int orangefs_write_begin(struct file *file,
-    struct address_space *mapping,
-    loff_t pos, unsigned len, unsigned flags, struct page **pagep,
-    void **fsdata)
+		struct address_space *mapping, loff_t pos, unsigned len,
+		struct page **pagep, void **fsdata)
 {
 	struct orangefs_write_range *wr;
 	struct page *page;
@@ -336,7 +335,7 @@ static int orangefs_write_begin(struct file *file,
 
 	index = pos >> PAGE_SHIFT;
 
-	page = grab_cache_page_write_begin(mapping, index, flags);
+	page = grab_cache_page_write_begin(mapping, index);
 	if (!page)
 		return -ENOMEM;
 
@@ -633,7 +632,7 @@ static const struct address_space_operations orangefs_address_operations = {
 	.readahead = orangefs_readahead,
 	.readpage = orangefs_readpage,
 	.writepages = orangefs_writepages,
-	.set_page_dirty = __set_page_dirty_nobuffers,
+	.dirty_folio = filemap_dirty_folio,
 	.write_begin = orangefs_write_begin,
 	.write_end = orangefs_write_end,
 	.invalidatepage = orangefs_invalidatepage,

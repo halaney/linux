@@ -570,7 +570,7 @@ int kvmppc_book3s_hv_page_fault(struct kvm_vcpu *vcpu,
 		return -EFAULT;
 
 	/* used to check for invalidations in progress */
-	mmu_seq = kvm->mmu_notifier_seq;
+	mmu_seq = kvm->mmu_invalidate_seq;
 	smp_rmb();
 
 	ret = -EFAULT;
@@ -590,7 +590,7 @@ int kvmppc_book3s_hv_page_fault(struct kvm_vcpu *vcpu,
 		write_ok = true;
 	} else {
 		/* Call KVM generic code to do the slow-path check */
-		pfn = __gfn_to_pfn_memslot(memslot, gfn, false, NULL,
+		pfn = __gfn_to_pfn_memslot(memslot, gfn, false, false, NULL,
 					   writing, &write_ok, NULL);
 		if (is_error_noslot_pfn(pfn))
 			return -EFAULT;
@@ -685,7 +685,7 @@ int kvmppc_book3s_hv_page_fault(struct kvm_vcpu *vcpu,
 
 	/* Check if we might have been invalidated; let the guest retry if so */
 	ret = RESUME_GUEST;
-	if (mmu_notifier_retry(vcpu->kvm, mmu_seq)) {
+	if (mmu_invalidate_retry(vcpu->kvm, mmu_seq)) {
 		unlock_rmap(rmap);
 		goto out_unlock;
 	}

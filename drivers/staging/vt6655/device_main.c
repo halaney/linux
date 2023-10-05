@@ -1398,7 +1398,7 @@ static int vnt_config(struct ieee80211_hw *hw, u32 changed)
 
 static void vnt_bss_info_changed(struct ieee80211_hw *hw,
 				 struct ieee80211_vif *vif,
-				 struct ieee80211_bss_conf *conf, u32 changed)
+				 struct ieee80211_bss_conf *conf, u64 changed)
 {
 	struct vnt_private *priv = hw->priv;
 
@@ -1628,6 +1628,7 @@ static void vnt_reset_tsf(struct ieee80211_hw *hw, struct ieee80211_vif *vif)
 
 static const struct ieee80211_ops vnt_mac_ops = {
 	.tx			= vnt_tx_80211,
+	.wake_tx_queue		= ieee80211_handle_wake_tx_queue,
 	.start			= vnt_start,
 	.stop			= vnt_stop,
 	.add_interface		= vnt_add_interface,

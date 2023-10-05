@@ -9,6 +9,8 @@ TARGETS += core
 TARGETS += cpufreq
 TARGETS += cpu-hotplug
 TARGETS += drivers/dma-buf
+TARGETS += drivers/net/bonding
+TARGETS += drivers/net/team
 TARGETS += efivarfs
 TARGETS += exec
 TARGETS += filesystems
@@ -19,7 +21,9 @@ TARGETS += fpu
 TARGETS += ftrace
 TARGETS += futex
 TARGETS += gpio
+TARGETS += hid
 TARGETS += intel_pstate
+TARGETS += iommu
 TARGETS += ipc
 TARGETS += ir
 TARGETS += kcmp
@@ -39,6 +43,7 @@ TARGETS += mqueue
 TARGETS += nci
 TARGETS += net
 TARGETS += net/forwarding
+TARGETS += net/hsr
 TARGETS += net/mptcp
 TARGETS += netfilter
 TARGETS += nsfs
@@ -63,6 +68,7 @@ TARGETS += sync
 TARGETS += syscall_user_dispatch
 TARGETS += sysctl
 TARGETS += tc-testing
+TARGETS += tdx
 TARGETS += timens
 ifneq (1, $(quicktest))
 TARGETS += timers
@@ -215,6 +221,7 @@ ifdef INSTALL_PATH
 	install -m 744 kselftest/runner.sh $(INSTALL_PATH)/kselftest/
 	install -m 744 kselftest/prefix.pl $(INSTALL_PATH)/kselftest/
 	install -m 744 run_kselftest.sh $(INSTALL_PATH)/
+	install -m 744 prepare_system.sh $(INSTALL_PATH)/
 	rm -f $(TEST_LIST)
 	@ret=1;	\
 	for TARGET in $(TARGETS); do \

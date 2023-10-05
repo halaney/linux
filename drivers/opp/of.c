@@ -1064,16 +1064,13 @@ static int _of_add_opp_table_v1(struct device *dev, struct opp_table *opp_table)
 
 	val = prop->value;
 	while (nr) {
-		struct dev_pm_opp_data opp;
+		unsigned long freq = be32_to_cpup(val++) * 1000;
+		unsigned long volt = be32_to_cpup(val++);
 
-		memset(&opp, 0, sizeof(opp));
-		opp.freq = be32_to_cpup(val++) * 1000;
-		opp.u_volt = be32_to_cpup(val++);
-
-		ret = _opp_add_v1(opp_table, dev, &opp, false);
+		ret = _opp_add_v1(opp_table, dev, freq, volt, false);
 		if (ret) {
 			dev_err(dev, "%s: Failed to add OPP %ld (%d)\n",
-				__func__, opp.freq, ret);
+				__func__, freq, ret);
 			goto remove_static_opp;
 		}
 		nr -= 2;
@@ -1446,12 +1443,12 @@ EXPORT_SYMBOL_GPL(dev_pm_opp_get_of_node);
  * It provides the power used by @dev at @kHz if it is the frequency of an
  * existing OPP, or at the frequency of the first OPP above @kHz otherwise
  * (see dev_pm_opp_find_freq_ceil()). This function updates @kHz to the ceiled
- * frequency and @mW to the associated power.
+ * frequency and @uW to the associated power.
  *
  * Returns 0 on success or a proper -EINVAL value in case of error.
  */
 static int __maybe_unused
-_get_dt_power(unsigned long *mW, unsigned long *kHz, struct device *dev)
+_get_dt_power(struct device *dev, unsigned long *uW, unsigned long *kHz)
 {
 	struct dev_pm_opp *opp;
 	unsigned long opp_freq, opp_power;
@@ -1468,7 +1465,7 @@ _get_dt_power(unsigned long *mW, unsigned long *kHz, struct device *dev)
 		return -EINVAL;
 
 	*kHz = opp_freq / 1000;
-	*mW = opp_power / 1000;
+	*uW = opp_power;
 
 	return 0;
 }
@@ -1478,15 +1475,15 @@ _get_dt_power(unsigned long *mW, unsigned long *kHz, struct device *dev)
  * This computes the power estimated by @dev at @kHz if it is the frequency
  * of an existing OPP, or at the frequency of the first OPP above @kHz otherwise
  * (see dev_pm_opp_find_freq_ceil()). This function updates @kHz to the ceiled
- * frequency and @mW to the associated power. The power is estimated as
+ * frequency and @uW to the associated power. The power is estimated as
  * P = C * V^2 * f with C being the device's capacitance and V and f
  * respectively the voltage and frequency of the OPP.
  *
  * Returns -EINVAL if the power calculation failed because of missing
  * parameters, 0 otherwise.
  */
-static int __maybe_unused _get_power(unsigned long *mW, unsigned long *kHz,
-				     struct device *dev)
+static int __maybe_unused _get_power(struct device *dev, unsigned long *uW,
+				     unsigned long *kHz)
 {
 	struct dev_pm_opp *opp;
 	struct device_node *np;
@@ -1515,9 +1512,10 @@ static int __maybe_unused _get_power(unsigned long *mW, unsigned long *kHz,
 		return -EINVAL;
 
 	tmp = (u64)cap * mV * mV * (Hz / 1000000);
-	do_div(tmp, 1000000000);
+	/* Provide power in micro-Watts */
+	do_div(tmp, 1000000);
 
-	*mW = (unsigned long)tmp;
+	*uW = (unsigned long)tmp;
 	*kHz = Hz / 1000;
 
 	return 0;

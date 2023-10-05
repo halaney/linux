@@ -835,7 +835,7 @@ static void ffs_user_copy_worker(struct work_struct *work)
 		kthread_unuse_mm(io_data->mm);
 	}
 
-	io_data->kiocb->ki_complete(io_data->kiocb, ret, 0);
+	io_data->kiocb->ki_complete(io_data->kiocb, ret);
 
 	if (io_data->ffs->ffs_eventfd && !kiocb_has_eventfd)
 		eventfd_signal(io_data->ffs->ffs_eventfd, 1);
@@ -3700,7 +3700,7 @@ int ffs_name_dev(struct ffs_dev *dev, const char *name)
 
 	existing = _ffs_do_find_dev(name);
 	if (!existing)
-		strlcpy(dev->name, name, ARRAY_SIZE(dev->name));
+		strscpy(dev->name, name, ARRAY_SIZE(dev->name));
 	else if (existing != dev)
 		ret = -EBUSY;
 

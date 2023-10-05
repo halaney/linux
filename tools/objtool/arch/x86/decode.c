@@ -73,6 +73,30 @@ unsigned long arch_jump_destination(struct instruction *insn)
 	return insn->offset + insn->len + insn->immediate;
 }
 
+bool arch_pc_relative_reloc(struct reloc *reloc)
+{
+	/*
+	 * All relocation types where P (the address of the target)
+	 * is included in the computation.
+	 */
+	switch (reloc->type) {
+	case R_X86_64_PC8:
+	case R_X86_64_PC16:
+	case R_X86_64_PC32:
+	case R_X86_64_PC64:
+
+	case R_X86_64_PLT32:
+	case R_X86_64_GOTPC32:
+	case R_X86_64_GOTPCREL:
+		return true;
+
+	default:
+		break;
+	}
+
+	return false;
+}
+
 #define ADD_OP(op) \
 	if (!(op = calloc(1, sizeof(*op)))) \
 		return -1; \
@@ -103,6 +127,18 @@ unsigned long arch_jump_destination(struct instruction *insn)
 #define rm_is_mem(reg)	(mod_is_mem() && !is_RIP() && rm_is(reg))
 #define rm_is_reg(reg)	(mod_is_reg() && modrm_rm == (reg))
 
+static bool has_notrack_prefix(struct insn *insn)
+{
+	int i;
+
+	for (i = 0; i < insn->prefixes.nbytes; i++) {
+		if (insn->prefixes.bytes[i] == 0x3e)
+			return true;
+	}
+
+	return false;
+}
+
 int arch_decode_instruction(struct objtool_file *file, const struct section *sec,
 			    unsigned long offset, unsigned int maxlen,
 			    unsigned int *len, enum insn_type *type,
@@ -112,7 +148,7 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 	const struct elf *elf = file->elf;
 	struct insn insn;
 	int x86_64, ret;
-	unsigned char op1, op2, op3,
+	unsigned char op1, op2, op3, prefix,
 		      rex = 0, rex_b = 0, rex_r = 0, rex_w = 0, rex_x = 0,
 		      modrm = 0, modrm_mod = 0, modrm_rm = 0, modrm_reg = 0,
 		      sib = 0, /* sib_scale = 0, */ sib_index = 0, sib_base = 0;
@@ -136,6 +172,8 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 
 	if (insn.vex_prefix.nbytes)
 		return 0;
+
+	prefix = insn.prefixes.bytes[0];
 
 	op1 = insn.opcode.bytes[0];
 	op2 = insn.opcode.bytes[1];
@@ -492,6 +530,12 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 			/* nopl/nopw */
 			*type = INSN_NOP;
 
+		} else if (op2 == 0x1e) {
+
+			if (prefix == 0xf3 && (modrm == 0xfa || modrm == 0xfb))
+				*type = INSN_ENDBR;
+
+
 		} else if (op2 == 0x38 && op3 == 0xf8) {
 			if (insn.prefixes.nbytes == 1 &&
 			    insn.prefixes.bytes[0] == 0xf2) {
@@ -561,7 +605,7 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 		break;
 
 	case 0xc7: /* mov imm, r/m */
-		if (!noinstr)
+		if (!opts.noinstr)
 			break;
 
 		if (insn.length == 3+4+4 && !strncmp(sec->name, ".init.text", 10)) {
@@ -615,6 +659,12 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 		*type = INSN_CONTEXT_SWITCH;
 		break;
 
+	case 0xe0: /* loopne */
+	case 0xe1: /* loope */
+	case 0xe2: /* loop */
+		*type = INSN_JUMP_CONDITIONAL;
+		break;
+
 	case 0xe8:
 		*type = INSN_CALL;
 		/*
@@ -636,20 +686,24 @@ int arch_decode_instruction(struct objtool_file *file, const struct section *sec
 		break;
 
 	case 0xff:
-		if (modrm_reg == 2 || modrm_reg == 3)
+		if (modrm_reg == 2 || modrm_reg == 3) {
 
 			*type = INSN_CALL_DYNAMIC;
+			if (has_notrack_prefix(&insn))
+				WARN("notrack prefix found at %s:0x%lx", sec->name, offset);
 
-		else if (modrm_reg == 4)
+		} else if (modrm_reg == 4) {
 
 			*type = INSN_JUMP_DYNAMIC;
+			if (has_notrack_prefix(&insn))
+				WARN("notrack prefix found at %s:0x%lx", sec->name, offset);
 
-		else if (modrm_reg == 5)
+		} else if (modrm_reg == 5) {
 
 			/* jmpf */
 			*type = INSN_CONTEXT_SWITCH;
 
-		else if (modrm_reg == 6) {
+		} else if (modrm_reg == 6) {
 
 			/* push from mem */
 			ADD_OP(op) {

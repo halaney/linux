@@ -32,6 +32,7 @@
 #include <linux/bug.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
+#include <linux/context_tracking.h>
 #include <asm/sections.h>
 
 #define PANIC_TIMER_STEP 100
@@ -178,27 +179,11 @@ static void panic_print_sys_info(void)
 void panic(const char *fmt, ...)
 {
 	static char buf[1024];
-	va_list args2;
 	va_list args;
 	long i, i_next = 0, len;
 	int state = 0;
 	int old_cpu, this_cpu;
 	bool _crash_kexec_post_notifiers = crash_kexec_post_notifiers;
-
-	console_verbose();
-	pr_emerg("Kernel panic - not syncing:\n");
-	va_start(args2, fmt);
-	va_copy(args, args2);
-	vprintk(fmt, args2);
-	va_end(args2);
-#ifdef CONFIG_DEBUG_BUGVERBOSE
-	/*
-	 * Avoid nested stack-dumping if a panic occurs during oops processing
-	 */
-	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
-		dump_stack();
-#endif
-	pr_flush(1000, true);
 
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
@@ -230,12 +215,27 @@ void panic(const char *fmt, ...)
 	if (old_cpu != PANIC_CPU_INVALID && old_cpu != this_cpu)
 		panic_smp_self_stop();
 
-	bust_spinlocks(1);
+	console_verbose();
+	va_start(args, fmt);
 	len = vscnprintf(buf, sizeof(buf), fmt, args);
 	va_end(args);
 
 	if (len && buf[len - 1] == '\n')
 		buf[len - 1] = '\0';
+
+	pr_emerg("Kernel panic - not syncing: %s\n", buf);
+#ifdef CONFIG_DEBUG_BUGVERBOSE
+	/*
+	 * Avoid nested stack-dumping if a panic occurs during oops processing
+	 */
+	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
+		dump_stack();
+#endif
+
+	/* If atomic consoles are available, flush the kernel log. */
+	console_flush_on_panic(CONSOLE_ATOMIC_FLUSH_PENDING);
+
+	bust_spinlocks(1);
 
 	/*
 	 * If kgdb is enabled, give it a chance to run before we stop all
@@ -260,6 +260,7 @@ void panic(const char *fmt, ...)
 		 * unfortunately means it may not be hardened to work in a
 		 * panic situation.
 		 */
+		try_block_console_kthreads(10000);
 		smp_send_stop();
 	} else {
 		/*
@@ -267,6 +268,7 @@ void panic(const char *fmt, ...)
 		 * kmsg_dump, we will need architecture dependent extra
 		 * works in addition to stopping other CPUs.
 		 */
+		try_block_console_kthreads(10000);
 		crash_smp_send_stop();
 	}
 
@@ -389,7 +391,7 @@ const struct taint_flag taint_flags[TAINT_FLAGS_COUNT] = {
 	[ TAINT_LIVEPATCH ]		= { 'K', ' ', true },
 	[ TAINT_AUX ]			= { 'X', ' ', true },
 	[ TAINT_RANDSTRUCT ]		= { 'T', ' ', true },
-	[ TAINT_18 ]			= { '?', '-', false },
+	[ TAINT_TEST ]			= { 'N', ' ', true },
 	[ TAINT_19 ]			= { '?', '-', false },
 	[ TAINT_20 ]			= { '?', '-', false },
 	[ TAINT_21 ]			= { '?', '-', false },
@@ -397,7 +399,7 @@ const struct taint_flag taint_flags[TAINT_FLAGS_COUNT] = {
 	[ TAINT_23 ]			= { '?', '-', false },
 	[ TAINT_24 ]			= { '?', '-', false },
 	[ TAINT_25 ]			= { '?', '-', false },
-	[ TAINT_26 ]			= { '?', '-', false },
+	[ TAINT_PARTNER_SUPPORTED ]	= { 'p', ' ', false },
 	[ TAINT_SUPPORT_REMOVED ]	= { 'h', ' ', false },
 	[ TAINT_RESERVED28 ]		= { '?', '-', false },
 	[ TAINT_RESERVED29 ]		= { '?', '-', false },
@@ -559,11 +561,9 @@ static u64 oops_id;
 
 static int init_oops_id(void)
 {
-#ifndef CONFIG_PREEMPT_RT
 	if (!oops_id)
 		get_random_bytes(&oops_id, sizeof(oops_id));
 	else
-#endif
 		oops_id++;
 
 	return 0;
@@ -574,7 +574,6 @@ static void print_oops_end_marker(void)
 {
 	init_oops_id();
 	pr_warn("---[ end trace %016llx ]---\n", (unsigned long long)oops_id);
-	pr_flush(1000, true);
 }
 
 /*
@@ -597,6 +596,8 @@ void __warn(const char *file, int line, void *caller, unsigned taint,
 	    struct pt_regs *regs, struct warn_args *args)
 {
 	disable_trace_on_warning();
+
+	printk_prefer_direct_enter();
 
 	if (file)
 		pr_warn("WARNING: CPU: %d PID: %d at %s:%d %pS\n",
@@ -634,12 +635,15 @@ void __warn(const char *file, int line, void *caller, unsigned taint,
 
 	/* Just a warning, don't kill lockdep. */
 	add_taint(taint, LOCKDEP_STILL_OK);
+
+	printk_prefer_direct_exit();
 }
 
 #ifndef __WARN_FLAGS
 void warn_slowpath_fmt(const char *file, int line, unsigned taint,
 		       const char *fmt, ...)
 {
+	bool rcu = warn_rcu_enter();
 	struct warn_args args;
 
 	pr_warn(CUT_HERE);
@@ -654,11 +658,13 @@ void warn_slowpath_fmt(const char *file, int line, unsigned taint,
 	va_start(args.args, fmt);
 	__warn(file, line, __builtin_return_address(0), taint, NULL, &args);
 	va_end(args.args);
+	warn_rcu_exit(rcu);
 }
 EXPORT_SYMBOL(warn_slowpath_fmt);
 #else
 void __warn_printk(const char *fmt, ...)
 {
+	bool rcu = warn_rcu_enter();
 	va_list args;
 
 	pr_warn(CUT_HERE);
@@ -666,6 +672,7 @@ void __warn_printk(const char *fmt, ...)
 	va_start(args, fmt);
 	vprintk(fmt, args);
 	va_end(args);
+	warn_rcu_exit(rcu);
 }
 EXPORT_SYMBOL(__warn_printk);
 #endif

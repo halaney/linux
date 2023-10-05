@@ -82,7 +82,7 @@ static ssize_t nfs_netns_identifier_show(struct kobject *kobj,
 	ssize_t ret;
 
 	rcu_read_lock();
-	ret = scnprintf(buf, PAGE_SIZE, "%s\n", rcu_dereference(c->identifier));
+	ret = sysfs_emit(buf, "%s\n", rcu_dereference(c->identifier));
 	rcu_read_unlock();
 	return ret;
 }
@@ -142,10 +142,11 @@ static struct attribute *nfs_netns_client_attrs[] = {
 	&nfs_netns_client_id.attr,
 	NULL,
 };
+ATTRIBUTE_GROUPS(nfs_netns_client);
 
 static struct kobj_type nfs_netns_client_type = {
 	.release = nfs_netns_client_release,
-	.default_attrs = nfs_netns_client_attrs,
+	.default_groups = nfs_netns_client_groups,
 	.sysfs_ops = &kobj_sysfs_ops,
 	.namespace = nfs_netns_client_namespace,
 };

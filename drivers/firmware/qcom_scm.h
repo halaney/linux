@@ -4,6 +4,8 @@
 #ifndef __QCOM_SCM_INT_H
 #define __QCOM_SCM_INT_H
 
+#include <linux/firmware/qcom/qcom_scm.h>
+
 enum qcom_scm_convention {
 	SMC_CONVENTION_UNKNOWN,
 	SMC_CONVENTION_LEGACY,
@@ -12,9 +14,6 @@ enum qcom_scm_convention {
 };
 
 extern enum qcom_scm_convention qcom_scm_convention;
-
-#define MAX_QCOM_SCM_ARGS 10
-#define MAX_QCOM_SCM_RETS 3
 
 enum qcom_scm_arg_types {
 	QCOM_SCM_VAL,
@@ -38,27 +37,8 @@ enum qcom_scm_arg_types {
 
 #define QCOM_SCM_ARGS(...) QCOM_SCM_ARGS_IMPL(__VA_ARGS__, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-
-/**
- * struct qcom_scm_desc
- * @arginfo:	Metadata describing the arguments in args[]
- * @args:	The array of arguments for the secure syscall
- */
-struct qcom_scm_desc {
-	u32 svc;
-	u32 cmd;
-	u32 arginfo;
-	u64 args[MAX_QCOM_SCM_ARGS];
-	u32 owner;
-};
-
-/**
- * struct qcom_scm_res
- * @result:	The values returned by the secure syscall
- */
-struct qcom_scm_res {
-	u64 result[MAX_QCOM_SCM_RETS];
-};
+int qcom_scm_wait_for_wq_completion(u32 wq_ctx);
+int scm_get_wq_ctx(u32 *wq_ctx, u32 *flags, u32 *more_pending);
 
 #define SCM_SMC_FNID(s, c)	((((s) & 0xFF) << 8) | ((c) & 0xFF))
 extern int __scm_smc_call(struct device *dev, const struct qcom_scm_desc *desc,
@@ -74,56 +54,6 @@ extern int scm_legacy_call_atomic(struct device *dev,
 extern int scm_legacy_call(struct device *dev, const struct qcom_scm_desc *desc,
 			   struct qcom_scm_res *res);
 
-#define QCOM_SCM_SVC_BOOT		0x01
-#define QCOM_SCM_BOOT_SET_ADDR		0x01
-#define QCOM_SCM_BOOT_TERMINATE_PC	0x02
-#define QCOM_SCM_BOOT_SET_DLOAD_MODE	0x10
-#define QCOM_SCM_BOOT_SET_REMOTE_STATE	0x0a
-#define QCOM_SCM_FLUSH_FLAG_MASK	0x3
-
-#define QCOM_SCM_SVC_PIL		0x02
-#define QCOM_SCM_PIL_PAS_INIT_IMAGE	0x01
-#define QCOM_SCM_PIL_PAS_MEM_SETUP	0x02
-#define QCOM_SCM_PIL_PAS_AUTH_AND_RESET	0x05
-#define QCOM_SCM_PIL_PAS_SHUTDOWN	0x06
-#define QCOM_SCM_PIL_PAS_IS_SUPPORTED	0x07
-#define QCOM_SCM_PIL_PAS_MSS_RESET	0x0a
-
-#define QCOM_SCM_SVC_IO			0x05
-#define QCOM_SCM_IO_READ		0x01
-#define QCOM_SCM_IO_WRITE		0x02
-
-#define QCOM_SCM_SVC_INFO		0x06
-#define QCOM_SCM_INFO_IS_CALL_AVAIL	0x01
-
-#define QCOM_SCM_SVC_MP				0x0c
-#define QCOM_SCM_MP_RESTORE_SEC_CFG		0x02
-#define QCOM_SCM_MP_IOMMU_SECURE_PTBL_SIZE	0x03
-#define QCOM_SCM_MP_IOMMU_SECURE_PTBL_INIT	0x04
-#define QCOM_SCM_MP_VIDEO_VAR			0x08
-#define QCOM_SCM_MP_ASSIGN			0x16
-#define QCOM_SCM_MEMP_SHM_BRIDGE_ENABLE 	0x1c
-#define QCOM_SCM_MEMP_SHM_BRIDGE_DELETE 	0x1d
-#define QCOM_SCM_MP_CP_SMMU_APERTURE_ID		0x1b
-
-#define QCOM_SCM_CP_APERTURE_REG	0x0
-#define QCOM_SCM_SVC_OCMEM		0x0f
-#define QCOM_SCM_OCMEM_LOCK_CMD		0x01
-#define QCOM_SCM_OCMEM_UNLOCK_CMD	0x02
-
-#define QCOM_SCM_SVC_ES			0x10	/* Enterprise Security */
-#define QCOM_SCM_ES_INVALIDATE_ICE_KEY	0x03
-#define QCOM_SCM_ES_CONFIG_SET_ICE_KEY	0x04
-
-#define QCOM_SCM_SVC_HDCP		0x11
-#define QCOM_SCM_HDCP_INVOKE		0x01
-
-#define QCOM_SCM_SVC_SMMU_PROGRAM		0x15
-#define QCOM_SCM_SMMU_CONFIG_ERRATA1		0x03
-#define QCOM_SCM_SMMU_CONFIG_ERRATA1_CLIENT_ALL	0x02
-
-extern void __qcom_scm_init(void);
-
 /* common error codes */
 #define QCOM_SCM_V2_EBUSY	-12
 #define QCOM_SCM_ENOMEM		-5
@@ -132,6 +62,7 @@ extern void __qcom_scm_init(void);
 #define QCOM_SCM_EINVAL_ARG	-2
 #define QCOM_SCM_ERROR		-1
 #define QCOM_SCM_INTERRUPTED	1
+#define QCOM_SCM_WAITQ_SLEEP	2
 
 static inline int qcom_scm_remap_error(int err)
 {

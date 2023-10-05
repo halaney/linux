@@ -9,6 +9,7 @@
 *******************************************************************************/
 
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/module.h>
 #include <linux/io.h>
 #include <linux/of.h>
@@ -213,13 +214,12 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
 
 		queue++;
 	}
-#ifndef CONFIG_DWMAC_QCOM_ETHQOS
 	if (queue != plat->rx_queues_to_use) {
 		ret = -EINVAL;
 		dev_err(&pdev->dev, "Not all RX queues were configured\n");
 		goto out;
 	}
-#endif
+
 	/* Processing TX queues common config */
 	if (of_property_read_u32(tx_node, "snps,tx-queues-to-use",
 				 &plat->tx_queues_to_use))
@@ -278,7 +278,6 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
 
 		queue++;
 	}
-#ifndef CONFIG_DWMAC_QCOM_ETHQOS
 	if (queue != plat->tx_queues_to_use) {
 		ret = -EINVAL;
 		dev_err(&pdev->dev, "Not all TX queues were configured\n");
@@ -286,7 +285,6 @@ static int stmmac_mtl_setup(struct platform_device *pdev,
 	}
 
 out:
-#endif
 	of_node_put(rx_node);
 	of_node_put(tx_node);
 	of_node_put(q_node);
@@ -433,8 +431,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 	plat->phylink_node = np;
 
 	/* Get max speed of operation from device tree */
-	if (of_property_read_u32(np, "max-speed", &plat->max_speed))
-		plat->max_speed = -1;
+	of_property_read_u32(np, "max-speed", &plat->max_speed);
 
 	plat->bus_id = of_alias_get_id(np, "ethernet");
 	if (plat->bus_id < 0)
@@ -442,9 +439,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 
 	/* Default to phy auto-detection */
 	plat->phy_addr = -1;
-
-	/* Flag for mac2mac feature support*/
-	plat->mac2mac_en = of_property_read_bool(np, "mac2mac");
 
 	/* Default to get clk_csr from stmmac_clk_crs_set(),
 	 * or get clk_csr from device tree.
@@ -459,11 +453,9 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 		dev_warn(&pdev->dev, "snps,phy-addr property is deprecated\n");
 
 	/* To Configure PHY by using all device-tree supported properties */
-	if (!plat->mac2mac_en) {
-		rc = stmmac_dt_phy(plat, np, &pdev->dev);
-		if (rc)
-			return ERR_PTR(rc);
-	}
+	rc = stmmac_dt_phy(plat, np, &pdev->dev);
+	if (rc)
+		return ERR_PTR(rc);
 
 	of_property_read_u32(np, "tx-fifo-depth", &plat->tx_fifo_size);
 
@@ -512,6 +504,14 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 		plat->multicast_filter_bins = dwmac1000_validate_mcast_bins(
 				&pdev->dev, plat->multicast_filter_bins);
 		plat->has_gmac = 1;
+		plat->pmt = 1;
+	}
+
+	if (of_device_is_compatible(np, "snps,dwmac-3.40a")) {
+		plat->has_gmac = 1;
+		plat->enh_desc = 1;
+		plat->tx_coe = 1;
+		plat->bugged_jumbo = 1;
 		plat->pmt = 1;
 	}
 
@@ -602,16 +602,6 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 		plat->clk_ptp_rate = clk_get_rate(plat->clk_ptp_ref);
 		dev_dbg(&pdev->dev, "PTP rate %d\n", plat->clk_ptp_rate);
 	}
-
-	if (of_property_read_u32(np,
-				 "snps,ptp-ref-clk-rate",
-				 &plat->clk_ptp_rate))
-		plat->clk_ptp_rate = 250000000;
-
-	if (of_property_read_u32(np,
-				 "snps,ptp-req-clk-rate",
-				 &plat->clk_ptp_req_rate))
-		plat->clk_ptp_req_rate = 96000000;
 
 	plat->stmmac_rst = devm_reset_control_get_optional(&pdev->dev,
 							   STMMAC_RESOURCE_NAME);
@@ -789,9 +779,58 @@ static int __maybe_unused stmmac_runtime_resume(struct device *dev)
 	return stmmac_bus_clks_config(priv, true);
 }
 
+static int __maybe_unused stmmac_pltfr_noirq_suspend(struct device *dev)
+{
+	struct net_device *ndev = dev_get_drvdata(dev);
+	struct stmmac_priv *priv = netdev_priv(ndev);
+	int ret;
+
+	if (!netif_running(ndev))
+		return 0;
+
+	if (!device_may_wakeup(priv->device) || !priv->plat->pmt) {
+		/* Disable clock in case of PWM is off */
+		clk_disable_unprepare(priv->plat->clk_ptp_ref);
+
+		ret = pm_runtime_force_suspend(dev);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int __maybe_unused stmmac_pltfr_noirq_resume(struct device *dev)
+{
+	struct net_device *ndev = dev_get_drvdata(dev);
+	struct stmmac_priv *priv = netdev_priv(ndev);
+	int ret;
+
+	if (!netif_running(ndev))
+		return 0;
+
+	if (!device_may_wakeup(priv->device) || !priv->plat->pmt) {
+		/* enable the clk previously disabled */
+		ret = pm_runtime_force_resume(dev);
+		if (ret)
+			return ret;
+
+		ret = clk_prepare_enable(priv->plat->clk_ptp_ref);
+		if (ret < 0) {
+			netdev_warn(priv->dev,
+				    "failed to enable PTP reference clock: %pe\n",
+				    ERR_PTR(ret));
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
 const struct dev_pm_ops stmmac_pltfr_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(stmmac_pltfr_suspend, stmmac_pltfr_resume)
 	SET_RUNTIME_PM_OPS(stmmac_runtime_suspend, stmmac_runtime_resume, NULL)
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(stmmac_pltfr_noirq_suspend, stmmac_pltfr_noirq_resume)
 };
 EXPORT_SYMBOL_GPL(stmmac_pltfr_pm_ops);
 

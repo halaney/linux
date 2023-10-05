@@ -68,7 +68,7 @@ DECLARE_EVENT_CLASS(writeback_folio_template,
 		strscpy_pad(__entry->name,
 			    bdi_dev_name(mapping ? inode_to_bdi(mapping->host) :
 					 NULL), 32);
-		__entry->ino = mapping ? mapping->host->i_ino : 0;
+		__entry->ino = (mapping && mapping->host) ? mapping->host->i_ino : 0;
 		__entry->index = folio->index;
 	),
 
@@ -757,13 +757,6 @@ DECLARE_EVENT_CLASS(writeback_congest_waited_template,
 );
 
 DEFINE_EVENT(writeback_congest_waited_template, writeback_congestion_wait,
-
-	TP_PROTO(unsigned int usec_timeout, unsigned int usec_delayed),
-
-	TP_ARGS(usec_timeout, usec_delayed)
-);
-
-DEFINE_EVENT(writeback_congest_waited_template, writeback_wait_iff_congested,
 
 	TP_PROTO(unsigned int usec_timeout, unsigned int usec_delayed),
 

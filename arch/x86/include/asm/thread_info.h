@@ -57,8 +57,11 @@ struct thread_info {
 	unsigned long		flags;		/* low level flags */
 	unsigned long		syscall_work;	/* SYSCALL_WORK_ flags */
 	u32			status;		/* thread synchronous flags */
+#ifdef CONFIG_SMP
+	u32			cpu;		/* current CPU */
+#endif
 	int			preempt_lazy_count;	/* 0 => lazy preemptable
-							   <0 => BUG */
+							  <0 => BUG */
 };
 
 #define INIT_THREAD_INFO(tsk)			\

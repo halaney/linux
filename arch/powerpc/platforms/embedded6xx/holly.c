@@ -22,12 +22,13 @@
 #include <linux/serial.h>
 #include <linux/tty.h>
 #include <linux/serial_core.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 #include <linux/of_platform.h>
 #include <linux/extable.h>
 
 #include <asm/time.h>
 #include <asm/machdep.h>
-#include <asm/prom.h>
 #include <asm/udbg.h>
 #include <asm/tsi108.h>
 #include <asm/pci-bridge.h>
@@ -251,7 +252,7 @@ static int ppc750_machine_check_exception(struct pt_regs *regs)
 	/* Are we prepared to handle this fault */
 	if ((entry = search_exception_tables(regs->nip)) != NULL) {
 		tsi108_clear_pci_cfg_error();
-		regs_set_return_msr(regs, regs->msr | MSR_RI);
+		regs_set_recoverable(regs);
 		regs_set_return_ip(regs, extable_fixup(entry));
 		return 1;
 	}

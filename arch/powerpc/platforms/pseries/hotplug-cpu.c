@@ -70,6 +70,7 @@ static void pseries_cpu_offline_self(void)
 		xics_teardown_cpu();
 
 	unregister_slb_shadow(hwcpu);
+	unregister_vpa(hwcpu);
 	rtas_stop_self();
 
 	/* Should never get here... */
@@ -403,7 +404,7 @@ static int dlpar_online_cpu(struct device_node *dn)
 			if (get_hard_smp_processor_id(cpu) != thread)
 				continue;
 			cpu_maps_update_done();
-			find_and_online_cpu_nid(cpu);
+			find_and_update_cpu_nid(cpu);
 			rc = device_online(get_cpu_device(cpu));
 			if (rc) {
 				dlpar_offline_cpu(dn);

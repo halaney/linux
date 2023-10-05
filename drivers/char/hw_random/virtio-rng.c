@@ -107,7 +107,6 @@ static int probe_common(struct virtio_device *vdev)
 		.cleanup = virtio_cleanup,
 		.priv = (unsigned long)vi,
 		.name = vi->name,
-		.quality = 1000,
 	};
 	vdev->priv = vi;
 
@@ -134,7 +133,7 @@ static void remove_common(struct virtio_device *vdev)
 	vi->hwrng_removed = true;
 	vi->data_avail = 0;
 	complete(&vi->have_data);
-	vdev->config->reset(vdev);
+	virtio_reset_device(vdev);
 	vi->busy = false;
 	if (vi->hwrng_register_done)
 		hwrng_unregister(&vi->hwrng);

@@ -34,9 +34,9 @@ static int hfs_writepage(struct page *page, struct writeback_control *wbc)
 	return block_write_full_page(page, hfs_get_block, wbc);
 }
 
-static int hfs_readpage(struct file *file, struct page *page)
+static int hfs_read_folio(struct file *file, struct folio *folio)
 {
-	return block_read_full_page(page, hfs_get_block);
+	return block_read_full_folio(folio, hfs_get_block);
 }
 
 static void hfs_write_failed(struct address_space *mapping, loff_t to)
@@ -50,13 +50,13 @@ static void hfs_write_failed(struct address_space *mapping, loff_t to)
 }
 
 static int hfs_write_begin(struct file *file, struct address_space *mapping,
-			loff_t pos, unsigned len, unsigned flags,
+			loff_t pos, unsigned len,
 			struct page **pagep, void **fsdata)
 {
 	int ret;
 
 	*pagep = NULL;
-	ret = cont_write_begin(file, mapping, pos, len, flags, pagep, fsdata,
+	ret = cont_write_begin(file, mapping, pos, len, pagep, fsdata,
 				hfs_get_block,
 				&HFS_I(mapping->host)->phys_size);
 	if (unlikely(ret))
@@ -159,8 +159,9 @@ static int hfs_writepages(struct address_space *mapping,
 }
 
 const struct address_space_operations hfs_btree_aops = {
-	.set_page_dirty	= __set_page_dirty_buffers,
-	.readpage	= hfs_readpage,
+	.dirty_folio	= block_dirty_folio,
+	.invalidate_folio = block_invalidate_folio,
+	.read_folio	= hfs_read_folio,
 	.writepage	= hfs_writepage,
 	.write_begin	= hfs_write_begin,
 	.write_end	= generic_write_end,
@@ -169,8 +170,9 @@ const struct address_space_operations hfs_btree_aops = {
 };
 
 const struct address_space_operations hfs_aops = {
-	.set_page_dirty	= __set_page_dirty_buffers,
-	.readpage	= hfs_readpage,
+	.dirty_folio	= block_dirty_folio,
+	.invalidate_folio = block_invalidate_folio,
+	.read_folio	= hfs_read_folio,
 	.writepage	= hfs_writepage,
 	.write_begin	= hfs_write_begin,
 	.write_end	= generic_write_end,

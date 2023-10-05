@@ -18,7 +18,7 @@
 
 struct acpi_dmar_header;
 
-#define	DMAR_UNITS_SUPPORTED	CONFIG_DMAR_UNITS_SUPPORTED
+#define DMAR_UNITS_SUPPORTED	1024
 
 /* DMAR Flags */
 #define DMAR_INTR_REMAP		0x1
@@ -39,6 +39,7 @@ struct dmar_drhd_unit {
 	struct list_head list;		/* list of drhd units	*/
 	struct  acpi_dmar_header *hdr;	/* ACPI header		*/
 	u64	reg_base_addr;		/* register base address*/
+	unsigned long reg_size;		/* size of register set */
 	struct	dmar_dev_scope *devices;/* target device array	*/
 	int	devices_cnt;		/* target device count	*/
 	u16	segment;		/* PCI domain		*/
@@ -117,7 +118,7 @@ extern int dmar_remove_dev_scope(struct dmar_pci_notify_info *info,
 				 u16 segment, struct dmar_dev_scope *devices,
 				 int count);
 /* Intel IOMMU detection */
-extern int detect_intel_iommu(void);
+void detect_intel_iommu(void);
 extern int enable_drhd_fault_handling(void);
 extern int dmar_device_add(acpi_handle handle);
 extern int dmar_device_remove(acpi_handle handle);
@@ -191,6 +192,10 @@ static inline int dmar_device_remove(void *handle)
 static inline bool dmar_platform_optin(void)
 {
 	return false;
+}
+
+static inline void detect_intel_iommu(void)
+{
 }
 
 #endif /* CONFIG_DMAR_TABLE */

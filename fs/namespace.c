@@ -36,7 +36,7 @@
 #include "internal.h"
 
 /* Maximum number of mounts in a mount namespace */
-unsigned int sysctl_mount_max __read_mostly = 100000;
+static unsigned int sysctl_mount_max __read_mostly = 100000;
 
 static unsigned int m_hash_mask __read_mostly;
 static unsigned int m_hash_shift __read_mostly;
@@ -343,24 +343,8 @@ int __mnt_want_write(struct vfsmount *m)
 	 * incremented count after it has set MNT_WRITE_HOLD.
 	 */
 	smp_mb();
-	might_lock(&mount_lock.lock);
-	while (READ_ONCE(mnt->mnt.mnt_flags) & MNT_WRITE_HOLD) {
-		if (!IS_ENABLED(CONFIG_PREEMPT_RT)) {
-			cpu_relax();
-		} else {
-			/*
-			 * This prevents priority inversion, if the task
-			 * setting MNT_WRITE_HOLD got preempted on a remote
-			 * CPU, and it prevents life lock if the task setting
-			 * MNT_WRITE_HOLD has a lower priority and is bound to
-			 * the same CPU as the task that is spinning here.
-			 */
-			preempt_enable();
-			lock_mount_hash();
-			unlock_mount_hash();
-			preempt_disable();
-		}
-	}
+	while (READ_ONCE(mnt->mnt.mnt_flags) & MNT_WRITE_HOLD)
+		cpu_relax();
 	/*
 	 * After the slowpath clears MNT_WRITE_HOLD, mnt_is_readonly will
 	 * be set to match its requirements. So we must not load that until
@@ -3877,7 +3861,7 @@ static int can_idmap_mount(const struct mount_kattr *kattr, struct mount *mnt)
 	 * mapping. It makes things simpler and callers can just create
 	 * another bind-mount they can idmap if they want to.
 	 */
-	if (mnt_user_ns(m) != &init_user_ns)
+	if (is_idmapped_mnt(m))
 		return -EPERM;
 
 	/* The underlying filesystem doesn't support idmapped mounts yet. */
@@ -3896,12 +3880,24 @@ static int can_idmap_mount(const struct mount_kattr *kattr, struct mount *mnt)
 	if (!is_anon_ns(mnt->mnt_ns))
 		return -EINVAL;
 
-	/*
-	 * So far, there are serious concerns about the safety of idmaps.
-	 * This mechanism requires further upstream review.
-	 */
-	pr_warn_once("VFS: idmapped mount is not enabled.\n");
-	return -EPERM;
+	return 0;
+}
+
+/**
+ * mnt_allow_writers() - check whether the attribute change allows writers
+ * @kattr: the new mount attributes
+ * @mnt: the mount to which @kattr will be applied
+ *
+ * Check whether thew new mount attributes in @kattr allow concurrent writers.
+ *
+ * Return: true if writers need to be held, false if not
+ */
+static inline bool mnt_allow_writers(const struct mount_kattr *kattr,
+                                     const struct mount *mnt)
+{
+        return (!(kattr->attr_set & MNT_READONLY) ||
+                (mnt->mnt.mnt_flags & MNT_READONLY)) &&
+               !kattr->mnt_userns;
 }
 
 static struct mount *mount_setattr_prepare(struct mount_kattr *kattr,
@@ -3934,8 +3930,7 @@ static struct mount *mount_setattr_prepare(struct mount_kattr *kattr,
 
 		last = m;
 
-		if ((kattr->attr_set & MNT_READONLY) &&
-		    !(m->mnt.mnt_flags & MNT_READONLY)) {
+		if (!mnt_allow_writers(kattr, m)) {
 			*err = mnt_hold_writers(m);
 			if (*err)
 				goto out;
@@ -3973,13 +3968,8 @@ static void mount_setattr_commit(struct mount_kattr *kattr,
 			WRITE_ONCE(m->mnt.mnt_flags, flags);
 		}
 
-		/*
-		 * We either set MNT_READONLY above so make it visible
-		 * before ~MNT_WRITE_HOLD or we failed to recursively
-		 * apply mount options.
-		 */
-		if ((kattr->attr_set & MNT_READONLY) &&
-		    (m->mnt.mnt_flags & MNT_WRITE_HOLD))
+		/* If we had to hold writers unblock them. */
+		if (m->mnt.mnt_flags & MNT_WRITE_HOLD)
 			mnt_unhold_writers(m);
 
 		if (!err && kattr->propagation)
@@ -4089,6 +4079,13 @@ static int build_mount_idmapped(const struct mount_attr *attr, size_t usize,
 		err = -EPERM;
 		goto out_fput;
 	}
+
+	/* We're not controlling the target namespace. */
+	if (!ns_capable(mnt_userns, CAP_SYS_ADMIN)) {
+		err = -EPERM;
+		goto out_fput;
+	}
+
 	kattr->mnt_userns = get_user_ns(mnt_userns);
 
 out_fput:
@@ -4209,12 +4206,11 @@ SYSCALL_DEFINE5(mount_setattr, int, dfd, const char __user *, path,
 		return err;
 
 	err = user_path_at(dfd, path, kattr.lookup_flags, &target);
-	if (err)
-		return err;
-
-	err = do_mount_setattr(&target, &kattr);
+	if (!err) {
+		err = do_mount_setattr(&target, &kattr);
+		path_put(&target);
+	}
 	finish_mount_kattr(&kattr);
-	path_put(&target);
 	return err;
 }
 
@@ -4542,3 +4538,25 @@ const struct proc_ns_operations mntns_operations = {
 	.install	= mntns_install,
 	.owner		= mntns_owner,
 };
+
+#ifdef CONFIG_SYSCTL
+static struct ctl_table fs_namespace_sysctls[] = {
+	{
+		.procname	= "mount-max",
+		.data		= &sysctl_mount_max,
+		.maxlen		= sizeof(unsigned int),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ONE,
+	},
+	{ }
+};
+
+static int __init init_fs_namespace_sysctls(void)
+{
+	register_sysctl_init("fs", fs_namespace_sysctls);
+	return 0;
+}
+fs_initcall(init_fs_namespace_sysctls);
+
+#endif /* CONFIG_SYSCTL */

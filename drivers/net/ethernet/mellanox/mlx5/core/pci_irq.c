@@ -4,6 +4,7 @@
 #include <linux/interrupt.h>
 #include <linux/notifier.h>
 #include <linux/mlx5/driver.h>
+#include <linux/mlx5/vport.h>
 #include "mlx5_core.h"
 #include "mlx5_irq.h"
 #include "pci_irq.h"
@@ -94,14 +95,14 @@ int mlx5_set_msix_vec_count(struct mlx5_core_dev *dev, int function_id,
 	if (msix_vec_count > max_msix)
 		return -EOVERFLOW;
 
-	query_cap = kzalloc(query_sz, GFP_KERNEL);
-	hca_cap = kzalloc(set_sz, GFP_KERNEL);
+	query_cap = kvzalloc(query_sz, GFP_KERNEL);
+	hca_cap = kvzalloc(set_sz, GFP_KERNEL);
 	if (!hca_cap || !query_cap) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	ret = mlx5_vport_get_other_func_cap(dev, function_id, query_cap);
+	ret = mlx5_vport_get_other_func_general_cap(dev, function_id, query_cap);
 	if (ret)
 		goto out;
 
@@ -118,8 +119,8 @@ int mlx5_set_msix_vec_count(struct mlx5_core_dev *dev, int function_id,
 		 MLX5_SET_HCA_CAP_OP_MOD_GENERAL_DEVICE << 1);
 	ret = mlx5_cmd_exec_in(dev, set_hca_cap, hca_cap);
 out:
-	kfree(hca_cap);
-	kfree(query_cap);
+	kvfree(hca_cap);
+	kvfree(query_cap);
 	return ret;
 }
 
@@ -393,7 +394,9 @@ struct mlx5_irq *mlx5_ctrl_irq_request(struct mlx5_core_dev *dev)
 		return ERR_PTR(-ENOMEM);
 	cpumask_copy(req_mask, cpu_online_mask);
 	if (!mlx5_irq_pool_is_sf_pool(pool)) {
-		/* In case we are allocating a control IRQ for PF/VF */
+		/* In case we are allocating a control IRQ from a pci device's pool.
+		 * This can happen also for a SF if the SFs pool is empty.
+		 */
 		if (!pool->xa_num_irqs.max) {
 			cpumask_clear(req_mask);
 			/* In case we only have a single IRQ for PF/VF */

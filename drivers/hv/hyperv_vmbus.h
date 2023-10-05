@@ -240,8 +240,6 @@ struct vmbus_connection {
 	 * is child->parent notification
 	 */
 	struct hv_monitor_page *monitor_pages[2];
-	void *monitor_pages_original[2];
-	phys_addr_t monitor_pages_pa[2];
 	struct list_head chn_msg_list;
 	spinlock_t channelmsg_lock;
 
@@ -260,6 +258,13 @@ struct vmbus_connection {
 	struct workqueue_struct *work_queue;
 	struct workqueue_struct *handle_primary_chan_wq;
 	struct workqueue_struct *handle_sub_chan_wq;
+	struct workqueue_struct *rescind_work_queue;
+
+	/*
+	 * On suspension of the vmbus, the accumulated offer messages
+	 * must be dropped.
+	 */
+	bool ignore_any_offer_msg;
 
 	/*
 	 * The number of sub-channels and hv_sock channels that should be

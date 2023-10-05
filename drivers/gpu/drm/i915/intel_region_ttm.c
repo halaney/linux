@@ -2,7 +2,6 @@
 /*
  * Copyright © 2021 Intel Corporation
  */
-#include <drm/ttm/ttm_bo_driver.h>
 #include <drm/ttm/ttm_device.h>
 #include <drm/ttm/ttm_range_manager.h>
 
@@ -12,6 +11,7 @@
 
 #include "intel_region_ttm.h"
 
+#include "gem/i915_gem_region.h"
 #include "gem/i915_gem_ttm.h" /* For the funcs/ops export only */
 /**
  * DOC: TTM support structure
@@ -131,7 +131,7 @@ int intel_region_ttm_fini(struct intel_memory_region *mem)
 			break;
 
 		msleep(20);
-		flush_delayed_work(&mem->i915->bdev.wq);
+		drain_workqueue(mem->i915->bdev.wq);
 	}
 
 	/* If we leaked objects, Don't free the region causing use after free */
@@ -195,6 +195,7 @@ intel_region_ttm_resource_to_rsgt(struct intel_memory_region *mem,
  */
 struct ttm_resource *
 intel_region_ttm_resource_alloc(struct intel_memory_region *mem,
+				resource_size_t offset,
 				resource_size_t size,
 				unsigned int flags)
 {
@@ -206,11 +207,26 @@ intel_region_ttm_resource_alloc(struct intel_memory_region *mem,
 
 	if (flags & I915_BO_ALLOC_CONTIGUOUS)
 		place.flags |= TTM_PL_FLAG_CONTIGUOUS;
-	if (mem->io_size && mem->io_size < mem->total) {
+	if (offset != I915_BO_INVALID_OFFSET) {
+		if (WARN_ON(overflows_type(offset >> PAGE_SHIFT, place.fpfn))) {
+			ret = -E2BIG;
+			goto out;
+		}
+		place.fpfn = offset >> PAGE_SHIFT;
+		if (WARN_ON(overflows_type(place.fpfn + (size >> PAGE_SHIFT), place.lpfn))) {
+			ret = -E2BIG;
+			goto out;
+		}
+		place.lpfn = place.fpfn + (size >> PAGE_SHIFT);
+	} else if (mem->io_size && mem->io_size < mem->total) {
 		if (flags & I915_BO_ALLOC_GPU_ONLY) {
 			place.flags |= TTM_PL_FLAG_TOPDOWN;
 		} else {
 			place.fpfn = 0;
+			if (WARN_ON(overflows_type(mem->io_size >> PAGE_SHIFT, place.lpfn))) {
+				ret = -E2BIG;
+				goto out;
+			}
 			place.lpfn = mem->io_size >> PAGE_SHIFT;
 		}
 	}
@@ -219,6 +235,8 @@ intel_region_ttm_resource_alloc(struct intel_memory_region *mem,
 	mock_bo.bdev = &mem->i915->bdev;
 
 	ret = man->func->alloc(man, &mock_bo, &place, &res);
+
+out:
 	if (ret == -ENOSPC)
 		ret = -ENXIO;
 	if (!ret)
@@ -239,7 +257,7 @@ void intel_region_ttm_resource_free(struct intel_memory_region *mem,
 	struct ttm_resource_manager *man = mem->region_private;
 	struct ttm_buffer_object mock_bo = {};
 
-	mock_bo.base.size = res->num_pages << PAGE_SHIFT;
+	mock_bo.base.size = res->size;
 	mock_bo.bdev = &mem->i915->bdev;
 	res->bo = &mock_bo;
 

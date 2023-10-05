@@ -7,8 +7,8 @@ NAME = Opossums on Parade
 
 # DRM backport version
 #
-RHEL_DRM_VERSION = 5
-RHEL_DRM_PATCHLEVEL = 18
+RHEL_DRM_VERSION = 6
+RHEL_DRM_PATCHLEVEL = 3
 RHEL_DRM_SUBLEVEL = 
 
 # *DOCUMENTATION*
@@ -201,10 +201,9 @@ endif
 ifneq ($(abs_srctree),$(abs_objtree))
 # Look for make include files relative to root of kernel src
 #
-# This does not become effective immediately because MAKEFLAGS is re-parsed
-# once after the Makefile is read. We need to invoke sub-make.
+# --included-dir is added for backward compatibility, but you should not rely on
+# it. Please add $(srctree)/ prefix to include Makefiles in the source tree.
 MAKEFLAGS += --include-dir=$(abs_srctree)
-need-sub-make := 1
 endif
 
 ifneq ($(filter 3.%,$(MAKE_VERSION)),)
@@ -808,6 +807,14 @@ stackp-flags-$(CONFIG_STACKPROTECTOR_STRONG)      := -fstack-protector-strong
 
 KBUILD_CFLAGS += $(stackp-flags-y)
 
+# don't enforce WERROR for out of tree modules
+ifeq ($(KBUILD_EXTMOD),)
+KBUILD_CFLAGS-$(CONFIG_WERROR) += -Werror
+endif
+
+KBUILD_CFLAGS-$(CONFIG_CC_NO_ARRAY_BOUNDS) += -Wno-array-bounds
+KBUILD_CFLAGS += $(KBUILD_CFLAGS-y) $(CONFIG_CC_IMPLICIT_FALLTHROUGH)
+
 ifdef CONFIG_CC_IS_CLANG
 KBUILD_CPPFLAGS += -Qunused-arguments
 # The kernel builds with '-std=gnu11' so use of GNU extensions is acceptable.
@@ -818,17 +825,18 @@ KBUILD_CFLAGS += -Wno-gnu
 KBUILD_CFLAGS += -mno-global-merge
 else
 
-# Warn about unmarked fall-throughs in switch statement.
-# Disabled for clang while comment to attribute conversion happens and
-# https://github.com/ClangBuiltLinux/linux/issues/636 is discussed.
-KBUILD_CFLAGS += $(call cc-option,-Wimplicit-fallthrough=5,)
+# gcc inanely warns about local variables called 'main'
+KBUILD_CFLAGS += -Wno-main
 endif
 
 # These warnings generated too much noise in a regular build.
 # Use make W=1 to enable them (see scripts/Makefile.extrawarn)
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
-
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-const-variable)
+
+# These result in bogus false positives
+KBUILD_CFLAGS += $(call cc-disable-warning, dangling-pointer)
+
 ifdef CONFIG_FRAME_POINTER
 KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
 else
@@ -995,8 +1003,8 @@ KBUILD_CFLAGS	+= $(CC_FLAGS_CFI)
 export CC_FLAGS_CFI
 endif
 
-ifdef CONFIG_DEBUG_FORCE_FUNCTION_ALIGN_64B
-KBUILD_CFLAGS += -falign-functions=64
+ifneq ($(CONFIG_FUNCTION_ALIGNMENT),0)
+KBUILD_CFLAGS += -falign-functions=$(CONFIG_FUNCTION_ALIGNMENT)
 endif
 
 # arch Makefile may override CC so keep this after arch Makefile is included
@@ -1011,12 +1019,15 @@ KBUILD_CFLAGS += -Wvla
 # disable pointer signed / unsigned warnings in gcc 4.0
 KBUILD_CFLAGS += -Wno-pointer-sign
 
+# In order to make sure new function cast mismatches are not introduced
+# in the kernel (to avoid tripping CFI checking), the kernel should be
+# globally built with -Wcast-function-type.
+KBUILD_CFLAGS += $(call cc-option, -Wcast-function-type)
+
 # disable stringop warnings in gcc 8+
 KBUILD_CFLAGS += $(call cc-disable-warning, stringop-truncation)
 
 # We'll want to enable this eventually, but it's not going away for 5.7 at least
-KBUILD_CFLAGS += $(call cc-disable-warning, zero-length-bounds)
-KBUILD_CFLAGS += -Wno-array-bounds
 KBUILD_CFLAGS += $(call cc-disable-warning, stringop-overflow)
 
 # Another good warning that we'll want to enable eventually
@@ -1151,6 +1162,7 @@ export MODULES_NSDEPS := $(extmod_prefix)modules.nsdeps
 ifeq ($(KBUILD_EXTMOD),)
 core-y			+= kernel/ certs/ mm/ fs/ ipc/ security/ crypto/
 core-$(CONFIG_BLOCK)	+= block/
+core-$(CONFIG_IO_URING)	+= io_uring/
 
 vmlinux-dirs	:= $(patsubst %/,%,$(filter %/, \
 		     $(core-y) $(core-m) $(drivers-y) $(drivers-m) \
@@ -1307,8 +1319,8 @@ define filechk_version.h
 	echo '#define RHEL_RELEASE "$(RHEL_RELEASE)"'
 endef
 
-$(version_h): PATCHLEVEL := $(if $(PATCHLEVEL), $(PATCHLEVEL), 0)
-$(version_h): SUBLEVEL := $(if $(SUBLEVEL), $(SUBLEVEL), 0)
+$(version_h): PATCHLEVEL := $(or $(PATCHLEVEL), 0)
+$(version_h): SUBLEVEL := $(or $(SUBLEVEL), 0)
 $(version_h): FORCE
 	$(call filechk,version.h)
 
@@ -1368,8 +1380,8 @@ scripts_unifdef: scripts_basic
 # Install
 
 # Many distributions have the custom install script, /sbin/installkernel.
-# If DKMS is installed, 'make install' will eventually recuses back
-# to the this Makefile to build and install external modules.
+# If DKMS is installed, 'make install' will eventually recurse back
+# to this Makefile to build and install external modules.
 # Cancel sub_make_done so that options such as M=, V=, etc. are parsed.
 
 install: sub_make_done :=
@@ -1377,7 +1389,7 @@ install: sub_make_done :=
 # ---------------------------------------------------------------------------
 # Tools
 
-ifdef CONFIG_STACK_VALIDATION
+ifdef CONFIG_OBJTOOL
 prepare: tools/objtool
 endif
 
@@ -1562,7 +1574,7 @@ CLEAN_FILES += include/ksym vmlinux.symvers modules-only.symvers \
 
 # Directories & files removed with 'make mrproper'
 MRPROPER_FILES += include/config include/generated          \
-		  arch/$(SRCARCH)/include/generated .tmp_objdiff \
+		  arch/$(SRCARCH)/include/generated .objdiff \
 		  debian snap tar-install \
 		  .config .config.old .version \
 		  Module.symvers \
@@ -1700,7 +1712,7 @@ help:
 	@$(MAKE) -f $(srctree)/Documentation/Makefile dochelp
 	@echo  ''
 	@echo  'Architecture specific targets ($(SRCARCH)):'
-	@$(if $(archhelp),$(archhelp),\
+	@$(or $(archhelp),\
 		echo '  No architecture specific help defined for $(SRCARCH)')
 	@echo  ''
 	@$(if $(boards), \
@@ -1872,7 +1884,8 @@ ifdef single-build
 
 # .ko is special because modpost is needed
 single-ko := $(sort $(filter %.ko, $(MAKECMDGOALS)))
-single-no-ko := $(sort $(patsubst %.ko,%.mod, $(MAKECMDGOALS)))
+single-no-ko := $(filter-out $(single-ko), $(MAKECMDGOALS)) \
+		$(foreach x, o mod, $(patsubst %.ko, %.$x, $(single-ko)))
 
 $(single-ko): single_modpost
 	@:
@@ -1923,17 +1936,17 @@ $(clean-dirs):
 
 clean: $(clean-dirs)
 	$(call cmd,rmfiles)
-	@find $(if $(KBUILD_EXTMOD), $(KBUILD_EXTMOD), .) $(RCS_FIND_IGNORE) \
+	@find $(or $(KBUILD_EXTMOD), .) $(RCS_FIND_IGNORE) \
 		\( -name '*.[aios]' -o -name '*.ko' -o -name '.*.cmd' \
 		-o -name '*.ko.*' \
 		-o -name '*.dtb' -o -name '*.dtbo' -o -name '*.dtb.S' -o -name '*.dt.yaml' \
 		-o -name '*.dwo' -o -name '*.lst' \
-		-o -name '*.su' -o -name '*.mod' \
+		-o -name '*.su' -o -name '*.mod' -o -name '*.usyms' \
 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
 		-o -name '*.lex.c' -o -name '*.tab.[ch]' \
 		-o -name '*.asn1.[ch]' \
 		-o -name '*.symtypes' -o -name 'modules.order' \
-		-o -name '.tmp_*.o.*' \
+		-o -name '.tmp_*' \
 		-o -name '*.c.[012]*.*' \
 		-o -name '*.ll' \
 		-o -name '*.gcno' \

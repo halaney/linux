@@ -13,6 +13,16 @@
 void *kmalloc(size_t size, gfp_t gfp);
 void kfree(void *p);
 
+bool slab_is_available(void);
+
+enum slab_state {
+	DOWN,
+	PARTIAL,
+	PARTIAL_NODE,
+	UP,
+	FULL
+};
+
 static inline void *kzalloc(size_t size, gfp_t gfp)
 {
 	return kmalloc(size, gfp | __GFP_ZERO);
@@ -30,5 +40,9 @@ void kmem_cache_free(struct kmem_cache *cachep, void *objp);
 struct kmem_cache *kmem_cache_create(const char *name, unsigned int size,
 			unsigned int align, unsigned int flags,
 			void (*ctor)(void *));
+
+void kmem_cache_free_bulk(struct kmem_cache *cachep, size_t size, void **list);
+int kmem_cache_alloc_bulk(struct kmem_cache *cachep, gfp_t gfp, size_t size,
+			  void **list);
 
 #endif		/* _TOOLS_SLAB_H */

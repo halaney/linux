@@ -7,7 +7,7 @@ if ! [ -x "$(command -v ${PAHOLE})" ]; then
 	exit 0
 fi
 
-pahole_ver=$(${PAHOLE} --version | sed -E 's/v([0-9]+)\.([0-9]+)/\1\2/')
+pahole_ver=$($(dirname $0)/pahole-version.sh ${PAHOLE})
 
 if [ "${pahole_ver}" -ge "118" ] && [ "${pahole_ver}" -le "121" ]; then
 	# pahole 1.18 through 1.21 can't handle zero-sized per-CPU vars
@@ -18,10 +18,6 @@ if [ "${pahole_ver}" -ge "121" ]; then
 fi
 if [ "${pahole_ver}" -ge "122" ]; then
 	extra_paholeopt="${extra_paholeopt} -j"
-fi
-if [ "${pahole_ver}" -ge "124" ]; then
-	# see PAHOLE_HAS_LANG_EXCLUDE
-	extra_paholeopt="${extra_paholeopt} --skip_encoding_btf_enum64"
 fi
 
 echo ${extra_paholeopt}

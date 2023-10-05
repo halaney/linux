@@ -37,10 +37,10 @@
 #include <linux/smp.h>
 #include <linux/console.h>
 #include <linux/kmsg_dump.h>
+#include <linux/debugfs.h>
 
 #include <asm/emulated_ops.h>
 #include <linux/uaccess.h>
-#include <asm/debugfs.h>
 #include <asm/interrupt.h>
 #include <asm/io.h>
 #include <asm/machdep.h>
@@ -245,7 +245,7 @@ static void oops_end(unsigned long flags, struct pt_regs *regs,
 
 	if (panic_on_oops)
 		panic("Fatal exception");
-	do_exit(signr);
+	make_task_dead(signr);
 }
 NOKPROBE_SYMBOL(oops_end);
 
@@ -260,17 +260,12 @@ static char *get_mmu_str(void)
 
 static int __die(const char *str, struct pt_regs *regs, long err)
 {
-	const char *pr = "";
-
 	printk("Oops: %s, sig: %ld [#%d]\n", str, err, ++die_counter);
-
-	if (IS_ENABLED(CONFIG_PREEMPTION))
-		pr = IS_ENABLED(CONFIG_PREEMPT_RT) ? " PREEMPT_RT" : " PREEMPT";
 
 	printk("%s PAGE_SIZE=%luK%s%s%s%s%s%s %s\n",
 	       IS_ENABLED(CONFIG_CPU_LITTLE_ENDIAN) ? "LE" : "BE",
 	       PAGE_SIZE / 1024, get_mmu_str(),
-	       pr,
+	       IS_ENABLED(CONFIG_PREEMPT) ? " PREEMPT" : "",
 	       IS_ENABLED(CONFIG_SMP) ? " SMP" : "",
 	       IS_ENABLED(CONFIG_SMP) ? (" NR_CPUS=" __stringify(NR_CPUS)) : "",
 	       debug_pagealloc_enabled() ? " DEBUG_PAGEALLOC" : "",
@@ -345,10 +340,16 @@ static bool exception_common(int signr, struct pt_regs *regs, int code,
 		return false;
 	}
 
-	show_signal_msg(signr, regs, code, addr);
+	/*
+	 * Must not enable interrupts even for user-mode exception, because
+	 * this can be called from machine check, which may be a NMI or IRQ
+	 * which don't like interrupts being enabled. Could check for
+	 * in_hardirq || in_nmi perhaps, but there doesn't seem to be a good
+	 * reason why _exception() should enable irqs for an exception handler,
+	 * the handlers themselves do that directly.
+	 */
 
-	if (arch_irqs_disabled())
-		interrupt_cond_local_irq_enable(regs);
+	show_signal_msg(signr, regs, code, addr);
 
 	current->thread.trap_nr = code;
 
@@ -432,7 +433,7 @@ void hv_nmi_check_nonrecoverable(struct pt_regs *regs)
 	return;
 
 nonrecoverable:
-	regs_set_return_msr(regs, regs->msr & ~MSR_RI);
+	regs_set_unrecoverable(regs);
 #endif
 }
 DEFINE_INTERRUPT_HANDLER_NMI(system_reset_exception)
@@ -502,7 +503,7 @@ out:
 		die("Unrecoverable nested System Reset", regs, SIGABRT);
 #endif
 	/* Must die if the interrupt is not recoverable */
-	if (!(regs->msr & MSR_RI)) {
+	if (regs_is_unrecoverable(regs)) {
 		/* For the reason explained in die_mce, nmi_exit before die */
 		nmi_exit();
 		die("Unrecoverable System Reset", regs, SIGABRT);
@@ -554,7 +555,7 @@ static inline int check_io_access(struct pt_regs *regs)
 			printk(KERN_DEBUG "%s bad port %lx at %p\n",
 			       (*nip & 0x100)? "OUT to": "IN from",
 			       regs->gpr[rb] - _IO_BASE, nip);
-			regs_set_return_msr(regs, regs->msr | MSR_RI);
+			regs_set_recoverable(regs);
 			regs_set_return_ip(regs, extable_fixup(entry));
 			return 1;
 		}
@@ -791,9 +792,9 @@ int machine_check_generic(struct pt_regs *regs)
 void die_mce(const char *str, struct pt_regs *regs, long err)
 {
 	/*
-	 * The machine check wants to kill the interrupted context, but
-	 * do_exit() checks for in_interrupt() and panics in that case, so
-	 * exit the irq/nmi before calling die.
+	 * The machine check wants to kill the interrupted context,
+	 * but make_task_dead() checks for in_interrupt() and panics
+	 * in that case, so exit the irq/nmi before calling die.
 	 */
 	if (IS_ENABLED(CONFIG_PPC_BOOK3S_64))
 		irq_exit();
@@ -844,7 +845,7 @@ DEFINE_INTERRUPT_HANDLER_NMI(machine_check_exception)
 
 bail:
 	/* Must die if the interrupt is not recoverable */
-	if (!(regs->msr & MSR_RI))
+	if (regs_is_unrecoverable(regs))
 		die_mce("Unrecoverable Machine check", regs, SIGBUS);
 
 #ifdef CONFIG_PPC_BOOK3S_64
@@ -2276,7 +2277,7 @@ static int __init ppc_warn_emulated_init(void)
 	struct ppc_emulated_entry *entries = (void *)&ppc_emulated;
 
 	dir = debugfs_create_dir("emulated_instructions",
-				 powerpc_debugfs_root);
+				 arch_debugfs_dir);
 
 	debugfs_create_u32("do_warn", 0644, dir, &ppc_warn_emulated);
 

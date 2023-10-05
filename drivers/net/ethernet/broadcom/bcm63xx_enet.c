@@ -1321,8 +1321,8 @@ static const u32 unused_mib_regs[] = {
 static void bcm_enet_get_drvinfo(struct net_device *netdev,
 				 struct ethtool_drvinfo *drvinfo)
 {
-	strlcpy(drvinfo->driver, bcm_enet_driver_name, sizeof(drvinfo->driver));
-	strlcpy(drvinfo->bus_info, "bcm63xx", sizeof(drvinfo->bus_info));
+	strscpy(drvinfo->driver, bcm_enet_driver_name, sizeof(drvinfo->driver));
+	strscpy(drvinfo->bus_info, "bcm63xx", sizeof(drvinfo->bus_info));
 }
 
 static int bcm_enet_get_sset_count(struct net_device *netdev,
@@ -1859,7 +1859,7 @@ static int bcm_enet_probe(struct platform_device *pdev)
 
 	/* register netdevice */
 	dev->netdev_ops = &bcm_enet_ops;
-	netif_napi_add(dev, &priv->napi, bcm_enet_poll, 16);
+	netif_napi_add_weight(dev, &priv->napi, bcm_enet_poll, 16);
 
 	dev->ethtool_ops = &bcm_enet_ethtool_ops;
 	/* MTU range: 46 - 2028 */
@@ -2715,7 +2715,7 @@ static int bcm_enetsw_probe(struct platform_device *pdev)
 
 	/* register netdevice */
 	dev->netdev_ops = &bcm_enetsw_ops;
-	netif_napi_add(dev, &priv->napi, bcm_enet_poll, 16);
+	netif_napi_add_weight(dev, &priv->napi, bcm_enet_poll, 16);
 	dev->ethtool_ops = &bcm_enetsw_ethtool_ops;
 	SET_NETDEV_DEV(dev, &pdev->dev);
 

@@ -108,7 +108,6 @@ static inline void on_each_cpu_cond(smp_cond_func_t cond_func,
 #ifdef CONFIG_SMP
 
 #include <linux/preempt.h>
-#include <linux/kernel.h>
 #include <linux/compiler.h>
 #include <linux/thread_info.h>
 #include <asm/smp.h>
@@ -267,9 +266,6 @@ static inline int get_boot_cpu_id(void)
 
 #define get_cpu()		({ preempt_disable(); __smp_processor_id(); })
 #define put_cpu()		preempt_enable()
-
-#define get_cpu_light()		({ migrate_disable(); __smp_processor_id(); })
-#define put_cpu_light()		migrate_enable()
 
 /*
  * Callback to arch code if there's nosmp or maxcpus=0 on the

@@ -146,6 +146,8 @@ static struct attribute *esre1_attrs[] = {
 	&esre_last_attempt_status.attr,
 	NULL
 };
+ATTRIBUTE_GROUPS(esre1);
+
 static void esre_release(struct kobject *kobj)
 {
 	struct esre_entry *entry = to_entry(kobj);
@@ -157,7 +159,7 @@ static void esre_release(struct kobject *kobj)
 static struct kobj_type esre1_ktype = {
 	.release = esre_release,
 	.sysfs_ops = &esre_attr_ops,
-	.default_attrs = esre1_attrs,
+	.default_groups = esre1_groups,
 };
 
 
@@ -261,15 +263,8 @@ void __init efi_esrt_init(void)
 		return;
 	}
 
-	max = efi_mem_desc_end(&md);
-	if (max < efi.esrt) {
-		pr_err("EFI memory descriptor is invalid. (esrt: %p max: %p)\n",
-		       (void *)efi.esrt, (void *)max);
-		return;
-	}
-
+	max = efi_mem_desc_end(&md) - efi.esrt;
 	size = sizeof(*esrt);
-	max -= efi.esrt;
 
 	if (max < size) {
 		pr_err("ESRT header doesn't fit on single memory map entry. (size: %zu max: %zu)\n",

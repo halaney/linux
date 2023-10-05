@@ -45,7 +45,7 @@ xfs_trim_extents(
 	 */
 	xfs_log_force(mp, XFS_LOG_SYNC);
 
-	error = xfs_alloc_read_agf(mp, NULL, agno, 0, &agbp);
+	error = xfs_alloc_read_agf(pag, NULL, 0, &agbp);
 	if (error)
 		goto out_put_perag;
 	agf = agbp->b_addr;
@@ -169,7 +169,7 @@ xfs_ioc_trim(
 	 * We haven't recovered the log, so we cannot use our bnobt-guided
 	 * storage zapping commands.
 	 */
-	if (mp->m_flags & XFS_MOUNT_NORECOVERY)
+	if (xfs_has_norecovery(mp))
 		return -EROFS;
 
 	if (copy_from_user(&range, urange, sizeof(range)))

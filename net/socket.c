@@ -52,6 +52,7 @@
  *	Based upon Swansea University Computer Society NET3.039
  */
 
+#include <linux/bpf-cgroup.h>
 #include <linux/ethtool.h>
 #include <linux/mm.h>
 #include <linux/socket.h>
@@ -447,7 +448,9 @@ static struct file_system_type sock_fs_type = {
  *
  *	Returns the &file bound with @sock, implicitly storing it
  *	in sock->file. If dname is %NULL, sets to "".
- *	On failure the return is a ERR pointer (see linux/err.h).
+ *
+ *	On failure @sock is released, and an ERR pointer is returned.
+ *
  *	This function uses GFP_KERNEL internally.
  */
 
@@ -502,7 +505,7 @@ static int sock_map_fd(struct socket *sock, int flags)
 struct socket *sock_from_file(struct file *file)
 {
 	if (file->f_op == &socket_file_ops)
-		return file->private_data;	/* set in sock_map_fd */
+		return file->private_data;	/* set in sock_alloc_file */
 
 	return NULL;
 }
@@ -1536,11 +1539,10 @@ int sock_create_kern(struct net *net, int family, int type, int protocol, struct
 }
 EXPORT_SYMBOL(sock_create_kern);
 
-int __sys_socket(int family, int type, int protocol)
+static struct socket *__sys_socket_create(int family, int type, int protocol)
 {
-	int retval;
 	struct socket *sock;
-	int flags;
+	int retval;
 
 	/* Check the SOCK_* constants for consistency.  */
 	BUILD_BUG_ON(SOCK_CLOEXEC != O_CLOEXEC);
@@ -1548,17 +1550,45 @@ int __sys_socket(int family, int type, int protocol)
 	BUILD_BUG_ON(SOCK_CLOEXEC & SOCK_TYPE_MASK);
 	BUILD_BUG_ON(SOCK_NONBLOCK & SOCK_TYPE_MASK);
 
-	flags = type & ~SOCK_TYPE_MASK;
-	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
-		return -EINVAL;
+	if ((type & ~SOCK_TYPE_MASK) & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
+		return ERR_PTR(-EINVAL);
 	type &= SOCK_TYPE_MASK;
-
-	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
-		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
 
 	retval = sock_create(family, type, protocol, &sock);
 	if (retval < 0)
-		return retval;
+		return ERR_PTR(retval);
+
+	return sock;
+}
+
+struct file *__sys_socket_file(int family, int type, int protocol)
+{
+	struct socket *sock;
+	int flags;
+
+	sock = __sys_socket_create(family, type, protocol);
+	if (IS_ERR(sock))
+		return ERR_CAST(sock);
+
+	flags = type & ~SOCK_TYPE_MASK;
+	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
+		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
+
+	return sock_alloc_file(sock, flags, NULL);
+}
+
+int __sys_socket(int family, int type, int protocol)
+{
+	struct socket *sock;
+	int flags;
+
+	sock = __sys_socket_create(family, type, protocol);
+	if (IS_ERR(sock))
+		return PTR_ERR(sock);
+
+	flags = type & ~SOCK_TYPE_MASK;
+	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
+		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
 
 	return sock_map_fd(sock, flags & (O_CLOEXEC | O_NONBLOCK));
 }
@@ -1720,7 +1750,7 @@ int __sys_listen(int fd, int backlog)
 
 	sock = sockfd_lookup_light(fd, &err, &fput_needed);
 	if (sock) {
-		somaxconn = sock_net(sock->sk)->core.sysctl_somaxconn;
+		somaxconn = READ_ONCE(sock_net(sock->sk)->core.sysctl_somaxconn);
 		if ((unsigned int)backlog > somaxconn)
 			backlog = somaxconn;
 
@@ -1738,32 +1768,22 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 	return __sys_listen(fd, backlog);
 }
 
-int __sys_accept4_file(struct file *file, unsigned file_flags,
+struct file *do_accept(struct file *file, unsigned file_flags,
 		       struct sockaddr __user *upeer_sockaddr,
-		       int __user *upeer_addrlen, int flags,
-		       unsigned long nofile)
+		       int __user *upeer_addrlen, int flags)
 {
 	struct socket *sock, *newsock;
 	struct file *newfile;
-	int err, len, newfd;
+	int err, len;
 	struct sockaddr_storage address;
 
-	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
-		return -EINVAL;
-
-	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
-		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
-
 	sock = sock_from_file(file);
-	if (!sock) {
-		err = -ENOTSOCK;
-		goto out;
-	}
+	if (!sock)
+		return ERR_PTR(-ENOTSOCK);
 
-	err = -ENFILE;
 	newsock = sock_alloc();
 	if (!newsock)
-		goto out;
+		return ERR_PTR(-ENFILE);
 
 	newsock->type = sock->type;
 	newsock->ops = sock->ops;
@@ -1774,18 +1794,9 @@ int __sys_accept4_file(struct file *file, unsigned file_flags,
 	 */
 	__module_get(newsock->ops->owner);
 
-	newfd = __get_unused_fd_flags(flags, nofile);
-	if (unlikely(newfd < 0)) {
-		err = newfd;
-		sock_release(newsock);
-		goto out;
-	}
 	newfile = sock_alloc_file(newsock, flags, sock->sk->sk_prot_creator->name);
-	if (IS_ERR(newfile)) {
-		err = PTR_ERR(newfile);
-		put_unused_fd(newfd);
-		goto out;
-	}
+	if (IS_ERR(newfile))
+		return newfile;
 
 	err = security_socket_accept(sock, newsock);
 	if (err)
@@ -1810,16 +1821,38 @@ int __sys_accept4_file(struct file *file, unsigned file_flags,
 	}
 
 	/* File flags are not inherited via accept() unlike another OSes. */
-
-	fd_install(newfd, newfile);
-	err = newfd;
-out:
-	return err;
+	return newfile;
 out_fd:
 	fput(newfile);
-	put_unused_fd(newfd);
-	goto out;
+	return ERR_PTR(err);
+}
 
+int __sys_accept4_file(struct file *file, unsigned file_flags,
+		       struct sockaddr __user *upeer_sockaddr,
+		       int __user *upeer_addrlen, int flags,
+		       unsigned long nofile)
+{
+	struct file *newfile;
+	int newfd;
+
+	if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
+		return -EINVAL;
+
+	if (SOCK_NONBLOCK != O_NONBLOCK && (flags & SOCK_NONBLOCK))
+		flags = (flags & ~SOCK_NONBLOCK) | O_NONBLOCK;
+
+	newfd = __get_unused_fd_flags(flags, nofile);
+	if (unlikely(newfd < 0))
+		return newfd;
+
+	newfile = do_accept(file, file_flags, upeer_sockaddr, upeer_addrlen,
+			    flags);
+	if (IS_ERR(newfile)) {
+		put_unused_fd(newfd);
+		return PTR_ERR(newfile);
+	}
+	fd_install(newfd, newfile);
+	return newfd;
 }
 
 /*
@@ -2022,6 +2055,7 @@ int __sys_sendto(int fd, void __user *buff, size_t len, unsigned int flags,
 	msg.msg_control = NULL;
 	msg.msg_controllen = 0;
 	msg.msg_namelen = 0;
+	msg.msg_ubuf = NULL;
 	if (addr) {
 		err = move_addr_to_kernel(addr, addr_len, &address);
 		if (err < 0)
@@ -2065,10 +2099,13 @@ SYSCALL_DEFINE4(send, int, fd, void __user *, buff, size_t, len,
 int __sys_recvfrom(int fd, void __user *ubuf, size_t size, unsigned int flags,
 		   struct sockaddr __user *addr, int __user *addr_len)
 {
+	struct sockaddr_storage address;
+	struct msghdr msg = {
+		/* Save some cycles and don't copy the address if not needed */
+		.msg_name = addr ? (struct sockaddr *)&address : NULL,
+	};
 	struct socket *sock;
 	struct iovec iov;
-	struct msghdr msg;
-	struct sockaddr_storage address;
 	int err, err2;
 	int fput_needed;
 
@@ -2079,14 +2116,6 @@ int __sys_recvfrom(int fd, void __user *ubuf, size_t size, unsigned int flags,
 	if (!sock)
 		goto out;
 
-	msg.msg_control = NULL;
-	msg.msg_controllen = 0;
-	/* Save some cycles and don't copy the address if not needed */
-	msg.msg_name = addr ? (struct sockaddr *)&address : NULL;
-	/* We assume all kernel code knows the size of sockaddr_storage */
-	msg.msg_namelen = 0;
-	msg.msg_iocb = NULL;
-	msg.msg_flags = 0;
 	if (sock->file->f_flags & O_NONBLOCK)
 		flags |= MSG_DONTWAIT;
 	err = sock_recvmsg(sock, &msg, flags);
@@ -2122,13 +2151,7 @@ SYSCALL_DEFINE4(recv, int, fd, void __user *, ubuf, size_t, size,
 
 static bool sock_use_custom_sol_socket(const struct socket *sock)
 {
-	const struct sock *sk = sock->sk;
-
-	/* Use sock->ops->setsockopt() for MPTCP */
-	return IS_ENABLED(CONFIG_MPTCP) &&
-	       sk->sk_protocol == IPPROTO_MPTCP &&
-	       sk->sk_type == SOCK_STREAM &&
-	       (sk->sk_family == AF_INET || sk->sk_family == AF_INET6);
+	return test_bit(SOCK_CUSTOM_SOCKOPT, &sock->flags);
 }
 
 /*
@@ -2279,24 +2302,20 @@ struct used_address {
 	unsigned int name_len;
 };
 
-int __copy_msghdr_from_user(struct msghdr *kmsg,
-			    struct user_msghdr __user *umsg,
-			    struct sockaddr __user **save_addr,
-			    struct iovec __user **uiov, size_t *nsegs)
+int __copy_msghdr(struct msghdr *kmsg,
+		  struct user_msghdr *msg,
+		  struct sockaddr __user **save_addr)
 {
-	struct user_msghdr msg;
 	ssize_t err;
 
-	if (copy_from_user(&msg, umsg, sizeof(*umsg)))
-		return -EFAULT;
-
 	kmsg->msg_control_is_user = true;
-	kmsg->msg_control_user = msg.msg_control;
-	kmsg->msg_controllen = msg.msg_controllen;
-	kmsg->msg_flags = msg.msg_flags;
+	kmsg->msg_get_inq = 0;
+	kmsg->msg_control_user = msg->msg_control;
+	kmsg->msg_controllen = msg->msg_controllen;
+	kmsg->msg_flags = msg->msg_flags;
 
-	kmsg->msg_namelen = msg.msg_namelen;
-	if (!msg.msg_name)
+	kmsg->msg_namelen = msg->msg_namelen;
+	if (!msg->msg_name)
 		kmsg->msg_namelen = 0;
 
 	if (kmsg->msg_namelen < 0)
@@ -2306,11 +2325,11 @@ int __copy_msghdr_from_user(struct msghdr *kmsg,
 		kmsg->msg_namelen = sizeof(struct sockaddr_storage);
 
 	if (save_addr)
-		*save_addr = msg.msg_name;
+		*save_addr = msg->msg_name;
 
-	if (msg.msg_name && kmsg->msg_namelen) {
+	if (msg->msg_name && kmsg->msg_namelen) {
 		if (!save_addr) {
-			err = move_addr_to_kernel(msg.msg_name,
+			err = move_addr_to_kernel(msg->msg_name,
 						  kmsg->msg_namelen,
 						  kmsg->msg_name);
 			if (err < 0)
@@ -2321,12 +2340,11 @@ int __copy_msghdr_from_user(struct msghdr *kmsg,
 		kmsg->msg_namelen = 0;
 	}
 
-	if (msg.msg_iovlen > UIO_MAXIOV)
+	if (msg->msg_iovlen > UIO_MAXIOV)
 		return -EMSGSIZE;
 
 	kmsg->msg_iocb = NULL;
-	*uiov = msg.msg_iov;
-	*nsegs = msg.msg_iovlen;
+	kmsg->msg_ubuf = NULL;
 	return 0;
 }
 
@@ -2338,8 +2356,10 @@ static int copy_msghdr_from_user(struct msghdr *kmsg,
 	struct user_msghdr msg;
 	ssize_t err;
 
-	err = __copy_msghdr_from_user(kmsg, umsg, save_addr, &msg.msg_iov,
-					&msg.msg_iovlen);
+	if (copy_from_user(&msg, umsg, sizeof(*umsg)))
+		return -EFAULT;
+
+	err = __copy_msghdr(kmsg, &msg, save_addr);
 	if (err)
 		return err;
 

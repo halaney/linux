@@ -205,9 +205,9 @@ static int fat_writepages(struct address_space *mapping,
 	return mpage_writepages(mapping, wbc, fat_get_block);
 }
 
-static int fat_readpage(struct file *file, struct page *page)
+static int fat_read_folio(struct file *file, struct folio *folio)
 {
-	return mpage_readpage(page, fat_get_block);
+	return mpage_read_folio(folio, fat_get_block);
 }
 
 static void fat_readahead(struct readahead_control *rac)
@@ -226,13 +226,13 @@ static void fat_write_failed(struct address_space *mapping, loff_t to)
 }
 
 static int fat_write_begin(struct file *file, struct address_space *mapping,
-			loff_t pos, unsigned len, unsigned flags,
+			loff_t pos, unsigned len,
 			struct page **pagep, void **fsdata)
 {
 	int err;
 
 	*pagep = NULL;
-	err = cont_write_begin(file, mapping, pos, len, flags,
+	err = cont_write_begin(file, mapping, pos, len,
 				pagep, fsdata, fat_get_block,
 				&MSDOS_I(mapping->host)->mmu_private);
 	if (err < 0)
@@ -342,8 +342,9 @@ int fat_block_truncate_page(struct inode *inode, loff_t from)
 }
 
 static const struct address_space_operations fat_aops = {
-	.set_page_dirty	= __set_page_dirty_buffers,
-	.readpage	= fat_readpage,
+	.dirty_folio	= block_dirty_folio,
+	.invalidate_folio = block_invalidate_folio,
+	.read_folio	= fat_read_folio,
 	.readahead	= fat_readahead,
 	.writepage	= fat_writepage,
 	.writepages	= fat_writepages,

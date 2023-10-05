@@ -152,13 +152,13 @@ static void hpfs_write_failed(struct address_space *mapping, loff_t to)
 }
 
 static int hpfs_write_begin(struct file *file, struct address_space *mapping,
-			loff_t pos, unsigned len, unsigned flags,
+			loff_t pos, unsigned len,
 			struct page **pagep, void **fsdata)
 {
 	int ret;
 
 	*pagep = NULL;
-	ret = cont_write_begin(file, mapping, pos, len, flags, pagep, fsdata,
+	ret = cont_write_begin(file, mapping, pos, len, pagep, fsdata,
 				hpfs_get_block,
 				&hpfs_i(mapping->host)->mmu_private);
 	if (unlikely(ret))
@@ -196,7 +196,8 @@ static int hpfs_fiemap(struct inode *inode, struct fiemap_extent_info *fieinfo, 
 }
 
 const struct address_space_operations hpfs_aops = {
-	.set_page_dirty	= __set_page_dirty_buffers,
+	.dirty_folio	= block_dirty_folio,
+	.invalidate_folio = block_invalidate_folio,
 	.readpage = hpfs_readpage,
 	.writepage = hpfs_writepage,
 	.readahead = hpfs_readahead,

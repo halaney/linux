@@ -48,7 +48,7 @@ static struct hard_trap_info
 	{ 0x0800, 0x08 /* SIGFPE */  },		/* fp unavailable */
 	{ 0x0900, 0x0e /* SIGALRM */ },		/* decrementer */
 	{ 0x0c00, 0x14 /* SIGCHLD */ },		/* system call */
-#if defined(CONFIG_40x) || defined(CONFIG_BOOKE)
+#ifdef CONFIG_BOOKE_OR_40x
 	{ 0x2002, 0x05 /* SIGTRAP */ },		/* debug */
 #if defined(CONFIG_FSL_BOOKE)
 	{ 0x2010, 0x08 /* SIGFPE */  },		/* spe unavailable */
@@ -67,7 +67,7 @@ static struct hard_trap_info
 	{ 0x2010, 0x08 /* SIGFPE */  },		/* fp unavailable */
 	{ 0x2020, 0x08 /* SIGFPE */  },		/* ap unavailable */
 #endif
-#else /* ! (defined(CONFIG_40x) || defined(CONFIG_BOOKE)) */
+#else /* !CONFIG_BOOKE_OR_40x */
 	{ 0x0d00, 0x05 /* SIGTRAP */ },		/* single-step */
 #if defined(CONFIG_PPC_8xx)
 	{ 0x1000, 0x04 /* SIGILL */  },		/* software emulation */
@@ -120,19 +120,11 @@ int kgdb_skipexception(int exception, struct pt_regs *regs)
 
 static int kgdb_debugger_ipi(struct pt_regs *regs)
 {
-	int cpu = raw_smp_processor_id();
-
-	if (!kgdb_roundup_delay(cpu))
-		kgdb_nmicallback(cpu, regs);
+	kgdb_nmicallback(raw_smp_processor_id(), regs);
 	return 0;
 }
 
 #ifdef CONFIG_SMP
-void kgdb_roundup_cpu(unsigned int cpu)
-{
-	smp_send_debugger_break_cpu(cpu);
-}
-
 void kgdb_roundup_cpus(void)
 {
 	smp_send_debugger_break();

@@ -1646,10 +1646,10 @@ static int fsi_dai_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	int ret;
 
 	/* set clock master audio interface */
-	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
-	case SND_SOC_DAIFMT_CBM_CFM:
+	switch (fmt & SND_SOC_DAIFMT_CLOCK_PROVIDER_MASK) {
+	case SND_SOC_DAIFMT_BC_FC:
 		break;
-	case SND_SOC_DAIFMT_CBS_CFS:
+	case SND_SOC_DAIFMT_BP_FP:
 		fsi->clk_master = 1; /* cpu is master */
 		break;
 	default:
@@ -1855,7 +1855,7 @@ static void fsi_of_parse(char *name,
 
 	for (i = 0; i < ARRAY_SIZE(of_parse_property); i++) {
 		sprintf(prop, "%s,%s", name, of_parse_property[i].name);
-		if (of_get_property(np, prop, NULL))
+		if (of_property_present(np, prop))
 			flags |= of_parse_property[i].val;
 	}
 	info->flags = flags;

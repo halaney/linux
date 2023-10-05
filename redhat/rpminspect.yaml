@@ -2,7 +2,10 @@
 
 ---
 inspections:
+    abidiff: off
+    kmidiff: off
     upstream: off
+    subpackages: off
 
 badfuncs:
     ignore:
@@ -23,8 +26,24 @@ emptyrpm:
 patches:
     ignore_list:
         - linux-kernel-test.patch
-        - patch-5.14.0-redhat.patch
+        - patch-%%SPECKVERSION%%.%%SPECKPATCHLEVEL%%-redhat.patch
+        - patch-%{patchversion}-redhat.patch
 
 specname:
     match: prefix
     primary: filename
+
+runpath:
+    ignore:
+        - /usr/libexec/kselftests/bpf/urandom_read
+        - /usr/libexec/kselftests/bpf/no_alu32/urandom_read
+
+debuginfo:
+    ignore:
+        - /usr/libexec/kselftests/bpf/*
+        - /usr/lib/debug/usr/libexec/perf-core/tests/shell/coresight/*
+
+elf:
+    ignore:
+        - /usr/libexec/perf-core/tests/shell/coresight/*
+        - /usr/lib/debug/usr/libexec/perf-core/tests/shell/coresight/*

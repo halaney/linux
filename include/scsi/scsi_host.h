@@ -18,7 +18,6 @@ struct completion;
 struct module;
 struct scsi_cmnd;
 struct scsi_device;
-struct scsi_host_cmd_pool;
 struct scsi_target;
 struct Scsi_Host;
 struct scsi_transport_template;
@@ -29,6 +28,18 @@ struct scsi_transport_template;
 #define MODE_UNKNOWN 0x00
 #define MODE_INITIATOR 0x01
 #define MODE_TARGET 0x02
+
+/**
+ * enum scsi_timeout_action - How to handle a command that timed out.
+ * @SCSI_EH_DONE: The command has already been completed.
+ * @SCSI_EH_RESET_TIMER: Reset the timer and continue waiting for completion.
+ * @SCSI_EH_NOT_HANDLED: The command has not yet finished. Abort the command.
+ */
+enum scsi_timeout_action {
+	SCSI_EH_NOT_HANDLED = BLK_EH_DONE,
+	SCSI_EH_RESET_TIMER = BLK_EH_RESET_TIMER,
+	SCSI_EH_DONE = 2,
+};
 
 struct scsi_host_template {
 	/*
@@ -279,7 +290,7 @@ struct scsi_host_template {
 	 *
 	 * Status: OPTIONAL
 	 */
-	int (* map_queues)(struct Scsi_Host *shost);
+	void (* map_queues)(struct Scsi_Host *shost);
 
 	/*
 	 * SCSI interface of blk_poll - poll for IO completions.
@@ -334,7 +345,7 @@ struct scsi_host_template {
 	 *
 	 * Status: OPTIONAL
 	 */
-	enum blk_eh_timer_return (*eh_timed_out)(struct scsi_cmnd *);
+	enum scsi_timeout_action (*eh_timed_out)(struct scsi_cmnd *);
 	/*
 	 * Optional routine that allows the transport to decide if a cmd
 	 * is retryable. Return true if the transport is in a state the
@@ -500,7 +511,7 @@ struct scsi_host_template {
 	 */
 	u64 vendor_id;
 
-	struct scsi_host_cmd_pool *cmd_pool;
+	RH_KABI_DEPRECATE(struct scsi_host_cmd_pool *, cmd_pool)
 
 	/* Delay for runtime autosuspend */
 	int rpm_autosuspend_delay;
@@ -548,6 +559,12 @@ enum scsi_host_state {
 	SHOST_RECOVERY,
 	SHOST_CANCEL_RECOVERY,
 	SHOST_DEL_RECOVERY,
+};
+
+struct Scsi_Host_Aux {
+	struct Scsi_Host *host;
+	struct kref             tagset_refcnt;
+	struct completion       tagset_freed;
 };
 
 struct Scsi_Host {
@@ -722,14 +739,15 @@ struct Scsi_Host {
 	 */
 	struct device *dma_dev;
 
+	RH_KABI_USE(1, struct Scsi_Host_Aux *aux)
+
 	/* FOR RH USE ONLY
 	 *
 	 * The following padding has been inserted before ABI freeze to
 	 * allow extending the structure while preserving ABI.
 	 */
 
-	RH_KABI_RESERVE(1)
-	RH_KABI_RESERVE(2)
+	RH_KABI_USE_SPLIT(2, unsigned int opt_sectors)
 	RH_KABI_RESERVE(3)
 	RH_KABI_RESERVE(4)
 	RH_KABI_RESERVE(5)
@@ -820,7 +838,7 @@ extern int scsi_host_block(struct Scsi_Host *shost);
 extern int scsi_host_unblock(struct Scsi_Host *shost, int new_state);
 
 void scsi_host_busy_iter(struct Scsi_Host *,
-			 bool (*fn)(struct scsi_cmnd *, void *, bool), void *priv);
+			 bool (*fn)(struct scsi_cmnd *, void *), void *priv);
 
 struct class_container;
 

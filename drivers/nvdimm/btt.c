@@ -972,7 +972,7 @@ static int btt_arena_write_layout(struct arena_info *arena)
 	u64 sum;
 	struct btt_sb *super;
 	struct nd_btt *nd_btt = arena->nd_btt;
-	const u8 *parent_uuid = nd_dev_to_uuid(&nd_btt->ndns->dev);
+	const uuid_t *parent_uuid = nd_dev_to_uuid(&nd_btt->ndns->dev);
 
 	ret = btt_map_init(arena);
 	if (ret)
@@ -987,8 +987,8 @@ static int btt_arena_write_layout(struct arena_info *arena)
 		return -ENOMEM;
 
 	strncpy(super->signature, BTT_SIG, BTT_SIG_LEN);
-	memcpy(super->uuid, nd_btt->uuid, 16);
-	memcpy(super->parent_uuid, parent_uuid, 16);
+	export_uuid(super->uuid, nd_btt->uuid);
+	export_uuid(super->parent_uuid, parent_uuid);
 	super->flags = cpu_to_le32(arena->flags);
 	super->version_major = cpu_to_le16(arena->version_major);
 	super->version_minor = cpu_to_le16(arena->version_minor);
@@ -1422,7 +1422,7 @@ static int btt_write_pg(struct btt *btt, struct bio_integrity_payload *bip,
 
 static int btt_do_bvec(struct btt *btt, struct bio_integrity_payload *bip,
 			struct page *page, unsigned int len, unsigned int off,
-			unsigned int op, sector_t sector)
+			enum req_op op, sector_t sector)
 {
 	int ret;
 
@@ -1483,7 +1483,7 @@ static void btt_submit_bio(struct bio *bio)
 }
 
 static int btt_rw_page(struct block_device *bdev, sector_t sector,
-		struct page *page, unsigned int op)
+		struct page *page, enum req_op op)
 {
 	struct btt *btt = bdev->bd_disk->private_data;
 	int rc;
@@ -1548,14 +1548,14 @@ static int btt_blk_init(struct btt *btt)
 	return 0;
 
 out_cleanup_disk:
-	blk_cleanup_disk(btt->btt_disk);
+	put_disk(btt->btt_disk);
 	return rc;
 }
 
 static void btt_blk_cleanup(struct btt *btt)
 {
 	del_gendisk(btt->btt_disk);
-	blk_cleanup_disk(btt->btt_disk);
+	put_disk(btt->btt_disk);
 }
 
 /**
@@ -1576,7 +1576,8 @@ static void btt_blk_cleanup(struct btt *btt)
  * Pointer to a new struct btt on success, NULL on failure.
  */
 static struct btt *btt_init(struct nd_btt *nd_btt, unsigned long long rawsize,
-		u32 lbasize, u8 *uuid, struct nd_region *nd_region)
+			    u32 lbasize, uuid_t *uuid,
+			    struct nd_region *nd_region)
 {
 	int ret;
 	struct btt *btt;
@@ -1695,7 +1696,7 @@ int nvdimm_namespace_attach_btt(struct nd_namespace_common *ndns)
 	}
 	nd_region = to_nd_region(nd_btt->dev.parent);
 	btt = btt_init(nd_btt, rawsize, nd_btt->lbasize, nd_btt->uuid,
-			nd_region);
+		       nd_region);
 	if (!btt)
 		return -ENOMEM;
 	nd_btt->btt = btt;

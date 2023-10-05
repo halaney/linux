@@ -308,8 +308,8 @@ static const struct bcm_sysport_stats bcm_sysport_gstrings_stats[] = {
 static void bcm_sysport_get_drvinfo(struct net_device *dev,
 				    struct ethtool_drvinfo *info)
 {
-	strlcpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
-	strlcpy(info->bus_info, "platform", sizeof(info->bus_info));
+	strscpy(info->driver, KBUILD_MODNAME, sizeof(info->driver));
+	strscpy(info->bus_info, "platform", sizeof(info->bus_info));
 }
 
 static u32 bcm_sysport_get_msglvl(struct net_device *dev)
@@ -457,10 +457,10 @@ static void bcm_sysport_update_tx_stats(struct bcm_sysport_priv *priv,
 	for (q = 0; q < priv->netdev->num_tx_queues; q++) {
 		ring = &priv->tx_rings[q];
 		do {
-			start = u64_stats_fetch_begin_irq(&priv->syncp);
+			start = u64_stats_fetch_begin(&priv->syncp);
 			bytes = ring->bytes;
 			packets = ring->packets;
-		} while (u64_stats_fetch_retry_irq(&priv->syncp, start));
+		} while (u64_stats_fetch_retry(&priv->syncp, start));
 
 		*tx_bytes += bytes;
 		*tx_packets += packets;
@@ -504,9 +504,9 @@ static void bcm_sysport_get_stats(struct net_device *dev,
 		if (s->stat_sizeof == sizeof(u64) &&
 		    s->type == BCM_SYSPORT_STAT_NETDEV64) {
 			do {
-				start = u64_stats_fetch_begin_irq(syncp);
+				start = u64_stats_fetch_begin(syncp);
 				data[i] = *(u64 *)p;
-			} while (u64_stats_fetch_retry_irq(syncp, start));
+			} while (u64_stats_fetch_retry(syncp, start));
 		} else
 			data[i] = *(u32 *)p;
 		j++;
@@ -1515,7 +1515,7 @@ static int bcm_sysport_init_tx_ring(struct bcm_sysport_priv *priv,
 	/* Initialize SW view of the ring */
 	spin_lock_init(&ring->lock);
 	ring->priv = priv;
-	netif_tx_napi_add(priv->netdev, &ring->napi, bcm_sysport_tx_poll, 64);
+	netif_napi_add_tx(priv->netdev, &ring->napi, bcm_sysport_tx_poll);
 	ring->index = index;
 	ring->size = size;
 	ring->clean_index = 0;
@@ -1876,10 +1876,10 @@ static void bcm_sysport_get_stats64(struct net_device *dev,
 				    &stats->tx_packets);
 
 	do {
-		start = u64_stats_fetch_begin_irq(&priv->syncp);
+		start = u64_stats_fetch_begin(&priv->syncp);
 		stats->rx_packets = stats64->rx_packets;
 		stats->rx_bytes = stats64->rx_bytes;
-	} while (u64_stats_fetch_retry_irq(&priv->syncp, start));
+	} while (u64_stats_fetch_retry(&priv->syncp, start));
 }
 
 static void bcm_sysport_netif_start(struct net_device *dev)
@@ -2565,7 +2565,7 @@ static int bcm_sysport_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, dev);
 	dev->ethtool_ops = &bcm_sysport_ethtool_ops;
 	dev->netdev_ops = &bcm_sysport_netdev_ops;
-	netif_napi_add(dev, &priv->napi, bcm_sysport_poll, 64);
+	netif_napi_add(dev, &priv->napi, bcm_sysport_poll);
 
 	dev->features |= NETIF_F_RXCSUM | NETIF_F_HIGHDMA |
 			 NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |

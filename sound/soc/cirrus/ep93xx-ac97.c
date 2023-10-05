@@ -323,8 +323,8 @@ static int ep93xx_ac97_dai_probe(struct snd_soc_dai *dai)
 	info->dma_params_tx.filter_data = &ep93xx_ac97_pcm_out;
 	info->dma_params_rx.filter_data = &ep93xx_ac97_pcm_in;
 
-	dai->playback_dma_data = &info->dma_params_tx;
-	dai->capture_dma_data = &info->dma_params_rx;
+	snd_soc_dai_init_dma_data(dai,	&info->dma_params_tx,
+					&info->dma_params_rx);
 
 	return 0;
 }
@@ -355,7 +355,8 @@ static struct snd_soc_dai_driver ep93xx_ac97_dai = {
 };
 
 static const struct snd_soc_component_driver ep93xx_ac97_component = {
-	.name		= "ep93xx-ac97",
+	.name			= "ep93xx-ac97",
+	.legacy_dai_naming	= 1,
 };
 
 static int ep93xx_ac97_probe(struct platform_device *pdev)

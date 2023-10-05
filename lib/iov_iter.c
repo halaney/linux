@@ -1264,6 +1264,98 @@ void iov_iter_discard(struct iov_iter *i, unsigned int direction, size_t count)
 }
 EXPORT_SYMBOL(iov_iter_discard);
 
+static bool iov_iter_aligned_iovec(const struct iov_iter *i, unsigned addr_mask,
+				   unsigned len_mask)
+{
+	size_t size = i->count;
+	size_t skip = i->iov_offset;
+	unsigned k;
+
+	for (k = 0; k < i->nr_segs; k++, skip = 0) {
+		size_t len = i->iov[k].iov_len - skip;
+
+		if (len > size)
+			len = size;
+		if (len & len_mask)
+			return false;
+		if ((unsigned long)(i->iov[k].iov_base + skip) & addr_mask)
+			return false;
+
+		size -= len;
+		if (!size)
+			break;
+	}
+	return true;
+}
+
+static bool iov_iter_aligned_bvec(const struct iov_iter *i, unsigned addr_mask,
+				  unsigned len_mask)
+{
+	size_t size = i->count;
+	unsigned skip = i->iov_offset;
+	unsigned k;
+
+	for (k = 0; k < i->nr_segs; k++, skip = 0) {
+		size_t len = i->bvec[k].bv_len - skip;
+
+		if (len > size)
+			len = size;
+		if (len & len_mask)
+			return false;
+		if ((unsigned long)(i->bvec[k].bv_offset + skip) & addr_mask)
+			return false;
+
+		size -= len;
+		if (!size)
+			break;
+	}
+	return true;
+}
+
+/**
+ * iov_iter_is_aligned() - Check if the addresses and lengths of each segments
+ * 	are aligned to the parameters.
+ *
+ * @i: &struct iov_iter to restore
+ * @addr_mask: bit mask to check against the iov element's addresses
+ * @len_mask: bit mask to check against the iov element's lengths
+ *
+ * Return: false if any addresses or lengths intersect with the provided masks
+ */
+bool iov_iter_is_aligned(const struct iov_iter *i, unsigned addr_mask,
+			 unsigned len_mask)
+{
+	if (likely(iter_is_iovec(i) || iov_iter_is_kvec(i)))
+		return iov_iter_aligned_iovec(i, addr_mask, len_mask);
+
+	if (iov_iter_is_bvec(i))
+		return iov_iter_aligned_bvec(i, addr_mask, len_mask);
+
+	if (iov_iter_is_pipe(i)) {
+		unsigned int p_mask = i->pipe->ring_size - 1;
+		size_t size = i->count;
+
+		if (size & len_mask)
+			return false;
+		if (size && allocated(&i->pipe->bufs[i->head & p_mask])) {
+			if (i->iov_offset & addr_mask)
+				return false;
+		}
+
+		return true;
+	}
+
+	if (iov_iter_is_xarray(i)) {
+		if (i->count & len_mask)
+			return false;
+		if ((i->xarray_start + i->iov_offset) & addr_mask)
+			return false;
+	}
+
+	return true;
+}
+EXPORT_SYMBOL_GPL(iov_iter_is_aligned);
+
 static unsigned long iov_iter_alignment_iovec(const struct iov_iter *i)
 {
 	unsigned long res = 0;
@@ -1467,47 +1559,36 @@ static ssize_t iter_xarray_get_pages(struct iov_iter *i,
 }
 
 /* must be done on non-empty ITER_IOVEC one */
-static unsigned long first_iovec_segment(const struct iov_iter *i,
-					 size_t *size, size_t *start,
-					 size_t maxsize, unsigned maxpages)
+static unsigned long first_iovec_segment(const struct iov_iter *i, size_t *size)
 {
 	size_t skip;
 	long k;
 
 	for (k = 0, skip = i->iov_offset; k < i->nr_segs; k++, skip = 0) {
-		unsigned long addr = (unsigned long)i->iov[k].iov_base + skip;
 		size_t len = i->iov[k].iov_len - skip;
 
 		if (unlikely(!len))
 			continue;
-		if (len > maxsize)
-			len = maxsize;
-		len += (*start = addr % PAGE_SIZE);
-		if (len > maxpages * PAGE_SIZE)
-			len = maxpages * PAGE_SIZE;
-		*size = len;
-		return addr & PAGE_MASK;
+		if (*size > len)
+			*size = len;
+		return (unsigned long)i->iov[k].iov_base + skip;
 	}
 	BUG(); // if it had been empty, we wouldn't get called
 }
 
 /* must be done on non-empty ITER_BVEC one */
 static struct page *first_bvec_segment(const struct iov_iter *i,
-				       size_t *size, size_t *start,
-				       size_t maxsize, unsigned maxpages)
+				       size_t *size, size_t *start)
 {
 	struct page *page;
 	size_t skip = i->iov_offset, len;
 
 	len = i->bvec->bv_len - skip;
-	if (len > maxsize)
-		len = maxsize;
+	if (*size > len)
+		*size = len;
 	skip += i->bvec->bv_offset;
 	page = i->bvec->bv_page + skip / PAGE_SIZE;
-	len += (*start = skip % PAGE_SIZE);
-	if (len > maxpages * PAGE_SIZE)
-		len = maxpages * PAGE_SIZE;
-	*size = len;
+	*start = skip % PAGE_SIZE;
 	return page;
 }
 
@@ -1515,7 +1596,6 @@ ssize_t iov_iter_get_pages(struct iov_iter *i,
 		   struct page **pages, size_t maxsize, unsigned maxpages,
 		   size_t *start)
 {
-	size_t len;
 	int n, res;
 
 	if (maxsize > i->count)
@@ -1532,21 +1612,27 @@ ssize_t iov_iter_get_pages(struct iov_iter *i,
 		if (i->nofault)
 			gup_flags |= FOLL_NOFAULT;
 
-		addr = first_iovec_segment(i, &len, start, maxsize, maxpages);
-		n = DIV_ROUND_UP(len, PAGE_SIZE);
+		addr = first_iovec_segment(i, &maxsize);
+		*start = addr % PAGE_SIZE;
+		addr &= PAGE_MASK;
+		n = DIV_ROUND_UP(maxsize + *start, PAGE_SIZE);
+		if (n > maxpages)
+			n = maxpages;
 		res = get_user_pages_fast(addr, n, gup_flags, pages);
 		if (unlikely(res <= 0))
 			return res;
-		return (res == n ? len : res * PAGE_SIZE) - *start;
+		return min_t(size_t, maxsize, res * PAGE_SIZE - *start);
 	}
 	if (iov_iter_is_bvec(i)) {
 		struct page *page;
 
-		page = first_bvec_segment(i, &len, start, maxsize, maxpages);
-		n = DIV_ROUND_UP(len, PAGE_SIZE);
-		while (n--)
+		page = first_bvec_segment(i, &maxsize, start);
+		n = DIV_ROUND_UP(maxsize + *start, PAGE_SIZE);
+		if (n > maxpages)
+			n = maxpages;
+		for (int k = 0; k < n; k++)
 			get_page(*pages++ = page++);
-		return len - *start;
+		return min_t(size_t, maxsize, n * PAGE_SIZE - *start);
 	}
 	if (iov_iter_is_pipe(i))
 		return pipe_get_pages(i, pages, maxsize, maxpages, start);
@@ -1641,7 +1727,6 @@ ssize_t iov_iter_get_pages_alloc(struct iov_iter *i,
 		   size_t *start)
 {
 	struct page **p;
-	size_t len;
 	int n, res;
 
 	if (maxsize > i->count)
@@ -1658,8 +1743,10 @@ ssize_t iov_iter_get_pages_alloc(struct iov_iter *i,
 		if (i->nofault)
 			gup_flags |= FOLL_NOFAULT;
 
-		addr = first_iovec_segment(i, &len, start, maxsize, ~0U);
-		n = DIV_ROUND_UP(len, PAGE_SIZE);
+		addr = first_iovec_segment(i, &maxsize);
+		*start = addr % PAGE_SIZE;
+		addr &= PAGE_MASK;
+		n = DIV_ROUND_UP(maxsize + *start, PAGE_SIZE);
 		p = get_pages_array(n);
 		if (!p)
 			return -ENOMEM;
@@ -1670,19 +1757,19 @@ ssize_t iov_iter_get_pages_alloc(struct iov_iter *i,
 			return res;
 		}
 		*pages = p;
-		return (res == n ? len : res * PAGE_SIZE) - *start;
+		return min_t(size_t, maxsize, res * PAGE_SIZE - *start);
 	}
 	if (iov_iter_is_bvec(i)) {
 		struct page *page;
 
-		page = first_bvec_segment(i, &len, start, maxsize, ~0U);
-		n = DIV_ROUND_UP(len, PAGE_SIZE);
+		page = first_bvec_segment(i, &maxsize, start);
+		n = DIV_ROUND_UP(maxsize + *start, PAGE_SIZE);
 		*pages = p = get_pages_array(n);
 		if (!p)
 			return -ENOMEM;
-		while (n--)
+		for (int k = 0; k < n; k++)
 			get_page(*p++ = page++);
-		return len - *start;
+		return min_t(size_t, maxsize, n * PAGE_SIZE - *start);
 	}
 	if (iov_iter_is_pipe(i))
 		return pipe_get_pages_alloc(i, pages, maxsize, start);
@@ -2025,3 +2112,39 @@ int import_single_range(int rw, void __user *buf, size_t len,
 	return 0;
 }
 EXPORT_SYMBOL(import_single_range);
+
+/**
+ * iov_iter_restore() - Restore a &struct iov_iter to the same state as when
+ *     iov_iter_save_state() was called.
+ *
+ * @i: &struct iov_iter to restore
+ * @state: state to restore from
+ *
+ * Used after iov_iter_save_state() to bring restore @i, if operations may
+ * have advanced it.
+ *
+ * Note: only works on ITER_IOVEC, ITER_BVEC, and ITER_KVEC
+ */
+void iov_iter_restore(struct iov_iter *i, struct iov_iter_state *state)
+{
+	if (WARN_ON_ONCE(!iov_iter_is_bvec(i) && !iter_is_iovec(i)) &&
+			 !iov_iter_is_kvec(i))
+		return;
+	i->iov_offset = state->iov_offset;
+	i->count = state->count;
+	/*
+	 * For the *vec iters, nr_segs + iov is constant - if we increment
+	 * the vec, then we also decrement the nr_segs count. Hence we don't
+	 * need to track both of these, just one is enough and we can deduct
+	 * the other from that. ITER_KVEC and ITER_IOVEC are the same struct
+	 * size, so we can just increment the iov pointer as they are unionzed.
+	 * ITER_BVEC _may_ be the same size on some archs, but on others it is
+	 * not. Be safe and handle it separately.
+	 */
+	BUILD_BUG_ON(sizeof(struct iovec) != sizeof(struct kvec));
+	if (iov_iter_is_bvec(i))
+		i->bvec -= state->nr_segs - i->nr_segs;
+	else
+		i->iov -= state->nr_segs - i->nr_segs;
+	i->nr_segs = state->nr_segs;
+}

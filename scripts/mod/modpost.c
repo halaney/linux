@@ -650,6 +650,11 @@ static int ignore_undef_symbol(struct elf_info *info, const char *symname)
 		    strstarts(symname, "_savevr_") ||
 		    strcmp(symname, ".TOC.") == 0)
 			return 1;
+
+	if (info->hdr->e_machine == EM_S390)
+		/* Expoline thunks are linked on all kernel modules during final link of .ko */
+		if (strstarts(symname, "__s390_indirect_jump_r"))
+			return 1;
 	/* Do not ignore this symbol */
 	return 0;
 }
@@ -1968,9 +1973,9 @@ static char *remove_dot(char *s)
 		if (m && (s[n + m] == '.' || s[n + m] == 0))
 			s[n] = 0;
 
-		/* strip trailing .lto */
-		if (strends(s, ".lto"))
-			s[strlen(s) - 4] = '\0';
+		/* strip trailing .prelink */
+		if (strends(s, ".prelink"))
+			s[strlen(s) - 8] = '\0';
 	}
 	return s;
 }
@@ -1994,9 +1999,9 @@ static void read_symbols(const char *modname)
 		/* strip trailing .o */
 		tmp = NOFAIL(strdup(modname));
 		tmp[strlen(tmp) - 2] = '\0';
-		/* strip trailing .lto */
-		if (strends(tmp, ".lto"))
-			tmp[strlen(tmp) - 4] = '\0';
+		/* strip trailing .prelink */
+		if (strends(tmp, ".prelink"))
+			tmp[strlen(tmp) - 8] = '\0';
 		mod = new_module(tmp);
 		free(tmp);
 	}

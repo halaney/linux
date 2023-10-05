@@ -23,6 +23,7 @@
 #include <linux/sysrq.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/tty.h>
 #include <linux/ratelimit.h>
 #include <linux/tty_flip.h>
@@ -255,8 +256,11 @@ static void serial8250_timeout(struct timer_list *t)
 static void serial8250_backup_timeout(struct timer_list *t)
 {
 	struct uart_8250_port *up = from_timer(up, t, timer);
+	struct uart_port *port = &up->port;
 	unsigned int iir, ier = 0, lsr;
+	unsigned long cs_flags;
 	unsigned long flags;
+	bool is_console;
 
 	spin_lock_irqsave(&up->port.lock, flags);
 
@@ -264,8 +268,18 @@ static void serial8250_backup_timeout(struct timer_list *t)
 	 * Must disable interrupts or else we risk racing with the interrupt
 	 * based handler.
 	 */
-	if (up->port.irq)
-		ier = serial8250_clear_IER(up);
+	if (up->port.irq) {
+		is_console = uart_console(port);
+
+		if (is_console)
+			printk_cpu_sync_get_irqsave(cs_flags);
+
+		ier = serial_in(up, UART_IER);
+		serial_out(up, UART_IER, 0);
+
+		if (is_console)
+			printk_cpu_sync_put_irqrestore(cs_flags);
+	}
 
 	iir = serial_in(up, UART_IIR);
 
@@ -558,6 +572,9 @@ serial8250_register_ports(struct uart_driver *drv, struct device *dev)
 			continue;
 
 		up->port.dev = dev;
+
+		if (uart_console_enabled(&up->port))
+			pm_runtime_get_sync(up->port.dev);
 
 		serial8250_apply_quirks(up);
 		uart_add_one_port(drv, &up->port);
@@ -961,7 +978,7 @@ static void serial_8250_overrun_backoff_work(struct work_struct *work)
 	spin_lock_irqsave(&port->lock, flags);
 	up->ier |= UART_IER_RLSI | UART_IER_RDI;
 	up->port.read_status_mask |= UART_LSR_DR;
-	serial_out(up, UART_IER, up->ier);
+	serial8250_set_IER(up, up->ier);
 	spin_unlock_irqrestore(&port->lock, flags);
 }
 

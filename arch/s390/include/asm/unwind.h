@@ -47,7 +47,7 @@ struct unwind_state {
 static inline unsigned long unwind_recover_ret_addr(struct unwind_state *state,
 						    unsigned long ip)
 {
-	ip = ftrace_graph_ret_addr(state->task, &state->graph_idx, ip, NULL);
+	ip = ftrace_graph_ret_addr(state->task, &state->graph_idx, ip, (void *)state->sp);
 	if (is_kretprobe_trampoline(ip))
 		ip = kretprobe_find_ret_addr(state->task, (void *)state->sp, &state->kr_cur);
 	return ip;
@@ -68,10 +68,10 @@ static inline bool unwind_error(struct unwind_state *state)
 	return state->error;
 }
 
-static inline void unwind_start(struct unwind_state *state,
-				struct task_struct *task,
-				struct pt_regs *regs,
-				unsigned long first_frame)
+static __always_inline void unwind_start(struct unwind_state *state,
+					 struct task_struct *task,
+					 struct pt_regs *regs,
+					 unsigned long first_frame)
 {
 	task = task ?: current;
 	first_frame = first_frame ?: get_stack_pointer(task, regs);

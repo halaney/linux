@@ -52,6 +52,8 @@ int filemap_fdatawrite_range(struct address_space *mapping,
 		loff_t start, loff_t end);
 int filemap_check_errors(struct address_space *mapping);
 void __filemap_set_wb_err(struct address_space *mapping, int err);
+int filemap_fdatawrite_wbc(struct address_space *mapping,
+			   struct writeback_control *wbc);
 
 static inline int filemap_write_and_wait(struct address_space *mapping)
 {
@@ -133,6 +135,56 @@ static inline int inode_drain_writes(struct inode *inode)
 static inline bool mapping_empty(struct address_space *mapping)
 {
 	return xa_empty(&mapping->i_pages);
+}
+
+/*
+ * mapping_shrinkable - test if page cache state allows inode reclaim
+ * @mapping: the page cache mapping
+ *
+ * This checks the mapping's cache state for the pupose of inode
+ * reclaim and LRU management.
+ *
+ * The caller is expected to hold the i_lock, but is not required to
+ * hold the i_pages lock, which usually protects cache state. That's
+ * because the i_lock and the list_lru lock that protect the inode and
+ * its LRU state don't nest inside the irq-safe i_pages lock.
+ *
+ * Cache deletions are performed under the i_lock, which ensures that
+ * when an inode goes empty, it will reliably get queued on the LRU.
+ *
+ * Cache additions do not acquire the i_lock and may race with this
+ * check, in which case we'll report the inode as shrinkable when it
+ * has cache pages. This is okay: the shrinker also checks the
+ * refcount and the referenced bit, which will be elevated or set in
+ * the process of adding new cache pages to an inode.
+ */
+static inline bool mapping_shrinkable(struct address_space *mapping)
+{
+	void *head;
+
+	/*
+	 * On highmem systems, there could be lowmem pressure from the
+	 * inodes before there is highmem pressure from the page
+	 * cache. Make inodes shrinkable regardless of cache state.
+	 */
+	if (IS_ENABLED(CONFIG_HIGHMEM))
+		return true;
+
+	/* Cache completely empty? Shrink away. */
+	head = rcu_access_pointer(mapping->i_pages.xa_head);
+	if (!head)
+		return true;
+
+	/*
+	 * The xarray stores single offset-0 entries directly in the
+	 * head pointer, which allows non-resident page cache entries
+	 * to escape the shadow shrinker's list of xarray nodes. The
+	 * inode shrinker needs to pick them up under memory pressure.
+	 */
+	if (!xa_is_node(head) && xa_is_value(head))
+		return true;
+
+	return false;
 }
 
 /*
@@ -293,8 +345,6 @@ static inline void filemap_nr_thps_dec(struct address_space *mapping)
 #endif
 }
 
-void release_pages(struct page **pages, int nr);
-
 struct address_space *page_mapping(struct page *);
 struct address_space *folio_mapping(struct folio *);
 struct address_space *swapcache_mapping(struct folio *);
@@ -440,7 +490,7 @@ static inline gfp_t readahead_gfp_mask(struct address_space *x)
 	return mapping_gfp_mask(x) | __GFP_NORETRY | __GFP_NOWARN;
 }
 
-typedef int filler_t(void *, struct page *);
+typedef int filler_t(struct file *, struct folio *);
 
 pgoff_t page_cache_next_miss(struct address_space *mapping,
 			     pgoff_t index, unsigned long max_scan);
@@ -477,6 +527,24 @@ static inline struct folio *filemap_get_folio(struct address_space *mapping,
 					pgoff_t index)
 {
 	return __filemap_get_folio(mapping, index, 0, 0);
+}
+
+/**
+ * filemap_lock_folio - Find and lock a folio.
+ * @mapping: The address_space to search.
+ * @index: The page index.
+ *
+ * Looks up the page cache entry at @mapping & @index.  If a folio is
+ * present, it is returned locked with an increased refcount.
+ *
+ * Context: May sleep.
+ * Return: A folio or %NULL if there is no folio in the cache for this
+ * index.  Will not return a shadow, swap or DAX entry.
+ */
+static inline struct folio *filemap_lock_folio(struct address_space *mapping,
+					pgoff_t index)
+{
+	return __filemap_get_folio(mapping, index, FGP_LOCK, 0);
 }
 
 /**
@@ -648,16 +716,8 @@ static inline struct page *find_subpage(struct page *head, pgoff_t index)
 	return head + (index & (thp_nr_pages(head) - 1));
 }
 
-unsigned find_get_pages_range(struct address_space *mapping, pgoff_t *start,
-			pgoff_t end, unsigned int nr_pages,
-			struct page **pages);
-static inline unsigned find_get_pages(struct address_space *mapping,
-			pgoff_t *start, unsigned int nr_pages,
-			struct page **pages)
-{
-	return find_get_pages_range(mapping, start, (pgoff_t)-1, nr_pages,
-				    pages);
-}
+unsigned filemap_get_folios(struct address_space *mapping, pgoff_t *start,
+		pgoff_t end, struct folio_batch *fbatch);
 unsigned find_get_pages_contig(struct address_space *mapping, pgoff_t start,
 			       unsigned int nr_pages, struct page **pages);
 unsigned find_get_pages_range_tag(struct address_space *mapping, pgoff_t *index,
@@ -672,7 +732,7 @@ static inline unsigned find_get_pages_tag(struct address_space *mapping,
 }
 
 struct page *grab_cache_page_write_begin(struct address_space *mapping,
-			pgoff_t index, unsigned flags);
+			pgoff_t index);
 
 /*
  * Returns locked page at given index in given cache, creating it if needed.
@@ -684,13 +744,11 @@ static inline struct page *grab_cache_page(struct address_space *mapping,
 }
 
 struct folio *read_cache_folio(struct address_space *, pgoff_t index,
-		filler_t *filler, void *data);
+		filler_t *filler, struct file *file);
 struct page *read_cache_page(struct address_space *, pgoff_t index,
-		filler_t *filler, void *data);
+		filler_t *filler, struct file *file);
 extern struct page * read_cache_page_gfp(struct address_space *mapping,
 				pgoff_t index, gfp_t gfp_mask);
-extern int read_cache_pages(struct address_space *mapping,
-		struct list_head *pages, filler_t *filler, void *data);
 
 static inline struct page *read_mapping_page(struct address_space *mapping,
 				pgoff_t index, struct file *file)
@@ -879,19 +937,16 @@ static inline int lock_page_killable(struct page *page)
 }
 
 /*
- * lock_page_or_retry - Lock the page, unless this would block and the
+ * folio_lock_or_retry - Lock the folio, unless this would block and the
  * caller indicated that it can handle a retry.
  *
  * Return value and mmap_lock implications depend on flags; see
  * __folio_lock_or_retry().
  */
-static inline bool lock_page_or_retry(struct page *page, struct mm_struct *mm,
-				     unsigned int flags)
+static inline bool folio_lock_or_retry(struct folio *folio,
+		struct mm_struct *mm, unsigned int flags)
 {
-	struct folio *folio;
 	might_sleep();
-
-	folio = page_folio(page);
 	return folio_trylock(folio) || __folio_lock_or_retry(folio, mm, flags);
 }
 
@@ -932,7 +987,6 @@ static inline int wait_on_page_locked_killable(struct page *page)
 	return folio_wait_locked_killable(page_folio(page));
 }
 
-int folio_put_wait_locked(struct folio *folio, int state);
 void wait_on_page_writeback(struct page *page);
 void folio_wait_writeback(struct folio *folio);
 int folio_wait_writeback_killable(struct folio *folio);
@@ -954,10 +1008,6 @@ static inline void folio_cancel_dirty(struct folio *folio)
 	if (folio_test_dirty(folio))
 		__folio_cancel_dirty(folio);
 }
-static inline void cancel_dirty_page(struct page *page)
-{
-	folio_cancel_dirty(page_folio(page));
-}
 bool folio_clear_dirty_for_io(struct folio *folio);
 bool clear_page_dirty_for_io(struct page *page);
 void folio_invalidate(struct folio *folio, size_t offset, size_t length);
@@ -968,25 +1018,15 @@ static inline int __must_check write_one_page(struct page *page)
 }
 
 int __set_page_dirty_nobuffers(struct page *page);
-int __set_page_dirty_no_writeback(struct page *page);
+bool noop_dirty_folio(struct address_space *mapping, struct folio *folio);
 
+#ifdef CONFIG_MIGRATION
+int filemap_migrate_folio(struct address_space *mapping, struct folio *dst,
+		struct folio *src, enum migrate_mode mode);
+#else
+#define filemap_migrate_folio NULL
+#endif
 void page_endio(struct page *page, bool is_write, int err);
-
-/**
- * set_page_private_2 - Set PG_private_2 on a page and take a ref
- * @page: The page.
- *
- * Set the PG_private_2 flag on a page and take the reference needed for the VM
- * to handle its lifetime correctly.  This sets the flag and takes the
- * reference unconditionally, so care must be taken not to set the flag again
- * if it's already set.
- */
-static inline void set_page_private_2(struct page *page)
-{
-	page = compound_head(page);
-	get_page(page);
-	SetPagePrivate2(page);
-}
 
 void folio_end_private_2(struct folio *folio);
 void folio_wait_private_2(struct folio *folio);
@@ -1001,11 +1041,10 @@ void folio_add_wait_queue(struct folio *folio, wait_queue_entry_t *waiter);
  * Fault in userspace address range.
  */
 size_t fault_in_writeable(char __user *uaddr, size_t size);
+size_t fault_in_subpage_writeable(char __user *uaddr, size_t size);
 size_t fault_in_safe_writeable(const char __user *uaddr, size_t size);
 size_t fault_in_readable(const char __user *uaddr, size_t size);
 
-int add_to_page_cache_locked(struct page *page, struct address_space *mapping,
-		pgoff_t index, gfp_t gfp);
 int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 		pgoff_t index, gfp_t gfp);
 int filemap_add_folio(struct address_space *mapping, struct folio *folio,
@@ -1013,10 +1052,6 @@ int filemap_add_folio(struct address_space *mapping, struct folio *folio,
 void filemap_remove_folio(struct folio *folio);
 void delete_from_page_cache(struct page *page);
 void __filemap_remove_folio(struct folio *folio, void *shadow);
-static inline void __delete_from_page_cache(struct page *page, void *shadow)
-{
-	__filemap_remove_folio(page_folio(page), shadow);
-}
 void replace_page_cache_page(struct page *old, struct page *new);
 void delete_from_page_cache_batch(struct address_space *mapping,
 				  struct folio_batch *fbatch);
@@ -1024,22 +1059,6 @@ int try_to_release_page(struct page *page, gfp_t gfp);
 bool filemap_release_folio(struct folio *folio, gfp_t gfp);
 loff_t mapping_seek_hole_data(struct address_space *, loff_t start, loff_t end,
 		int whence);
-
-/*
- * Like add_to_page_cache_locked, but used to add newly allocated pages:
- * the page is new, so we can just run __SetPageLocked() against it.
- */
-static inline int add_to_page_cache(struct page *page,
-		struct address_space *mapping, pgoff_t offset, gfp_t gfp_mask)
-{
-	int error;
-
-	__SetPageLocked(page);
-	error = add_to_page_cache_locked(page, mapping, offset, gfp_mask);
-	if (unlikely(error))
-		__ClearPageLocked(page);
-	return error;
-}
 
 /* Must be non-static for BPF error injection */
 int __filemap_add_folio(struct address_space *mapping, struct folio *folio,
@@ -1072,6 +1091,8 @@ struct readahead_control {
 	pgoff_t _index;
 	unsigned int _nr_pages;
 	unsigned int _batch_count;
+	bool _workingset;
+	unsigned long _pflags;
 };
 
 #define DEFINE_READAHEAD(ractl, f, r, m, i)				\

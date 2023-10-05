@@ -53,7 +53,7 @@ struct coproc_instance {
 	struct vas_window *txwin;
 };
 
-static char *coproc_devnode(struct device *dev, umode_t *mode)
+static char *coproc_devnode(const struct device *dev, umode_t *mode)
 {
 	return kasprintf(GFP_KERNEL, "crypto/%s", dev_name(dev));
 }
@@ -303,7 +303,7 @@ static int coproc_ioc_tx_win_open(struct file *fp, unsigned long arg)
 		return -EINVAL;
 	}
 
-	if (!cp_inst->coproc->vops && !cp_inst->coproc->vops->open_win) {
+	if (!cp_inst->coproc->vops || !cp_inst->coproc->vops->open_win) {
 		pr_err("VAS API is not registered\n");
 		return -EACCES;
 	}
@@ -492,7 +492,7 @@ static int coproc_mmap(struct file *fp, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-	if (!cp_inst->coproc->vops && !cp_inst->coproc->vops->paste_addr) {
+	if (!cp_inst->coproc->vops || !cp_inst->coproc->vops->paste_addr) {
 		pr_err("%s(): VAS API is not registered\n", __func__);
 		return -EACCES;
 	}

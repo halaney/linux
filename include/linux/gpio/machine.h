@@ -3,7 +3,6 @@
 #define __LINUX_GPIO_MACHINE_H
 
 #include <linux/types.h>
-#include <linux/list.h>
 
 enum gpio_lookup_flags {
 	GPIO_ACTIVE_HIGH		= (0 << 0),
@@ -14,6 +13,7 @@ enum gpio_lookup_flags {
 	GPIO_TRANSITORY			= (1 << 3),
 	GPIO_PULL_UP			= (1 << 4),
 	GPIO_PULL_DOWN			= (1 << 5),
+	GPIO_PULL_DISABLE		= (1 << 6),
 
 	GPIO_LOOKUP_FLAGS_DEFAULT	= GPIO_ACTIVE_HIGH | GPIO_PERSISTENT,
 };
@@ -100,6 +100,7 @@ void gpiod_add_lookup_table(struct gpiod_lookup_table *table);
 void gpiod_add_lookup_tables(struct gpiod_lookup_table **tables, size_t n);
 void gpiod_remove_lookup_table(struct gpiod_lookup_table *table);
 void gpiod_add_hogs(struct gpiod_hog *hogs);
+void gpiod_remove_hogs(struct gpiod_hog *hogs);
 #else /* ! CONFIG_GPIOLIB */
 static inline
 void gpiod_add_lookup_table(struct gpiod_lookup_table *table) {}
@@ -108,6 +109,7 @@ void gpiod_add_lookup_tables(struct gpiod_lookup_table **tables, size_t n) {}
 static inline
 void gpiod_remove_lookup_table(struct gpiod_lookup_table *table) {}
 static inline void gpiod_add_hogs(struct gpiod_hog *hogs) {}
+static inline void gpiod_remove_hogs(struct gpiod_hog *hogs) {}
 #endif /* CONFIG_GPIOLIB */
 
 #endif /* __LINUX_GPIO_MACHINE_H */

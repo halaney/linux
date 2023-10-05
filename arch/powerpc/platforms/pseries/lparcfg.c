@@ -36,6 +36,7 @@
 #include <asm/drmem.h>
 
 #include "pseries.h"
+#include "vas.h"	/* pseries_vas_dlpar_cpu() */
 
 /*
  * This isn't a module but we expose that to userspace
@@ -531,8 +532,9 @@ static int pseries_lparcfg_data(struct seq_file *m, void *v)
 	seq_printf(m, "shared_processor_mode=%d\n",
 		   lppaca_shared_proc(get_lppaca()));
 
-#ifdef CONFIG_PPC_BOOK3S_64
-	seq_printf(m, "slb_size=%d\n", mmu_slb_size);
+#ifdef CONFIG_PPC_64S_HASH_MMU
+	if (!radix_enabled())
+		seq_printf(m, "slb_size=%d\n", mmu_slb_size);
 #endif
 	parse_em_data(m);
 	maxmem_data(m);
@@ -661,6 +663,16 @@ static ssize_t lparcfg_write(struct file *file, const char __user * buf,
 			return -EINVAL;
 
 		retval = update_ppp(new_entitled_ptr, NULL);
+
+		if (retval == H_SUCCESS || retval == H_CONSTRAINED) {
+			/*
+			 * The hypervisor assigns VAS resources based
+			 * on entitled capacity for shared mode.
+			 * Reconfig VAS windows based on DLPAR CPU events.
+			 */
+			if (pseries_vas_dlpar_cpu() != 0)
+				retval = H_HARDWARE;
+		}
 	} else if (!strcmp(kbuf, "capacity_weight")) {
 		char *endp;
 		*new_weight_ptr = (u8) simple_strtoul(tmp, &endp, 10);

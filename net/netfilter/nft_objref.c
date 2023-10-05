@@ -47,7 +47,8 @@ static int nft_objref_init(const struct nft_ctx *ctx,
 	return 0;
 }
 
-static int nft_objref_dump(struct sk_buff *skb, const struct nft_expr *expr)
+static int nft_objref_dump(struct sk_buff *skb,
+			   const struct nft_expr *expr, bool reset)
 {
 	const struct nft_object *obj = nft_objref_priv(expr);
 
@@ -155,7 +156,8 @@ static int nft_objref_map_init(const struct nft_ctx *ctx,
 	return 0;
 }
 
-static int nft_objref_map_dump(struct sk_buff *skb, const struct nft_expr *expr)
+static int nft_objref_map_dump(struct sk_buff *skb,
+			       const struct nft_expr *expr, bool reset)
 {
 	const struct nft_objref_map *priv = nft_expr_priv(expr);
 
@@ -183,7 +185,7 @@ static void nft_objref_map_activate(const struct nft_ctx *ctx,
 {
 	struct nft_objref_map *priv = nft_expr_priv(expr);
 
-	priv->set->use++;
+	nf_tables_activate_set(ctx, priv->set);
 }
 
 static void nft_objref_map_destroy(const struct nft_ctx *ctx,

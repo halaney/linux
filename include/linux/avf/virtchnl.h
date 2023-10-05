@@ -122,9 +122,13 @@ enum virtchnl_ops {
 	VIRTCHNL_OP_GET_STATS = 15,
 	VIRTCHNL_OP_RSVD = 16,
 	VIRTCHNL_OP_EVENT = 17, /* must ALWAYS be 17 */
+	/* opcode 19 is reserved */
 	VIRTCHNL_OP_IWARP = 20, /* advanced opcode */
+	VIRTCHNL_OP_RDMA = VIRTCHNL_OP_IWARP,
 	VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP = 21, /* advanced opcode */
+	VIRTCHNL_OP_CONFIG_RDMA_IRQ_MAP = VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP,
 	VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP = 22, /* advanced opcode */
+	VIRTCHNL_OP_RELEASE_RDMA_IRQ_MAP = VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP,
 	VIRTCHNL_OP_CONFIG_RSS_KEY = 23,
 	VIRTCHNL_OP_CONFIG_RSS_LUT = 24,
 	VIRTCHNL_OP_GET_RSS_HENA_CAPS = 25,
@@ -136,7 +140,8 @@ enum virtchnl_ops {
 	VIRTCHNL_OP_DISABLE_CHANNELS = 31,
 	VIRTCHNL_OP_ADD_CLOUD_FILTER = 32,
 	VIRTCHNL_OP_DEL_CLOUD_FILTER = 33,
-	/* opcode 34 - 44 are reserved */
+	/* opcode 34 - 43 are reserved */
+	VIRTCHNL_OP_GET_SUPPORTED_RXDIDS = 44,
 	VIRTCHNL_OP_ADD_RSS_CFG = 45,
 	VIRTCHNL_OP_DEL_RSS_CFG = 46,
 	VIRTCHNL_OP_ADD_FDIR_FILTER = 47,
@@ -246,7 +251,8 @@ VIRTCHNL_CHECK_STRUCT_LEN(16, virtchnl_vsi_resource);
  * TX/RX Checksum offloading and TSO for non-tunnelled packets.
  */
 #define VIRTCHNL_VF_OFFLOAD_L2			BIT(0)
-#define VIRTCHNL_VF_OFFLOAD_IWARP		BIT(1)
+#define VIRTCHNL_VF_OFFLOAD_RDMA		BIT(1)
+#define VIRTCHNL_VF_CAP_RDMA			VIRTCHNL_VF_OFFLOAD_RDMA
 #define VIRTCHNL_VF_OFFLOAD_RSS_AQ		BIT(3)
 #define VIRTCHNL_VF_OFFLOAD_RSS_REG		BIT(4)
 #define VIRTCHNL_VF_OFFLOAD_WB_ON_ITR		BIT(5)
@@ -263,6 +269,7 @@ VIRTCHNL_CHECK_STRUCT_LEN(16, virtchnl_vsi_resource);
 #define VIRTCHNL_VF_OFFLOAD_RX_ENCAP_CSUM	BIT(22)
 #define VIRTCHNL_VF_OFFLOAD_ADQ			BIT(23)
 #define VIRTCHNL_VF_OFFLOAD_USO			BIT(25)
+#define VIRTCHNL_VF_OFFLOAD_RX_FLEX_DESC	BIT(26)
 #define VIRTCHNL_VF_OFFLOAD_ADV_RSS_PF		BIT(27)
 #define VIRTCHNL_VF_OFFLOAD_FDIR_PF		BIT(28)
 
@@ -318,7 +325,9 @@ struct virtchnl_rxq_info {
 	u16 splithdr_enabled; /* deprecated with AVF 1.0 */
 	u32 databuffer_size;
 	u32 max_pkt_size;
-	u32 pad1;
+	u8 pad0;
+	u8 rxdid;
+	u8 pad1[2];
 	u64 dma_ring_addr;
 	enum virtchnl_rx_hsplit rx_split_pos; /* deprecated with AVF 1.0 */
 	u32 pad2;
@@ -970,6 +979,10 @@ struct virtchnl_filter {
 
 VIRTCHNL_CHECK_STRUCT_LEN(272, virtchnl_filter);
 
+struct virtchnl_supported_rxdids {
+	u64 supported_rxdids;
+};
+
 /* VIRTCHNL_OP_EVENT
  * PF sends this message to inform the VF driver of events that may affect it.
  * No direct response is expected from the VF, though it may generate other
@@ -1013,34 +1026,36 @@ struct virtchnl_pf_event {
 
 VIRTCHNL_CHECK_STRUCT_LEN(16, virtchnl_pf_event);
 
-/* VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP
- * VF uses this message to request PF to map IWARP vectors to IWARP queues.
- * The request for this originates from the VF IWARP driver through
- * a client interface between VF LAN and VF IWARP driver.
+/* used to specify if a ceq_idx or aeq_idx is invalid */
+#define VIRTCHNL_RDMA_INVALID_QUEUE_IDX	0xFFFF
+/* VIRTCHNL_OP_CONFIG_RDMA_IRQ_MAP
+ * VF uses this message to request PF to map RDMA vectors to RDMA queues.
+ * The request for this originates from the VF RDMA driver through
+ * a client interface between VF LAN and VF RDMA driver.
  * A vector could have an AEQ and CEQ attached to it although
- * there is a single AEQ per VF IWARP instance in which case
- * most vectors will have an INVALID_IDX for aeq and valid idx for ceq.
- * There will never be a case where there will be multiple CEQs attached
- * to a single vector.
+ * there is a single AEQ per VF RDMA instance in which case
+ * most vectors will have an VIRTCHNL_RDMA_INVALID_QUEUE_IDX for aeq and valid
+ * idx for ceqs There will never be a case where there will be multiple CEQs
+ * attached to a single vector.
  * PF configures interrupt mapping and returns status.
  */
 
-struct virtchnl_iwarp_qv_info {
+struct virtchnl_rdma_qv_info {
 	u32 v_idx; /* msix_vector */
-	u16 ceq_idx;
-	u16 aeq_idx;
+	u16 ceq_idx; /* set to VIRTCHNL_RDMA_INVALID_QUEUE_IDX if invalid */
+	u16 aeq_idx; /* set to VIRTCHNL_RDMA_INVALID_QUEUE_IDX if invalid */
 	u8 itr_idx;
 	u8 pad[3];
 };
 
-VIRTCHNL_CHECK_STRUCT_LEN(12, virtchnl_iwarp_qv_info);
+VIRTCHNL_CHECK_STRUCT_LEN(12, virtchnl_rdma_qv_info);
 
-struct virtchnl_iwarp_qvlist_info {
+struct virtchnl_rdma_qvlist_info {
 	u32 num_vectors;
-	struct virtchnl_iwarp_qv_info qv_info[1];
+	struct virtchnl_rdma_qv_info qv_info[1];
 };
 
-VIRTCHNL_CHECK_STRUCT_LEN(16, virtchnl_iwarp_qvlist_info);
+VIRTCHNL_CHECK_STRUCT_LEN(16, virtchnl_rdma_qvlist_info);
 
 /* VF reset states - these are written into the RSTAT register:
  * VFGEN_RSTAT on the VF
@@ -1275,7 +1290,7 @@ VIRTCHNL_CHECK_STRUCT_LEN(2604, virtchnl_fdir_rule);
 /* Status returned to VF after VF requests FDIR commands
  * VIRTCHNL_FDIR_SUCCESS
  * VF FDIR related request is successfully done by PF
- * The request can be OP_ADD/DEL.
+ * The request can be OP_ADD/DEL/QUERY_FDIR_FILTER.
  *
  * VIRTCHNL_FDIR_FAILURE_RULE_NORESOURCE
  * OP_ADD_FDIR_FILTER request is failed due to no Hardware resource.
@@ -1296,6 +1311,10 @@ VIRTCHNL_CHECK_STRUCT_LEN(2604, virtchnl_fdir_rule);
  * VIRTCHNL_FDIR_FAILURE_RULE_TIMEOUT
  * OP_ADD/DEL_FDIR_FILTER request is failed due to timing out
  * for programming.
+ *
+ * VIRTCHNL_FDIR_FAILURE_QUERY_INVALID
+ * OP_QUERY_FDIR_FILTER request is failed due to parameters validation,
+ * for example, VF query counter of a rule who has no counter action.
  */
 enum virtchnl_fdir_prgm_status {
 	VIRTCHNL_FDIR_SUCCESS = 0,
@@ -1305,6 +1324,7 @@ enum virtchnl_fdir_prgm_status {
 	VIRTCHNL_FDIR_FAILURE_RULE_NONEXIST,
 	VIRTCHNL_FDIR_FAILURE_RULE_INVALID,
 	VIRTCHNL_FDIR_FAILURE_RULE_TIMEOUT,
+	VIRTCHNL_FDIR_FAILURE_QUERY_INVALID,
 };
 
 /* VIRTCHNL_OP_ADD_FDIR_FILTER
@@ -1428,7 +1448,7 @@ virtchnl_vc_validate_vf_msg(struct virtchnl_version_info *ver, u32 v_opcode,
 	case VIRTCHNL_OP_GET_STATS:
 		valid_len = sizeof(struct virtchnl_queue_select);
 		break;
-	case VIRTCHNL_OP_IWARP:
+	case VIRTCHNL_OP_RDMA:
 		/* These messages are opaque to us and will be validated in
 		 * the RDMA client code. We just need to check for nonzero
 		 * length. The firmware will enforce max length restrictions.
@@ -1438,19 +1458,16 @@ virtchnl_vc_validate_vf_msg(struct virtchnl_version_info *ver, u32 v_opcode,
 		else
 			err_msg_format = true;
 		break;
-	case VIRTCHNL_OP_RELEASE_IWARP_IRQ_MAP:
+	case VIRTCHNL_OP_RELEASE_RDMA_IRQ_MAP:
 		break;
-	case VIRTCHNL_OP_CONFIG_IWARP_IRQ_MAP:
-		valid_len = sizeof(struct virtchnl_iwarp_qvlist_info);
+	case VIRTCHNL_OP_CONFIG_RDMA_IRQ_MAP:
+		valid_len = sizeof(struct virtchnl_rdma_qvlist_info);
 		if (msglen >= valid_len) {
-			struct virtchnl_iwarp_qvlist_info *qv =
-				(struct virtchnl_iwarp_qvlist_info *)msg;
-			if (qv->num_vectors == 0) {
-				err_msg_format = true;
-				break;
-			}
+			struct virtchnl_rdma_qvlist_info *qv =
+				(struct virtchnl_rdma_qvlist_info *)msg;
+
 			valid_len += ((qv->num_vectors - 1) *
-				sizeof(struct virtchnl_iwarp_qv_info));
+				sizeof(struct virtchnl_rdma_qv_info));
 		}
 		break;
 	case VIRTCHNL_OP_CONFIG_RSS_KEY:
@@ -1498,6 +1515,8 @@ virtchnl_vc_validate_vf_msg(struct virtchnl_version_info *ver, u32 v_opcode,
 		break;
 	case VIRTCHNL_OP_DEL_CLOUD_FILTER:
 		valid_len = sizeof(struct virtchnl_filter);
+		break;
+	case VIRTCHNL_OP_GET_SUPPORTED_RXDIDS:
 		break;
 	case VIRTCHNL_OP_ADD_RSS_CFG:
 	case VIRTCHNL_OP_DEL_RSS_CFG:
