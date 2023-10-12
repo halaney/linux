@@ -136,7 +136,7 @@ static const struct io_pgtable_cfg *qcom_adreno_smmu_get_ttbr1_cfg(
  * are active
  */
 
-int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie,
+static int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie,
 		const struct io_pgtable_cfg *pgtbl_cfg)
 {
 	struct arm_smmu_domain *smmu_domain = (void *)cookie;
@@ -176,8 +176,6 @@ int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie,
 
 	return 0;
 }
-
-EXPORT_SYMBOL(qcom_adreno_smmu_set_ttbr0_cfg);
 
 static int qcom_adreno_smmu_alloc_context_bank(struct arm_smmu_domain *smmu_domain,
 					       struct arm_smmu_device *smmu,

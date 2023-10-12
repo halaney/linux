@@ -8,8 +8,6 @@
 
 #include <linux/io-pgtable.h>
 
-int qcom_adreno_smmu_set_ttbr0_cfg(const void *cookie, const struct io_pgtable_cfg *pgtbl_cfg);
-
 /**
  * struct adreno_smmu_fault_info - container for key fault information
  *
