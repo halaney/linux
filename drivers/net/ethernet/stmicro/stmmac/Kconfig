@@ -91,6 +91,9 @@ config DWMAC_IPQ806X
 	  acceleration features available on this SoC. Network devices
 	  will behave like standard non-accelerated ethernet interfaces.
 
+	  Select the QCOM_SOCINFO config flag to enable specific dwmac
+	  fixup based on the ipq806x SoC revision.
+
 config DWMAC_LPC18XX
 	tristate "NXP LPC18xx/43xx DWMAC support"
 	default ARCH_LPC18XX
@@ -138,20 +141,6 @@ config DWMAC_QCOM_ETHQOS
 
 	  This selects the Qualcomm ETHQOS glue layer support for the
 	  stmmac device driver.
-
-config DWMAC_QCOM_VER3
-	tristate "EMAC ETHQOS support for direwolf"
-	default n
-	depends on OF && (ARCH_QCOM || COMPILE_TEST)
-	help
-	  Support for the EMAC ETHQOS core 3.
-
-	  This selects the EMAC ETHQOS glue layer DMA and MTL offsets for
-	  the stmmac device driver for direwolf. With this config different
-	  base address for various MTL and DMA registers are selected.
-	  This config is only applicable for EMAC version 3. Other targets should
-	  not enable this config.
-
 
 config DWMAC_ROCKCHIP
 	tristate "Rockchip dwmac support"
@@ -245,6 +234,15 @@ config DWMAC_INTEL_PLAT
 	  This selects the Intel platform specific glue layer support for
 	  the stmmac device driver. This driver is used for the Intel Keem Bay
 	  SoC.
+
+config DWMAC_TEGRA
+	tristate "NVIDIA Tegra MGBE support"
+	depends on ARCH_TEGRA || COMPILE_TEST
+	help
+	  This selects the Multi-GigaBit Ethernet (MGBE) Controller that is
+	  found on the NVIDIA Tegra SoC devices. This driver provides the glue
+	  layer on top of the stmmac driver required for these NVIDIA Tegra SoC
+	  devices.
 
 config DWMAC_VISCONTI
 	tristate "Toshiba Visconti DWMAC support"

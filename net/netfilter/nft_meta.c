@@ -243,7 +243,11 @@ static bool nft_meta_get_eval_ifname(enum nft_meta_keys key, u32 *dest,
 	case NFT_META_OIF:
 		nft_meta_store_ifindex(dest, nft_out(pkt));
 		break;
-	case NFT_META_IIFTYPE:
+	case NFT_META_IFTYPE:
+		if (!nft_meta_store_iftype(dest, pkt->skb->dev))
+			return false;
+		break;
+	case __NFT_META_IIFTYPE:
 		if (!nft_meta_store_iftype(dest, nft_in(pkt)))
 			return false;
 		break;
@@ -663,7 +667,7 @@ int nft_meta_set_init(const struct nft_ctx *ctx,
 EXPORT_SYMBOL_GPL(nft_meta_set_init);
 
 int nft_meta_get_dump(struct sk_buff *skb,
-		      const struct nft_expr *expr)
+		      const struct nft_expr *expr, bool reset)
 {
 	const struct nft_meta *priv = nft_expr_priv(expr);
 
@@ -678,7 +682,8 @@ nla_put_failure:
 }
 EXPORT_SYMBOL_GPL(nft_meta_get_dump);
 
-int nft_meta_set_dump(struct sk_buff *skb, const struct nft_expr *expr)
+int nft_meta_set_dump(struct sk_buff *skb,
+		      const struct nft_expr *expr, bool reset)
 {
 	const struct nft_meta *priv = nft_expr_priv(expr);
 

@@ -88,7 +88,7 @@ static int macio_device_probe(struct device *dev)
 	return error;
 }
 
-static int macio_device_remove(struct device *dev)
+static void macio_device_remove(struct device *dev)
 {
 	struct macio_dev * macio_dev = to_macio_device(dev);
 	struct macio_driver * drv = to_macio_driver(dev->driver);
@@ -96,8 +96,6 @@ static int macio_device_remove(struct device *dev)
 	if (dev->driver && drv->remove)
 		drv->remove(macio_dev);
 	macio_dev_put(macio_dev);
-
-	return 0;
 }
 
 static void macio_device_shutdown(struct device *dev)
@@ -129,12 +127,17 @@ static int macio_device_resume(struct device * dev)
 	return 0;
 }
 
+static int macio_device_modalias(struct device *dev, struct kobj_uevent_env *env)
+{
+	return of_device_uevent_modalias(dev, env);
+}
+
 extern const struct attribute_group *macio_dev_groups[];
 
 struct bus_type macio_bus_type = {
        .name	= "macio",
        .match	= macio_bus_match,
-       .uevent = of_device_uevent_modalias,
+       .uevent	= macio_device_modalias,
        .probe	= macio_device_probe,
        .remove	= macio_device_remove,
        .shutdown = macio_device_shutdown,

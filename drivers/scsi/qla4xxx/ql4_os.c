@@ -116,7 +116,7 @@ static int qla4xxx_iface_set_param(struct Scsi_Host *shost, void *data,
 static int qla4xxx_get_iface_param(struct iscsi_iface *iface,
 				   enum iscsi_param_type param_type,
 				   int param, char *buf);
-static enum blk_eh_timer_return qla4xxx_eh_cmd_timed_out(struct scsi_cmnd *sc);
+static enum scsi_timeout_action qla4xxx_eh_cmd_timed_out(struct scsi_cmnd *sc);
 static struct iscsi_endpoint *qla4xxx_ep_connect(struct Scsi_Host *shost,
 						 struct sockaddr *dst_addr,
 						 int non_blocking);
@@ -226,6 +226,7 @@ static struct scsi_host_template qla4xxx_driver_template = {
 	.name			= DRIVER_NAME,
 	.proc_name		= DRIVER_NAME,
 	.queuecommand		= qla4xxx_queuecommand,
+	.cmd_size		= sizeof(struct qla4xxx_cmd_priv),
 
 	.eh_abort_handler	= qla4xxx_eh_abort,
 	.eh_device_reset_handler = qla4xxx_eh_device_reset,
@@ -1871,17 +1872,17 @@ exit_get_stats:
 	return;
 }
 
-static enum blk_eh_timer_return qla4xxx_eh_cmd_timed_out(struct scsi_cmnd *sc)
+static enum scsi_timeout_action qla4xxx_eh_cmd_timed_out(struct scsi_cmnd *sc)
 {
 	struct iscsi_cls_session *session;
 	unsigned long flags;
-	enum blk_eh_timer_return ret = BLK_EH_DONE;
+	enum scsi_timeout_action ret = SCSI_EH_NOT_HANDLED;
 
 	session = starget_to_session(scsi_target(sc->device));
 
 	spin_lock_irqsave(&session->lock, flags);
 	if (session->state == ISCSI_SESSION_FAILED)
-		ret = BLK_EH_RESET_TIMER;
+		ret = SCSI_EH_RESET_TIMER;
 	spin_unlock_irqrestore(&session->lock, flags);
 
 	return ret;
@@ -4054,7 +4055,7 @@ static struct srb* qla4xxx_get_new_srb(struct scsi_qla_host *ha,
 	srb->ddb = ddb_entry;
 	srb->cmd = cmd;
 	srb->flags = 0;
-	CMD_SP(cmd) = (void *)srb;
+	qla4xxx_cmd_priv(cmd)->srb = srb;
 
 	return srb;
 }
@@ -4067,7 +4068,7 @@ static void qla4xxx_srb_free_dma(struct scsi_qla_host *ha, struct srb *srb)
 		scsi_dma_unmap(cmd);
 		srb->flags &= ~SRB_DMA_VALID;
 	}
-	CMD_SP(cmd) = NULL;
+	qla4xxx_cmd_priv(cmd)->srb = NULL;
 }
 
 void qla4xxx_srb_compl(struct kref *ref)
@@ -4640,7 +4641,7 @@ static int qla4xxx_cmd_wait(struct scsi_qla_host *ha)
 			 * the scsi/block layer is going to prevent
 			 * the tag from being released.
 			 */
-			if (cmd != NULL && CMD_SP(cmd))
+			if (cmd != NULL && qla4xxx_cmd_priv(cmd)->srb)
 				break;
 		}
 		spin_unlock_irqrestore(&ha->hardware_lock, flags);
@@ -9079,7 +9080,7 @@ struct srb *qla4xxx_del_from_active_array(struct scsi_qla_host *ha,
 	if (!cmd)
 		return srb;
 
-	srb = (struct srb *)CMD_SP(cmd);
+	srb = qla4xxx_cmd_priv(cmd)->srb;
 	if (!srb)
 		return srb;
 
@@ -9121,7 +9122,7 @@ static int qla4xxx_eh_wait_on_command(struct scsi_qla_host *ha,
 
 	do {
 		/* Checking to see if its returned to OS */
-		rp = (struct srb *) CMD_SP(cmd);
+		rp = qla4xxx_cmd_priv(cmd)->srb;
 		if (rp == NULL) {
 			done++;
 			break;
@@ -9215,7 +9216,7 @@ static int qla4xxx_eh_abort(struct scsi_cmnd *cmd)
 	}
 
 	spin_lock_irqsave(&ha->hardware_lock, flags);
-	srb = (struct srb *) CMD_SP(cmd);
+	srb = qla4xxx_cmd_priv(cmd)->srb;
 	if (!srb) {
 		spin_unlock_irqrestore(&ha->hardware_lock, flags);
 		ql4_printk(KERN_INFO, ha, "scsi%ld:%d:%llu: Specified command has already completed.\n",

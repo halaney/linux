@@ -423,7 +423,7 @@ static __u32 tpacket_get_timestamp(struct sk_buff *skb, struct timespec64 *ts,
 		return TP_STATUS_TS_RAW_HARDWARE;
 
 	if ((flags & SOF_TIMESTAMPING_SOFTWARE) &&
-	    ktime_to_timespec64_cond(skb->tstamp, ts))
+	    ktime_to_timespec64_cond(skb_tstamp(skb), ts))
 		return TP_STATUS_TS_SOFTWARE;
 
 	return 0;
@@ -1898,10 +1898,8 @@ static void packet_parse_headers(struct sk_buff *skb, struct socket *sock)
 	/* Move network header to the right position for VLAN tagged packets */
 	if (likely(skb->dev->type == ARPHRD_ETHER) &&
 	    eth_type_vlan(skb->protocol) &&
-	    __vlan_get_protocol(skb, skb->protocol, &depth) != 0) {
-		if (pskb_may_pull(skb, depth))
-			skb_set_network_header(skb, depth);
-	}
+	    vlan_get_protocol_and_depth(skb, skb->protocol, &depth) != 0)
+		skb_set_network_header(skb, depth);
 
 	skb_probe_transport_header(skb);
 }
@@ -1997,7 +1995,7 @@ retry:
 		goto retry;
 	}
 
-	if (!dev_validate_header(dev, skb->data, len)) {
+	if (!dev_validate_header(dev, skb->data, len) || !skb->len) {
 		err = -EINVAL;
 		goto out_unlock;
 	}
@@ -2172,6 +2170,7 @@ static int packet_rcv(struct sk_buff *skb, struct net_device *dev,
 	spin_lock(&sk->sk_receive_queue.lock);
 	po->stats.stats1.tp_packets++;
 	sock_skb_set_dropcount(sk, skb);
+	skb_clear_delivery_time(skb);
 	__skb_queue_tail(&sk->sk_receive_queue, skb);
 	spin_unlock(&sk->sk_receive_queue.lock);
 	sk->sk_data_ready(sk);
@@ -2255,9 +2254,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
 	if (skb->ip_summed == CHECKSUM_PARTIAL)
 		status |= TP_STATUS_CSUMNOTREADY;
 	else if (skb->pkt_type != PACKET_OUTGOING &&
-		 (skb->ip_summed == CHECKSUM_COMPLETE ||
-		  skb_csum_unnecessary(skb)))
+		 skb_csum_unnecessary(skb))
 		status |= TP_STATUS_CSUM_VALID;
+	if (skb_is_gso(skb) && skb_is_gso_tcp(skb))
+		status |= TP_STATUS_GSO_TCP;
 
 	if (snaplen > res)
 		snaplen = res;
@@ -2353,6 +2353,7 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev,
 	po->stats.stats1.tp_packets++;
 	if (copy_skb) {
 		status |= TP_STATUS_COPY;
+		skb_clear_delivery_time(copy_skb);
 		__skb_queue_tail(&sk->sk_receive_queue, copy_skb);
 	}
 	spin_unlock(&sk->sk_receive_queue.lock);
@@ -3095,7 +3096,7 @@ static int packet_release(struct socket *sock)
 	packet_cached_dev_reset(po);
 
 	if (po->prot_hook.dev) {
-		dev_put_track(po->prot_hook.dev, &po->prot_hook.dev_tracker);
+		netdev_put(po->prot_hook.dev, &po->prot_hook.dev_tracker);
 		po->prot_hook.dev = NULL;
 	}
 	spin_unlock(&po->bind_lock);
@@ -3196,15 +3197,15 @@ static int packet_do_bind(struct sock *sk, const char *name, int ifindex,
 		WRITE_ONCE(po->num, proto);
 		po->prot_hook.type = proto;
 
-		dev_put_track(po->prot_hook.dev, &po->prot_hook.dev_tracker);
+		netdev_put(po->prot_hook.dev, &po->prot_hook.dev_tracker);
 
 		if (unlikely(unlisted)) {
 			po->prot_hook.dev = NULL;
 			WRITE_ONCE(po->ifindex, -1);
 			packet_cached_dev_reset(po);
 		} else {
-			dev_hold_track(dev, &po->prot_hook.dev_tracker,
-				       GFP_ATOMIC);
+			netdev_hold(dev, &po->prot_hook.dev_tracker,
+				    GFP_ATOMIC);
 			po->prot_hook.dev = dev;
 			WRITE_ONCE(po->ifindex, dev ? dev->ifindex : 0);
 			packet_cached_dev_assign(po, dev);
@@ -3397,7 +3398,7 @@ static int packet_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
 	 *	but then it will block.
 	 */
 
-	skb = skb_recv_datagram(sk, flags, flags & MSG_DONTWAIT, &err);
+	skb = skb_recv_datagram(sk, flags, &err);
 
 	/*
 	 *	An error occurred so return it. Because skb_recv_datagram()
@@ -3481,9 +3482,10 @@ static int packet_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
 		if (skb->ip_summed == CHECKSUM_PARTIAL)
 			aux.tp_status |= TP_STATUS_CSUMNOTREADY;
 		else if (skb->pkt_type != PACKET_OUTGOING &&
-			 (skb->ip_summed == CHECKSUM_COMPLETE ||
-			  skb_csum_unnecessary(skb)))
+			 skb_csum_unnecessary(skb))
 			aux.tp_status |= TP_STATUS_CSUM_VALID;
+		if (skb_is_gso(skb) && skb_is_gso_tcp(skb))
+			aux.tp_status |= TP_STATUS_GSO_TCP;
 
 		aux.tp_len = origlen;
 		aux.tp_snaplen = skb->len;
@@ -4128,8 +4130,8 @@ static int packet_notifier(struct notifier_block *this,
 				if (msg == NETDEV_UNREGISTER) {
 					packet_cached_dev_reset(po);
 					WRITE_ONCE(po->ifindex, -1);
-					dev_put_track(po->prot_hook.dev,
-						      &po->prot_hook.dev_tracker);
+					netdev_put(po->prot_hook.dev,
+						   &po->prot_hook.dev_tracker);
 					po->prot_hook.dev = NULL;
 				}
 				spin_unlock(&po->bind_lock);

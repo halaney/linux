@@ -78,8 +78,9 @@ static int imx_hdmi_init(struct snd_soc_pcm_runtime *rtd)
 	data->hdmi_jack_pin.pin = "HDMI Jack";
 	data->hdmi_jack_pin.mask = SND_JACK_LINEOUT;
 	/* enable jack detection */
-	ret = snd_soc_card_jack_new(card, "HDMI Jack", SND_JACK_LINEOUT,
-				    &data->hdmi_jack, &data->hdmi_jack_pin, 1);
+	ret = snd_soc_card_jack_new_pins(card, "HDMI Jack", SND_JACK_LINEOUT,
+					 &data->hdmi_jack,
+					 &data->hdmi_jack_pin, 1);
 	if (ret) {
 		dev_err(card->dev, "Can't new HDMI Jack %d\n", ret);
 		return ret;
@@ -201,13 +202,12 @@ static int imx_hdmi_probe(struct platform_device *pdev)
 	snd_soc_card_set_drvdata(&data->card, data);
 	ret = devm_snd_soc_register_card(&pdev->dev, &data->card);
 	if (ret) {
-		dev_err(&pdev->dev, "snd_soc_register_card failed (%d)\n", ret);
+		dev_err_probe(&pdev->dev, ret, "snd_soc_register_card failed\n");
 		goto fail;
 	}
 
 fail:
-	if (cpu_np)
-		of_node_put(cpu_np);
+	of_node_put(cpu_np);
 
 	return ret;
 }

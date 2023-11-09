@@ -2044,12 +2044,16 @@ static int ixgbevf_vlan_rx_add_vid(struct net_device *netdev,
 
 	spin_unlock_bh(&adapter->mbx_lock);
 
-	/* translate error return types so error makes sense */
-	if (err == IXGBE_ERR_MBX)
-		return -EIO;
+	if (err) {
+		netdev_err(netdev, "VF could not set VLAN %d\n", vid);
 
-	if (err == IXGBE_ERR_INVALID_ARGUMENT)
-		return -EACCES;
+		/* translate error return types so error makes sense */
+		if (err == IXGBE_ERR_MBX)
+			return -EIO;
+
+		if (err == IXGBE_ERR_INVALID_ARGUMENT)
+			return -EACCES;
+	}
 
 	set_bit(vid, adapter->active_vlans);
 
@@ -2069,6 +2073,9 @@ static int ixgbevf_vlan_rx_kill_vid(struct net_device *netdev,
 	err = hw->mac.ops.set_vfta(hw, vid, 0, false);
 
 	spin_unlock_bh(&adapter->mbx_lock);
+
+	if (err)
+		netdev_err(netdev, "Could not remove VLAN %d\n", vid);
 
 	clear_bit(vid, adapter->active_vlans);
 
@@ -2291,7 +2298,9 @@ static void ixgbevf_negotiate_api(struct ixgbevf_adapter *adapter)
 static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
 {
 	struct net_device *netdev = adapter->netdev;
+	struct pci_dev *pdev = adapter->pdev;
 	struct ixgbe_hw *hw = &adapter->hw;
+	bool state;
 
 	ixgbevf_configure_msix(adapter);
 
@@ -2303,6 +2312,11 @@ static void ixgbevf_up_complete(struct ixgbevf_adapter *adapter)
 		hw->mac.ops.set_rar(hw, 0, hw->mac.perm_addr, 0);
 
 	spin_unlock_bh(&adapter->mbx_lock);
+
+	state = adapter->link_state;
+	hw->mac.ops.get_link_state(hw, &adapter->link_state);
+	if (state && state != adapter->link_state)
+		dev_info(&pdev->dev, "VF is administratively disabled\n");
 
 	smp_mb__before_atomic();
 	clear_bit(__IXGBEVF_DOWN, &adapter->state);
@@ -2718,7 +2732,7 @@ static int ixgbevf_alloc_q_vector(struct ixgbevf_adapter *adapter, int v_idx,
 		return -ENOMEM;
 
 	/* initialize NAPI */
-	netif_napi_add(adapter->netdev, &q_vector->napi, ixgbevf_poll, 64);
+	netif_napi_add(adapter->netdev, &q_vector->napi, ixgbevf_poll);
 
 	/* tie q_vector and adapter together */
 	adapter->q_vector[v_idx] = q_vector;
@@ -3073,6 +3087,8 @@ static int ixgbevf_sw_init(struct ixgbevf_adapter *adapter)
 	adapter->tx_ring_count = IXGBEVF_DEFAULT_TXD;
 	adapter->rx_ring_count = IXGBEVF_DEFAULT_RXD;
 
+	adapter->link_state = true;
+
 	set_bit(__IXGBEVF_DOWN, &adapter->state);
 	return 0;
 
@@ -3305,7 +3321,7 @@ static void ixgbevf_watchdog_subtask(struct ixgbevf_adapter *adapter)
 
 	ixgbevf_watchdog_update_link(adapter);
 
-	if (adapter->link_up)
+	if (adapter->link_up && adapter->link_state)
 		ixgbevf_watchdog_link_is_up(adapter);
 	else
 		ixgbevf_watchdog_link_is_down(adapter);
@@ -4333,10 +4349,10 @@ static void ixgbevf_get_tx_ring_stats(struct rtnl_link_stats64 *stats,
 
 	if (ring) {
 		do {
-			start = u64_stats_fetch_begin_irq(&ring->syncp);
+			start = u64_stats_fetch_begin(&ring->syncp);
 			bytes = ring->stats.bytes;
 			packets = ring->stats.packets;
-		} while (u64_stats_fetch_retry_irq(&ring->syncp, start));
+		} while (u64_stats_fetch_retry(&ring->syncp, start));
 		stats->tx_bytes += bytes;
 		stats->tx_packets += packets;
 	}
@@ -4359,10 +4375,10 @@ static void ixgbevf_get_stats(struct net_device *netdev,
 	for (i = 0; i < adapter->num_rx_queues; i++) {
 		ring = adapter->rx_ring[i];
 		do {
-			start = u64_stats_fetch_begin_irq(&ring->syncp);
+			start = u64_stats_fetch_begin(&ring->syncp);
 			bytes = ring->stats.bytes;
 			packets = ring->stats.packets;
-		} while (u64_stats_fetch_retry_irq(&ring->syncp, start));
+		} while (u64_stats_fetch_retry(&ring->syncp, start));
 		stats->rx_bytes += bytes;
 		stats->rx_packets += packets;
 	}
@@ -4610,6 +4626,7 @@ static int ixgbevf_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 			    NETIF_F_HW_VLAN_CTAG_TX;
 
 	netdev->priv_flags |= IFF_UNICAST_FLT;
+	netdev->xdp_features = NETDEV_XDP_ACT_BASIC;
 
 	/* MTU range: 68 - 1504 or 9710 */
 	netdev->min_mtu = ETH_MIN_MTU;
@@ -4769,7 +4786,7 @@ static pci_ers_result_t ixgbevf_io_error_detected(struct pci_dev *pdev,
 		pci_disable_device(pdev);
 	rtnl_unlock();
 
-	/* Request a slot slot reset. */
+	/* Request a slot reset. */
 	return PCI_ERS_RESULT_NEED_RESET;
 }
 
@@ -4851,6 +4868,8 @@ static struct pci_driver ixgbevf_driver = {
  **/
 static int __init ixgbevf_init_module(void)
 {
+	int err;
+
 	pr_info("%s\n", ixgbevf_driver_string);
 	pr_info("%s\n", ixgbevf_copyright);
 	ixgbevf_wq = create_singlethread_workqueue(ixgbevf_driver_name);
@@ -4859,7 +4878,13 @@ static int __init ixgbevf_init_module(void)
 		return -ENOMEM;
 	}
 
-	return pci_register_driver(&ixgbevf_driver);
+	err = pci_register_driver(&ixgbevf_driver);
+	if (err) {
+		destroy_workqueue(ixgbevf_wq);
+		return err;
+	}
+
+	return 0;
 }
 
 module_init(ixgbevf_init_module);

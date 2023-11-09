@@ -1,5 +1,5 @@
 RHEL_MAJOR = 9
-RHEL_MINOR = 1
+RHEL_MINOR = 3
 
 #
 # RHEL_RELEASE
@@ -12,7 +12,7 @@ RHEL_MINOR = 1
 #
 # Use this spot to avoid future merge conflicts.
 # Do not trim this comment.
-RHEL_RELEASE = 162
+RHEL_RELEASE = 361
 
 #
 # ZSTREAM
@@ -41,7 +41,7 @@ ZSTREAM ?= no
 #
 # Use this spot to avoid future merge conflicts.
 # Do not trim this comment.
-AUTOMOTIVEBUILD:=.124
+AUTOMOTIVEBUILD:=.323
 
 #
 # Early y+1 numbering
@@ -73,4 +73,3 @@ ifneq ("$(ZSTREAM)", "yes")
   endif
 endif
 
-RTBUILD:=.162

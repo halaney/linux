@@ -1,17 +1,17 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2021 Microsoft Corporation
  *
  * Author: Tushar Sugandhi <tusharsu@linux.microsoft.com>
  *
- * File: dm-ima.c
- *       Enables IMA measurements for DM targets
+ * Enables IMA measurements for DM targets
  */
 
 #include "dm-core.h"
 #include "dm-ima.h"
 
 #include <linux/ima.h>
+#include <linux/sched/mm.h>
 #include <crypto/hash.h>
 #include <linux/crypto.h>
 #include <crypto/hash_info.h>
@@ -206,7 +206,7 @@ void dm_ima_measure_on_table_load(struct dm_table *table, unsigned int status_fl
 	if (!target_data_buf)
 		goto error;
 
-	num_targets = dm_table_get_num_targets(table);
+	num_targets = table->num_targets;
 
 	if (dm_ima_alloc_and_copy_device_data(table->md, &device_data_buf, num_targets, noio))
 		goto error;
@@ -234,9 +234,6 @@ void dm_ima_measure_on_table_load(struct dm_table *table, unsigned int status_fl
 
 	for (i = 0; i < num_targets; i++) {
 		struct dm_target *ti = dm_table_get_target(table, i);
-
-		if (!ti)
-			goto error;
 
 		last_target_measured = 0;
 

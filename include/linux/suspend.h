@@ -68,6 +68,9 @@ struct suspend_stats {
 	int	last_failed_errno;
 	int	errno[REC_FAILED_NUM];
 	int	last_failed_step;
+	u64	last_hw_sleep;
+	u64	total_hw_sleep;
+	u64	max_hw_sleep;
 	enum suspend_stat_step	failed_steps[REC_FAILED_NUM];
 };
 
@@ -191,6 +194,7 @@ struct platform_s2idle_ops {
 	int (*begin)(void);
 	int (*prepare)(void);
 	int (*prepare_late)(void);
+	void (*check)(void);
 	bool (*wake)(void);
 	void (*restore_early)(void);
 	void (*restore)(void);
@@ -497,6 +501,8 @@ void restore_processor_state(void);
 extern int register_pm_notifier(struct notifier_block *nb);
 extern int unregister_pm_notifier(struct notifier_block *nb);
 extern void ksys_sync_helper(void);
+extern void pm_report_hw_sleep_time(u64 t);
+extern void pm_report_max_hw_sleep(u64 t);
 
 #define pm_notifier(fn, pri) {				\
 	static struct notifier_block fn##_nb =			\
@@ -534,6 +540,9 @@ static inline int unregister_pm_notifier(struct notifier_block *nb)
 	return 0;
 }
 
+static inline void pm_report_hw_sleep_time(u64 t) {};
+static inline void pm_report_max_hw_sleep(u64 t) {};
+
 static inline void ksys_sync_helper(void) {}
 
 #define pm_notifier(fn, pri)	do { (void)(fn); } while (0)
@@ -551,16 +560,22 @@ static inline void unlock_system_sleep(void) {}
 #ifdef CONFIG_PM_SLEEP_DEBUG
 extern bool pm_print_times_enabled;
 extern bool pm_debug_messages_on;
-extern __printf(1, 2) void pm_pr_dbg(const char *fmt, ...);
+extern __printf(2, 3) void __pm_pr_dbg(bool defer, const char *fmt, ...);
 #else
 #define pm_print_times_enabled	(false)
 #define pm_debug_messages_on	(false)
 
 #include <linux/printk.h>
 
-#define pm_pr_dbg(fmt, ...) \
+#define __pm_pr_dbg(defer, fmt, ...) \
 	no_printk(KERN_DEBUG fmt, ##__VA_ARGS__)
 #endif
+
+#define pm_pr_dbg(fmt, ...) \
+	__pm_pr_dbg(false, fmt, ##__VA_ARGS__)
+
+#define pm_deferred_pr_dbg(fmt, ...) \
+	__pm_pr_dbg(true, fmt, ##__VA_ARGS__)
 
 #ifdef CONFIG_PM_AUTOSLEEP
 

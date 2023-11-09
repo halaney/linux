@@ -15,6 +15,7 @@ struct array_buffer;
 struct tracer;
 struct dentry;
 struct bpf_prog;
+union bpf_attr;
 
 const char *trace_print_flags_seq(struct trace_seq *p, const char *delim,
 				  unsigned long flags,
@@ -69,7 +70,6 @@ struct trace_entry {
 	unsigned char		flags;
 	unsigned char		preempt_count;
 	int			pid;
-	unsigned char		migrate_disable;
 	unsigned char		preempt_lazy_count;
 };
 
@@ -159,7 +159,6 @@ static inline void tracing_generic_entry_update(struct trace_entry *entry,
 						unsigned int trace_ctx)
 {
 	entry->preempt_count		= trace_ctx & 0xff;
-	entry->migrate_disable		= (trace_ctx >> 8) & 0xff;
 	entry->preempt_lazy_count	= (trace_ctx >> 16) & 0xff;
 	entry->pid			= current->pid;
 	entry->type			= type;
@@ -174,9 +173,15 @@ enum trace_flag_type {
 	TRACE_FLAG_NEED_RESCHED		= 0x04,
 	TRACE_FLAG_HARDIRQ		= 0x08,
 	TRACE_FLAG_SOFTIRQ		= 0x10,
+#ifdef CONFIG_PREEMPT_LAZY
+	TRACE_FLAG_PREEMPT_RESCHED	= 0x00,
+	TRACE_FLAG_NEED_RESCHED_LAZY	= 0x20,
+#else
+	TRACE_FLAG_NEED_RESCHED_LAZY	= 0x00,
 	TRACE_FLAG_PREEMPT_RESCHED	= 0x20,
+#endif
 	TRACE_FLAG_NMI			= 0x40,
-	TRACE_FLAG_NEED_RESCHED_LAZY	= 0x80,
+	TRACE_FLAG_BH_OFF		= 0x80,
 };
 
 #ifdef CONFIG_TRACE_IRQFLAGS_SUPPORT
@@ -690,6 +695,7 @@ void bpf_put_raw_tracepoint(struct bpf_raw_event_map *btp);
 int bpf_get_perf_event_info(const struct perf_event *event, u32 *prog_id,
 			    u32 *fd_type, const char **buf,
 			    u64 *probe_offset, u64 *probe_addr);
+int bpf_kprobe_multi_link_attach(const union bpf_attr *attr, struct bpf_prog *prog);
 #else
 static inline unsigned int trace_call_bpf(struct trace_event_call *call, void *ctx)
 {
@@ -728,6 +734,11 @@ static inline int bpf_get_perf_event_info(const struct perf_event *event,
 					  u32 *prog_id, u32 *fd_type,
 					  const char **buf, u64 *probe_offset,
 					  u64 *probe_addr)
+{
+	return -EOPNOTSUPP;
+}
+static inline int
+bpf_kprobe_multi_link_attach(const union bpf_attr *attr, struct bpf_prog *prog)
 {
 	return -EOPNOTSUPP;
 }
@@ -852,5 +863,23 @@ perf_trace_buf_submit(void *raw_data, int size, int rctx, u16 type,
 }
 
 #endif
+
+#define TRACE_EVENT_STR_MAX	512
+
+/*
+ * gcc warns that you can not use a va_list in an inlined
+ * function. But lets me make it into a macro :-/
+ */
+#define __trace_event_vstr_len(fmt, va)			\
+({							\
+	va_list __ap;					\
+	int __ret;					\
+							\
+	va_copy(__ap, *(va));				\
+	__ret = vsnprintf(NULL, 0, fmt, __ap) + 1;	\
+	va_end(__ap);					\
+							\
+	min(__ret, TRACE_EVENT_STR_MAX);		\
+})
 
 #endif /* _LINUX_TRACE_EVENT_H */

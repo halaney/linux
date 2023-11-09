@@ -86,6 +86,7 @@ struct clk_rcg {
 };
 
 extern const struct clk_ops clk_rcg_ops;
+extern const struct clk_ops clk_rcg_floor_ops;
 extern const struct clk_ops clk_rcg_bypass_ops;
 extern const struct clk_ops clk_rcg_bypass2_ops;
 extern const struct clk_ops clk_rcg_pixel_ops;
@@ -166,6 +167,7 @@ struct clk_rcg2_gfx3d {
 
 extern const struct clk_ops clk_rcg2_ops;
 extern const struct clk_ops clk_rcg2_floor_ops;
+extern const struct clk_ops clk_rcg2_mux_closest_ops;
 extern const struct clk_ops clk_edp_pixel_ops;
 extern const struct clk_ops clk_byte_ops;
 extern const struct clk_ops clk_byte2_ops;

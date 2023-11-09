@@ -52,6 +52,7 @@
 #define QNX6_SUPER_MAGIC	0x68191122	/* qnx6 fs detection */
 #define AFS_FS_MAGIC		0x6B414653
 
+
 #define REISERFS_SUPER_MAGIC	0x52654973	/* used by gcc */
 					/* used by file system utilities that
 	                                   look at the superblock, etc.  */
@@ -60,6 +61,9 @@
 #define REISER2FS_JR_SUPER_MAGIC_STRING	"ReIsEr3Fs"
 
 #define SMB_SUPER_MAGIC		0x517B
+#define CIFS_SUPER_MAGIC	0xFF534D42      /* the first four bytes of SMB PDUs */
+#define SMB2_SUPER_MAGIC	0xFE534D42
+
 #define CGROUP_SUPER_MAGIC	0x27e0eb
 #define CGROUP2_SUPER_MAGIC	0x63677270
 
@@ -92,12 +96,8 @@
 
 /* Since UDF 2.01 is ISO 13346 based... */
 #define UDF_SUPER_MAGIC		0x15013346
-#define BALLOON_KVM_MAGIC	0x13661366
-#define ZSMALLOC_MAGIC		0x58295829
 #define DMA_BUF_MAGIC		0x444d4142	/* "DMAB" */
 #define DEVMEM_MAGIC		0x454d444d	/* "DMEM" */
-#define Z3FOLD_MAGIC		0x33
-#define PPC_CMM_MAGIC		0xc7571590
 #define SECRETMEM_MAGIC		0x5345434d	/* "SECM" */
 
 #endif /* __LINUX_MAGIC_H__ */

@@ -14,6 +14,7 @@
 
 #include <linux/cpu.h>
 #include <linux/errno.h>
+#include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
@@ -36,6 +37,7 @@
 #include <linux/seq_file.h>
 #include <linux/root_dev.h>
 #include <linux/of.h>
+#include <linux/of_irq.h>
 #include <linux/of_pci.h>
 #include <linux/memblock.h>
 #include <linux/swiotlb.h>
@@ -43,7 +45,6 @@
 #include <asm/mmu.h>
 #include <asm/processor.h>
 #include <asm/io.h>
-#include <asm/prom.h>
 #include <asm/rtas.h>
 #include <asm/pci-bridge.h>
 #include <asm/iommu.h>
@@ -113,7 +114,7 @@ static void __init fwnmi_init(void)
 	u8 *mce_data_buf;
 	unsigned int i;
 	int nr_cpus = num_possible_cpus();
-#ifdef CONFIG_PPC_BOOK3S_64
+#ifdef CONFIG_PPC_64S_HASH_MMU
 	struct slb_entry *slb_ptr;
 	size_t size;
 #endif
@@ -153,7 +154,7 @@ static void __init fwnmi_init(void)
 						(RTAS_ERROR_LOG_MAX * i);
 	}
 
-#ifdef CONFIG_PPC_BOOK3S_64
+#ifdef CONFIG_PPC_64S_HASH_MMU
 	if (!radix_enabled()) {
 		/* Allocate per cpu area to save old slb contents during MCE */
 		size = sizeof(struct slb_entry) * mmu_slb_size * nr_cpus;
@@ -169,6 +170,18 @@ static void __init fwnmi_init(void)
 	}
 #endif
 }
+
+/*
+ * Affix a device for the first timer to the platform bus if
+ * we have firmware support for the H_WATCHDOG hypercall.
+ */
+static __init int pseries_wdt_init(void)
+{
+	if (firmware_has_feature(FW_FEATURE_WATCHDOG))
+		platform_device_register_simple("pseries-wdt", 0, NULL, 0);
+	return 0;
+}
+machine_subsys_initcall(pseries, pseries_wdt_init);
 
 static void pseries_8259_cascade(struct irq_desc *desc)
 {
@@ -411,16 +424,6 @@ void pseries_disable_reloc_on_exc(void)
 }
 EXPORT_SYMBOL(pseries_disable_reloc_on_exc);
 
-#ifdef CONFIG_KEXEC_CORE
-static void pSeries_machine_kexec(struct kimage *image)
-{
-	if (firmware_has_feature(FW_FEATURE_SET_MODE))
-		pseries_disable_reloc_on_exc();
-
-	default_machine_kexec(image);
-}
-#endif
-
 #ifdef __LITTLE_ENDIAN__
 void pseries_big_endian_exceptions(void)
 {
@@ -486,6 +489,8 @@ static void __init pSeries_discover_phbs(void)
 
 		/* create pci_dn's for DT nodes under this PHB */
 		pci_devs_phb_init_dynamic(phb);
+
+		pseries_msi_allocate_domains(phb);
 	}
 
 	of_node_put(root);
@@ -800,7 +805,9 @@ static void __init pSeries_setup_arch(void)
 	fwnmi_init();
 
 	pseries_setup_security_mitigations();
+#ifdef CONFIG_PPC_64S_HASH_MMU
 	pseries_lpar_read_hblkrm_characteristics();
+#endif
 
 	/* By default, only probe PCI (can be overridden by rtas_pci) */
 	pci_add_flags(PCI_PROBE_ONLY);
@@ -835,9 +842,6 @@ static void __init pSeries_setup_arch(void)
 	}
 
 	ppc_md.pcibios_root_bridge_prepare = pseries_root_bridge_prepare;
-
-	if (swiotlb_force == SWIOTLB_FORCE)
-		ppc_swiotlb_enable = 1;
 }
 
 static void pseries_panic(char *str)
@@ -1084,7 +1088,7 @@ define_machine(pseries) {
 	.machine_check_early	= pseries_machine_check_realmode,
 	.machine_check_exception = pSeries_machine_check_exception,
 #ifdef CONFIG_KEXEC_CORE
-	.machine_kexec          = pSeries_machine_kexec,
+	.machine_kexec          = pseries_machine_kexec,
 	.kexec_cpu_down         = pseries_kexec_cpu_down,
 #endif
 #ifdef CONFIG_MEMORY_HOTPLUG

@@ -1,1 +1,1 @@
-# CONFIG_RESET_SCMI is not set
+CONFIG_RESET_SCMI=y

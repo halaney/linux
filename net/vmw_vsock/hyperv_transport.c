@@ -228,14 +228,20 @@ static size_t hvs_channel_writable_bytes(struct vmbus_channel *chan)
 	return round_down(ret, 8);
 }
 
+static int __hvs_send_data(struct vmbus_channel *chan,
+			   struct vmpipe_proto_header *hdr,
+			   size_t to_write)
+{
+	hdr->pkt_type = 1;
+	hdr->data_size = to_write;
+	return vmbus_sendpacket(chan, hdr, sizeof(*hdr) + to_write,
+				0, VM_PKT_DATA_INBAND, 0);
+}
+
 static int hvs_send_data(struct vmbus_channel *chan,
 			 struct hvs_send_buf *send_buf, size_t to_write)
 {
-	send_buf->hdr.pkt_type = 1;
-	send_buf->hdr.data_size = to_write;
-	return vmbus_sendpacket(chan, &send_buf->hdr,
-				sizeof(send_buf->hdr) + to_write,
-				0, VM_PKT_DATA_INBAND, 0);
+	return __hvs_send_data(chan, &send_buf->hdr, to_write);
 }
 
 static void hvs_channel_cb(void *ctx)
@@ -473,7 +479,7 @@ static void hvs_shutdown_lock_held(struct hvsock *hvs, int mode)
 		return;
 
 	/* It can't fail: see hvs_channel_writable_bytes(). */
-	(void)hvs_send_data(hvs->chan, (struct hvs_send_buf *)&hdr, 0);
+	(void)__hvs_send_data(hvs->chan, &hdr, 0);
 	hvs->fin_sent = true;
 }
 
@@ -809,6 +815,12 @@ int hvs_notify_send_post_enqueue(struct vsock_sock *vsk, ssize_t written,
 	return 0;
 }
 
+static
+int hvs_set_rcvlowat(struct vsock_sock *vsk, int val)
+{
+	return -EOPNOTSUPP;
+}
+
 static struct vsock_transport hvs_transport = {
 	.module                   = THIS_MODULE,
 
@@ -844,6 +856,7 @@ static struct vsock_transport hvs_transport = {
 	.notify_send_pre_enqueue  = hvs_notify_send_pre_enqueue,
 	.notify_send_post_enqueue = hvs_notify_send_post_enqueue,
 
+	.set_rcvlowat             = hvs_set_rcvlowat
 };
 
 static bool hvs_check_transport(struct vsock_sock *vsk)
@@ -866,13 +879,11 @@ static int hvs_probe(struct hv_device *hdev,
 	return 0;
 }
 
-static int hvs_remove(struct hv_device *hdev)
+static void hvs_remove(struct hv_device *hdev)
 {
 	struct vmbus_channel *chan = hdev->channel;
 
 	vmbus_close(chan);
-
-	return 0;
 }
 
 /* hv_sock connections can not persist across hibernation, and all the hv_sock

@@ -23,7 +23,7 @@
 #include <linux/seq_file.h>
 #include <linux/tick.h>
 #include <linux/threads.h>
-#include <linux/tracehook.h>
+#include <linux/resume_user_mode.h>
 #include <asm/current.h>
 #include <asm/mmu_context.h>
 #include <linux/uaccess.h>
@@ -31,6 +31,7 @@
 #include <kern_util.h>
 #include <os.h>
 #include <skas.h>
+#include <registers.h>
 #include <linux/time-internal.h>
 
 /*
@@ -103,7 +104,7 @@ void interrupt_end(void)
 	    test_thread_flag(TIF_NOTIFY_SIGNAL))
 		do_signal(regs);
 	if (test_thread_flag(TIF_NOTIFY_RESUME))
-		tracehook_notify_resume(regs);
+		resume_user_mode_work(regs);
 }
 
 int get_current_pid(void)
@@ -339,7 +340,7 @@ int singlestepping(void * t)
 {
 	struct task_struct *task = t ? t : current;
 
-	if (!(task->ptrace & PT_DTRACE))
+	if (!test_thread_flag(TIF_SINGLESTEP))
 		return 0;
 
 	if (task->thread.singlestep_syscall)

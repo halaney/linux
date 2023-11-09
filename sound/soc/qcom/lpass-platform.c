@@ -1160,7 +1160,7 @@ static int lpass_platform_prealloc_cdc_dma_buffer(struct snd_soc_component *comp
 		break;
 	}
 
-	buf->area = (unsigned char * __force)memremap(buf->addr, buf->bytes, MEMREMAP_WT);
+	buf->area = (unsigned char * __force)memremap(buf->addr, buf->bytes, MEMREMAP_WC);
 
 	return 0;
 }
@@ -1181,7 +1181,7 @@ static int lpass_platform_pcm_new(struct snd_soc_component *component,
 	if (is_cdc_dma_port(dai_id))
 		return lpass_platform_prealloc_cdc_dma_buffer(component, pcm, dai_id);
 
-	return snd_pcm_set_fixed_buffer_all(pcm, SNDRV_DMA_TYPE_DEV,
+	return snd_pcm_set_fixed_buffer_all(pcm, SNDRV_DMA_TYPE_NONCOHERENT,
 					    component->dev, size);
 }
 

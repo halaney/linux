@@ -5348,9 +5348,9 @@ static void s2io_ethtool_gdrvinfo(struct net_device *dev,
 {
 	struct s2io_nic *sp = netdev_priv(dev);
 
-	strlcpy(info->driver, s2io_driver_name, sizeof(info->driver));
-	strlcpy(info->version, s2io_driver_version, sizeof(info->version));
-	strlcpy(info->bus_info, pci_name(sp->pdev), sizeof(info->bus_info));
+	strscpy(info->driver, s2io_driver_name, sizeof(info->driver));
+	strscpy(info->version, s2io_driver_version, sizeof(info->version));
+	strscpy(info->bus_info, pci_name(sp->pdev), sizeof(info->bus_info));
 }
 
 /**
@@ -7917,10 +7917,10 @@ s2io_init_nic(struct pci_dev *pdev, const struct pci_device_id *pre)
 		for (i = 0; i < config->rx_ring_num ; i++) {
 			struct ring_info *ring = &mac_control->rings[i];
 
-			netif_napi_add(dev, &ring->napi, s2io_poll_msix, 64);
+			netif_napi_add(dev, &ring->napi, s2io_poll_msix);
 		}
 	} else {
-		netif_napi_add(dev, &sp->napi, s2io_poll_inta, 64);
+		netif_napi_add(dev, &sp->napi, s2io_poll_inta);
 	}
 
 	/* Not needed for Herc */

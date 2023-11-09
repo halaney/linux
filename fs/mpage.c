@@ -29,7 +29,6 @@
 #include <linux/writeback.h>
 #include <linux/backing-dev.h>
 #include <linux/pagevec.h>
-#include <linux/cleancache.h>
 #include "internal.h"
 
 /*
@@ -37,7 +36,7 @@
  *
  * The mpage code never puts partial pages into a BIO (except for end-of-file).
  * If a page does not map to a contiguous run of blocks then it simply falls
- * back to block_read_full_page().
+ * back to block_read_full_folio().
  *
  * Why is this?  If a page's completion depends on a number of different BIOs
  * which can complete in any order (or at the same time) then determining the
@@ -69,7 +68,7 @@ static struct bio *mpage_bio_submit(struct bio *bio)
 /*
  * support function for mpage_readahead.  The fs supplied get_block might
  * return an up to date buffer.  This is used to map that buffer into
- * the page, which allows readpage to avoid triggering a duplicate call
+ * the page, which allows read_folio to avoid triggering a duplicate call
  * to get_block.
  *
  * The idea is to avoid adding buffers to pages that don't already have
@@ -146,13 +145,13 @@ static struct bio *do_mpage_readpage(struct mpage_readpage_args *args)
 	struct block_device *bdev = NULL;
 	int length;
 	int fully_mapped = 1;
-	int op = REQ_OP_READ;
+	blk_opf_t opf = REQ_OP_READ;
 	unsigned nblocks;
 	unsigned relative_block;
 	gfp_t gfp = mapping_gfp_constraint(page->mapping, GFP_KERNEL);
 
 	if (args->is_readahead) {
-		op |= REQ_RAHEAD;
+		opf |= REQ_RAHEAD;
 		gfp |= __GFP_NORETRY | __GFP_NOWARN;
 	}
 
@@ -257,12 +256,6 @@ static struct bio *do_mpage_readpage(struct mpage_readpage_args *args)
 		SetPageMappedToDisk(page);
 	}
 
-	if (fully_mapped && blocks_per_page == 1 && !PageUptodate(page) &&
-	    cleancache_get_page(page) == 0) {
-		SetPageUptodate(page);
-		goto confused;
-	}
-
 	/*
 	 * This page will go to BIO.  Do we need to send this BIO off first?
 	 */
@@ -276,7 +269,7 @@ alloc_new:
 								page))
 				goto out;
 		}
-		args->bio = bio_alloc(bdev, bio_max_segs(args->nr_pages), op,
+		args->bio = bio_alloc(bdev, bio_max_segs(args->nr_pages), opf,
 				      gfp);
 		if (args->bio == NULL)
 			goto confused;
@@ -303,7 +296,7 @@ confused:
 	if (args->bio)
 		args->bio = mpage_bio_submit(args->bio);
 	if (!PageUptodate(page))
-		block_read_full_page(page, args->get_block);
+		block_read_full_folio(page_folio(page), args->get_block);
 	else
 		unlock_page(page);
 	goto out;
@@ -371,20 +364,22 @@ EXPORT_SYMBOL(mpage_readahead);
 /*
  * This isn't called much at all
  */
-int mpage_readpage(struct page *page, get_block_t get_block)
+int mpage_read_folio(struct folio *folio, get_block_t get_block)
 {
 	struct mpage_readpage_args args = {
-		.page = page,
+		.page = &folio->page,
 		.nr_pages = 1,
 		.get_block = get_block,
 	};
+
+	VM_BUG_ON_FOLIO(folio_test_large(folio), folio);
 
 	args.bio = do_mpage_readpage(&args);
 	if (args.bio)
 		mpage_bio_submit(args.bio);
 	return 0;
 }
-EXPORT_SYMBOL(mpage_readpage);
+EXPORT_SYMBOL(mpage_read_folio);
 
 /*
  * Writing is not so simple.
@@ -432,11 +427,11 @@ static void clean_buffers(struct page *page, unsigned first_unmapped)
 
 	/*
 	 * we cannot drop the bh if the page is not uptodate or a concurrent
-	 * readpage would fail to serialize with the bh and it would read from
+	 * read_folio would fail to serialize with the bh and it would read from
 	 * disk before we reach the platter.
 	 */
 	if (buffer_heads_over_limit && PageUptodate(page))
-		try_to_free_buffers(page);
+		try_to_free_buffers(page_folio(page));
 }
 
 /*
@@ -484,7 +479,7 @@ static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
 			if (!buffer_mapped(bh)) {
 				/*
 				 * unmapped dirty buffers are created by
-				 * __set_page_dirty_buffers -> mmapped data
+				 * block_dirty_folio -> mmapped data
 				 */
 				if (buffer_dirty(bh))
 					goto confused;
@@ -517,7 +512,7 @@ static int __mpage_writepage(struct page *page, struct writeback_control *wbc,
 		/*
 		 * Page has buffers, but they are all unmapped. The page was
 		 * created by pagein or read over a hole which was handled by
-		 * block_read_full_page().  If this address_space is also
+		 * block_read_full_folio().  If this address_space is also
 		 * using mpage_readahead then this can rarely happen.
 		 */
 		goto confused;
@@ -593,7 +588,6 @@ alloc_new:
 				GFP_NOFS);
 		bio->bi_iter.bi_sector = blocks[0] << (blkbits - 9);
 		wbc_init_bio(wbc, bio);
-		bio->bi_write_hint = inode->i_write_hint;
 	}
 
 	/*

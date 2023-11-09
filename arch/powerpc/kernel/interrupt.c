@@ -82,7 +82,7 @@ notrace long system_call_exception(long r3, long r4, long r5,
 {
 	syscall_fn f;
 
-	kuep_lock();
+	kuap_lock();
 
 	regs->orig_gpr3 = r3;
 
@@ -94,8 +94,7 @@ notrace long system_call_exception(long r3, long r4, long r5,
 	CT_WARN_ON(ct_state() == CONTEXT_KERNEL);
 	user_exit_irqoff();
 
-	if (!IS_ENABLED(CONFIG_BOOKE) && !IS_ENABLED(CONFIG_40x))
-		BUG_ON(!(regs->msr & MSR_RI));
+	BUG_ON(regs_is_unrecoverable(regs));
 	BUG_ON(!(regs->msr & MSR_PR));
 	BUG_ON(arch_irq_disabled_regs(regs));
 
@@ -335,7 +334,7 @@ again:
 	ti_flags = READ_ONCE(current_thread_info()->flags);
 	while (unlikely(ti_flags & (_TIF_USER_WORK_MASK & ~_TIF_RESTORE_TM))) {
 		local_irq_enable();
-		if (ti_flags & _TIF_NEED_RESCHED_MASK) {
+		if (ti_flags & _TIF_NEED_RESCHED) {
 			schedule();
 		} else {
 			/*
@@ -395,7 +394,6 @@ again:
 
 	/* Restore user access locks last */
 	kuap_user_restore(regs);
-	kuep_unlock();
 
 	return ret;
 }
@@ -493,9 +491,7 @@ notrace unsigned long interrupt_exit_user_prepare(struct pt_regs *regs)
 {
 	unsigned long ret;
 
-	if (!IS_ENABLED(CONFIG_BOOKE) && !IS_ENABLED(CONFIG_40x))
-		BUG_ON(!(regs->msr & MSR_RI));
-	BUG_ON(!(regs->msr & MSR_PR));
+	BUG_ON(regs_is_unrecoverable(regs));
 	BUG_ON(arch_irq_disabled_regs(regs));
 	CT_WARN_ON(ct_state() == CONTEXT_USER);
 
@@ -526,10 +522,8 @@ notrace unsigned long interrupt_exit_kernel_prepare(struct pt_regs *regs)
 	bool stack_store = current_thread_info()->flags &
 						_TIF_EMULATE_STACK_STORE;
 
-	if (!IS_ENABLED(CONFIG_BOOKE) && !IS_ENABLED(CONFIG_40x) &&
-	    unlikely(!(regs->msr & MSR_RI)))
+	if (regs_is_unrecoverable(regs))
 		unrecoverable_exception(regs);
-	BUG_ON(regs->msr & MSR_PR);
 	/*
 	 * CT_WARN_ON comes here via program_check_exception,
 	 * so avoid recursion.
@@ -545,14 +539,10 @@ notrace unsigned long interrupt_exit_kernel_prepare(struct pt_regs *regs)
 		/* Returning to a kernel context with local irqs enabled. */
 		WARN_ON_ONCE(!(regs->msr & MSR_EE));
 again:
-		if (IS_ENABLED(CONFIG_PREEMPTION)) {
+		if (IS_ENABLED(CONFIG_PREEMPT)) {
 			/* Return to preemptible kernel context */
 			if (unlikely(current_thread_info()->flags & _TIF_NEED_RESCHED)) {
 				if (preempt_count() == 0)
-					preempt_schedule_irq();
-			} else if (unlikely(current_thread_info()->flags & _TIF_NEED_RESCHED_LAZY)) {
-				if ((preempt_count() == 0) &&
-				    (current_thread_info()->preempt_lazy_count == 0))
 					preempt_schedule_irq();
 			}
 		}

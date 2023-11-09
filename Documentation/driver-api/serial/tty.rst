@@ -58,7 +58,7 @@ close()			This is called on a terminal when the line
 hangup()		Called when the tty line is hung up.
 			The line discipline should cease I/O to the tty.
 			No further calls into the ldisc code will occur.
-			The return value is ignored. Can sleep.
+			Can sleep.
 
 read()			(optional) A process requests reading data from
 			the line. Multiple read calls may occur in parallel
@@ -204,28 +204,8 @@ send_xchar()		Send a high-priority XON/XOFF character to the device.
 Flags
 ^^^^^
 
-Line discipline methods have access to tty->flags field containing the
-following interesting flags:
-
-======================= =======================================================
-TTY_THROTTLED		Driver input is throttled. The ldisc should call
-			tty->driver->unthrottle() in order to resume
-			reception when it is ready to process more data.
-
-TTY_DO_WRITE_WAKEUP	If set, causes the driver to call the ldisc's
-			write_wakeup() method in order to resume
-			transmission when it can accept more data
-			to transmit.
-
-TTY_IO_ERROR		If set, causes all subsequent userspace read/write
-			calls on the tty to fail, returning -EIO.
-
-TTY_OTHER_CLOSED	Device is a pty and the other side has closed.
-
-TTY_NO_WRITE_SPLIT	Prevent driver from splitting up writes into
-			smaller chunks.
-======================= =======================================================
-
+Line discipline methods have access to :c:member:`tty_struct.flags` field. See
+:doc:`tty_struct`.
 
 Locking
 ^^^^^^^

@@ -308,14 +308,7 @@ do {									\
 									\
 	asm volatile("						\n"	\
 		     "1:	movl %k0,%%" #seg "		\n"	\
-									\
-		     ".section .fixup,\"ax\"			\n"	\
-		     "2:	xorl %k0,%k0			\n"	\
-		     "		jmp 1b				\n"	\
-		     ".previous					\n"	\
-									\
-		     _ASM_EXTABLE(1b, 2b)				\
-									\
+		     _ASM_EXTABLE_TYPE_REG(1b, 1b, EX_TYPE_ZERO_REG, %k0)\
 		     : "+r" (__val) : : "memory");			\
 } while (0)
 
@@ -361,11 +354,6 @@ static inline void __loadsegment_fs(unsigned short value)
  * x86-32 user GS accessors.  This is ugly and could do with some cleaning up.
  */
 #ifdef CONFIG_X86_32
-# define get_user_gs(regs)		(u16)({ unsigned long v; savesegment(gs, v); v; })
-# define set_user_gs(regs, v)		loadsegment(gs, (unsigned long)(v))
-# define task_user_gs(tsk)		((tsk)->thread.gs)
-# define lazy_save_gs(v)		savesegment(gs, (v))
-# define lazy_load_gs(v)		loadsegment(gs, (v))
 # define load_gs_index(v)		loadsegment(gs, (v))
 #endif	/* X86_32 */
 

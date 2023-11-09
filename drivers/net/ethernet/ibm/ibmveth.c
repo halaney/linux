@@ -745,8 +745,8 @@ static void ibmveth_init_link_settings(struct net_device *dev)
 static void netdev_get_drvinfo(struct net_device *dev,
 			       struct ethtool_drvinfo *info)
 {
-	strlcpy(info->driver, ibmveth_driver_name, sizeof(info->driver));
-	strlcpy(info->version, ibmveth_driver_version, sizeof(info->version));
+	strscpy(info->driver, ibmveth_driver_name, sizeof(info->driver));
+	strscpy(info->version, ibmveth_driver_version, sizeof(info->version));
 }
 
 static netdev_features_t ibmveth_fix_features(struct net_device *dev,
@@ -1692,7 +1692,7 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
 	adapter->pool_config = 0;
 	ibmveth_init_link_settings(netdev);
 
-	netif_napi_add(netdev, &adapter->napi, ibmveth_poll, 16);
+	netif_napi_add_weight(netdev, &adapter->napi, ibmveth_poll, 16);
 
 	netdev->irq = dev->irq;
 	netdev->netdev_ops = &ibmveth_netdev_ops;

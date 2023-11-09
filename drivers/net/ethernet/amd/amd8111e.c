@@ -1364,10 +1364,10 @@ static void amd8111e_get_drvinfo(struct net_device *dev,
 {
 	struct amd8111e_priv *lp = netdev_priv(dev);
 	struct pci_dev *pci_dev = lp->pci_dev;
-	strlcpy(info->driver, MODULE_NAME, sizeof(info->driver));
+	strscpy(info->driver, MODULE_NAME, sizeof(info->driver));
 	snprintf(info->fw_version, sizeof(info->fw_version),
 		"%u", chip_version);
-	strlcpy(info->bus_info, pci_name(pci_dev), sizeof(info->bus_info));
+	strscpy(info->bus_info, pci_name(pci_dev), sizeof(info->bus_info));
 }
 
 static int amd8111e_get_regs_len(struct net_device *dev)
@@ -1826,7 +1826,7 @@ static int amd8111e_probe_one(struct pci_dev *pdev,
 	dev->watchdog_timeo = AMD8111E_TX_TIMEOUT;
 	dev->min_mtu = AMD8111E_MIN_MTU;
 	dev->max_mtu = AMD8111E_MAX_MTU;
-	netif_napi_add(dev, &lp->napi, amd8111e_rx_poll, 32);
+	netif_napi_add_weight(dev, &lp->napi, amd8111e_rx_poll, 32);
 
 #if AMD8111E_VLAN_TAG_USED
 	dev->features |= NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;

@@ -97,6 +97,11 @@ static inline void srr_regs_clobbered(void)
 	local_paca->hsrr_valid = 0;
 }
 #else
+static inline unsigned long search_kernel_restart_table(unsigned long addr)
+{
+	return 0;
+}
+
 static inline bool is_implicit_soft_masked(struct pt_regs *regs)
 {
 	return false;
@@ -139,12 +144,13 @@ static inline void interrupt_enter_prepare(struct pt_regs *regs, struct interrup
 	if (!arch_irq_disabled_regs(regs))
 		trace_hardirqs_off();
 
-	if (user_mode(regs)) {
-		kuep_lock();
-		account_cpu_user_entry();
-	} else {
+	if (user_mode(regs))
+		kuap_lock();
+	else
 		kuap_save_and_lock(regs);
-	}
+
+	if (user_mode(regs))
+		account_cpu_user_entry();
 #endif
 
 #ifdef CONFIG_PPC64
@@ -153,25 +159,29 @@ static inline void interrupt_enter_prepare(struct pt_regs *regs, struct interrup
 	local_paca->irq_happened |= PACA_IRQ_HARD_DIS;
 
 	if (user_mode(regs)) {
+		kuap_lock();
 		CT_WARN_ON(ct_state() != CONTEXT_USER);
 		user_exit_irqoff();
 
 		account_cpu_user_entry();
 		account_stolen_time();
 	} else {
+		kuap_save_and_lock(regs);
 		/*
 		 * CT_WARN_ON comes here via program_check_exception,
 		 * so avoid recursion.
 		 */
 		if (TRAP(regs) != INTERRUPT_PROGRAM) {
-			CT_WARN_ON(ct_state() != CONTEXT_KERNEL);
-			BUG_ON(is_implicit_soft_masked(regs));
+			CT_WARN_ON(ct_state() != CONTEXT_KERNEL &&
+				   ct_state() != CONTEXT_IDLE);
+			if (IS_ENABLED(CONFIG_PPC_IRQ_SOFT_MASK_DEBUG))
+				BUG_ON(is_implicit_soft_masked(regs));
 		}
-#ifdef CONFIG_PPC_BOOK3S
+
 		/* Move this under a debugging check */
-		if (arch_irq_disabled_regs(regs))
+		if (IS_ENABLED(CONFIG_PPC_IRQ_SOFT_MASK_DEBUG) &&
+				arch_irq_disabled_regs(regs))
 			BUG_ON(search_kernel_restart_table(regs->nip));
-#endif
 	}
 	if (IS_ENABLED(CONFIG_PPC_IRQ_SOFT_MASK_DEBUG))
 		BUG_ON(!arch_irq_disabled_regs(regs) && !(regs->msr & MSR_EE));
@@ -562,7 +572,7 @@ DECLARE_INTERRUPT_HANDLER(kernel_bad_stack);
 
 /* slb.c */
 DECLARE_INTERRUPT_HANDLER_RAW(do_slb_fault);
-DECLARE_INTERRUPT_HANDLER(do_bad_slb_fault);
+DECLARE_INTERRUPT_HANDLER(do_bad_segment_interrupt);
 
 /* hash_utils.c */
 DECLARE_INTERRUPT_HANDLER(do_hash_fault);

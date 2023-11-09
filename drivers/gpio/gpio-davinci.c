@@ -23,8 +23,6 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/spinlock.h>
 
-#include <asm-generic/gpio.h>
-
 #define MAX_REGS_BANKS 5
 #define MAX_INT_PER_BANK 32
 
@@ -254,7 +252,6 @@ static int davinci_gpio_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF_GPIO
 	chips->chip.of_gpio_n_cells = 2;
 	chips->chip.parent = dev;
-	chips->chip.of_node = dev->of_node;
 	chips->chip.request = gpiochip_generic_request;
 	chips->chip.free = gpiochip_generic_free;
 #endif
@@ -369,8 +366,7 @@ static void gpio_irq_handler(struct irq_desc *desc)
 			 */
 			hw_irq = (bank_num / 2) * 32 + bit;
 
-			generic_handle_irq(
-				irq_find_mapping(d->irq_domain, hw_irq));
+			generic_handle_domain_irq(d->irq_domain, hw_irq);
 		}
 	}
 	chained_irq_exit(irq_desc_get_chip(desc), desc);

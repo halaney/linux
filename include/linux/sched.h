@@ -34,6 +34,7 @@
 #include <linux/rseq.h>
 #include <linux/seqlock.h>
 #include <linux/kcsan.h>
+#include <linux/rv.h>
 #include <asm/kmap_size.h>
 
 #include <linux/rh_kabi.h>
@@ -102,10 +103,12 @@ struct task_group;
 #define TASK_RTLOCK_WAIT		0x1000
 #define TASK_STATE_MAX			0x2000
 
+#define TASK_ANY			(TASK_STATE_MAX-1)
+
 /* Convenience macros for the sake of set_current_state: */
 #define TASK_KILLABLE			(TASK_WAKEKILL | TASK_UNINTERRUPTIBLE)
 #define TASK_STOPPED			(TASK_WAKEKILL | __TASK_STOPPED)
-#define TASK_TRACED			(TASK_WAKEKILL | __TASK_TRACED)
+#define TASK_TRACED			__TASK_TRACED
 
 #define TASK_IDLE			(TASK_UNINTERRUPTIBLE | TASK_NOLOAD)
 
@@ -120,7 +123,9 @@ struct task_group;
 
 #define task_is_running(task)		(READ_ONCE((task)->__state) == TASK_RUNNING)
 
-#define task_is_stopped(task)		((READ_ONCE(task->__state) & __TASK_STOPPED) != 0)
+#define task_is_traced(task)		((READ_ONCE(task->jobctl) & JOBCTL_TRACED) != 0)
+#define task_is_stopped(task)		((READ_ONCE(task->jobctl) & JOBCTL_STOPPED) != 0)
+#define task_is_stopped_or_traced(task)	((READ_ONCE(task->jobctl) & (JOBCTL_STOPPED | JOBCTL_TRACED)) != 0)
 
 /*
  * Special states are those that do not use the normal wait-loop pattern. See
@@ -272,8 +277,13 @@ struct task_group;
 
 #define get_current_state()	READ_ONCE(current->__state)
 
-/* Task command name length: */
-#define TASK_COMM_LEN			16
+/*
+ * Define the task command name length as enum, then it can be visible to
+ * BPF programs.
+ */
+enum {
+	TASK_COMM_LEN = 16,
+};
 
 extern void scheduler_tick(void);
 
@@ -287,6 +297,11 @@ extern long schedule_timeout_idle(long timeout);
 asmlinkage void schedule(void);
 extern void schedule_preempt_disabled(void);
 asmlinkage void preempt_schedule_irq(void);
+
+extern void sched_submit_work(void);
+extern void sched_resume_work(void);
+extern void schedule_rtmutex(void);
+
 #ifdef CONFIG_PREEMPT_RT
  extern void schedule_rtlock(void);
 #endif
@@ -621,10 +636,6 @@ struct sched_dl_entity {
 	 * task has to wait for a replenishment to be performed at the
 	 * next firing of dl_timer.
 	 *
-	 * @dl_boosted tells if we are boosted due to DI. If so we are
-	 * outside bandwidth enforcement mechanism (but only until we
-	 * exit the critical section);
-	 *
 	 * @dl_yielded tells if task gave up the CPU before consuming
 	 * all its available runtime during the last job.
 	 *
@@ -859,8 +870,9 @@ struct task_struct {
 	int				trc_reader_nesting;
 	int				trc_ipi_to_cpu;
 	union rcu_special		trc_reader_special;
-	bool				trc_reader_checked;
 	struct list_head		trc_holdout_list;
+	struct list_head		trc_blkd_node;
+	int				trc_blkd_cpu;
 #endif /* #ifdef CONFIG_TASKS_TRACE_RCU */
 
 	struct sched_info		sched_info;
@@ -895,9 +907,6 @@ struct task_struct {
 	unsigned			sched_reset_on_fork:1;
 	unsigned			sched_contributes_to_load:1;
 	unsigned			sched_migrated:1;
-#ifdef CONFIG_PSI
-	unsigned			sched_psi_wake_requeue:1;
-#endif
 
 	/* Force alignment to the next boundary: */
 	unsigned			:0;
@@ -955,6 +964,10 @@ struct task_struct {
 #ifdef CONFIG_IOMMU_SVA
 	RH_KABI_FILL_HOLE(unsigned	pasid_activated:1)
 #endif
+#ifdef CONFIG_TASK_DELAY_ACCT
+	/* delay due to memory thrashing */
+	unsigned                        in_thrashing:1;
+#endif
 
 	unsigned long			atomic_flags; /* Flags requiring atomic access. */
 
@@ -1009,8 +1022,8 @@ struct task_struct {
 	/* CLONE_CHILD_CLEARTID: */
 	int __user			*clear_child_tid;
 
-	/* PF_IO_WORKER */
-	void				*pf_io_worker;
+	/* PF_KTHREAD | PF_IO_WORKER */
+	void				*worker_private;
 
 	u64				utime;
 	u64				stime;
@@ -1104,10 +1117,6 @@ struct task_struct {
 	/* Restored if set_restore_sigmask() was used: */
 	sigset_t			saved_sigmask;
 	struct sigpending		pending;
-#ifdef CONFIG_PREEMPT_RT
-	/* TODO: move me into ->restart_block ? */
-	struct				kernel_siginfo forced_info;
-#endif
 	unsigned long			sas_ss_sp;
 	size_t				sas_ss_size;
 	unsigned int			sas_ss_flags;
@@ -1243,7 +1252,7 @@ struct task_struct {
 	unsigned int			futex_state;
 #endif
 #ifdef CONFIG_PERF_EVENTS
-	struct perf_event_context	*perf_event_ctxp[perf_nr_task_contexts];
+	struct perf_event_context	*perf_event_ctxp;
 	struct mutex			perf_event_mutex;
 	struct list_head		perf_event_list;
 #endif
@@ -1438,7 +1447,7 @@ struct task_struct {
 #endif
 
 #ifdef CONFIG_BLK_CGROUP
-	struct request_queue		*throttle_queue;
+	struct gendisk			*throttle_disk;
 #endif
 
 #ifdef CONFIG_UPROBES
@@ -1494,10 +1503,14 @@ struct task_struct {
 					mce_whole_page : 1,
 					__mce_reserved : 62;
 	struct callback_head		mce_kill_me;
+	int				mce_count;
 #endif
 
 #ifdef CONFIG_KRETPROBES
 	struct llist_head               kretprobe_instances;
+#endif
+#ifdef CONFIG_RETHOOK
+	struct llist_head               rethooks;
 #endif
 
 #ifdef CONFIG_ARCH_HAS_PARANOID_L1D_FLUSH
@@ -1508,6 +1521,16 @@ struct task_struct {
 	 * cores
 	 */
 	struct callback_head		l1d_flush_kill;
+#endif
+
+#ifdef CONFIG_RV
+	/*
+	 * Per-task RV monitor. Nowadays fixed in RV_PER_TASK_MONITORS.
+	 * If we find justification for more monitors, we can think
+	 * about adding more or developing a dynamic method. So far,
+	 * none of these are justified.
+	 */
+	union rv_task_monitor		rv[RV_PER_TASK_MONITORS];
 #endif
 
 	/*
@@ -1708,6 +1731,7 @@ extern struct pid *cad_pid;
 #define PF_VCPU			0x00000001	/* I'm a virtual CPU */
 #define PF_IDLE			0x00000002	/* I am an IDLE thread */
 #define PF_EXITING		0x00000004	/* Getting shut down */
+#define PF_POSTCOREDUMP		0x00000008	/* Coredumps should ignore this task */
 #define PF_IO_WORKER		0x00000010	/* Task is an IO worker */
 #define PF_WQ_WORKER		0x00000020	/* I'm a workqueue worker */
 #define PF_FORKNOEXEC		0x00000040	/* Forked but didn't exec */
@@ -1728,7 +1752,6 @@ extern struct pid *cad_pid;
 						 * I am cleaning dirty pages from some other bdi. */
 #define PF_KTHREAD		0x00200000	/* I am a kernel thread */
 #define PF_RANDOMIZE		0x00400000	/* Randomize virtual address space */
-#define PF_SWAPWRITE		0x00800000	/* Allowed to write to swap */
 #define PF_NO_SETAFFINITY	0x04000000	/* Userland is not allowed to meddle with cpus_mask */
 #define PF_MCE_EARLY		0x08000000      /* Early kill for mce process policy */
 #define PF_MEMALLOC_PIN		0x10000000	/* Allocation context constrained to zones which allow long term pinning. */
@@ -1763,23 +1786,13 @@ extern struct pid *cad_pid;
 #define tsk_used_math(p)			((p)->flags & PF_USED_MATH)
 #define used_math()				tsk_used_math(current)
 
-static inline bool is_percpu_thread(void)
+static __always_inline bool is_percpu_thread(void)
 {
 #ifdef CONFIG_SMP
 	return (current->flags & PF_NO_SETAFFINITY) &&
 		(current->nr_cpus_allowed  == 1);
 #else
 	return true;
-#endif
-}
-
-/* Is the current task guaranteed to stay on its current CPU? */
-static inline bool is_migratable(void)
-{
-#ifdef CONFIG_SMP
-	return preemptible() && !current->migration_disabled;
-#else
-	return false;
 #endif
 }
 
@@ -2095,81 +2108,6 @@ static inline int need_resched_now(void)
 
 #endif
 
-#ifdef CONFIG_PREEMPT_RT
-static inline bool task_match_saved_state(struct task_struct *p, long match_state)
-{
-	return p->saved_state == match_state;
-}
-
-static inline bool task_is_traced(struct task_struct *task)
-{
-	bool traced = false;
-
-	/* in case the task is sleeping on tasklist_lock */
-	raw_spin_lock_irq(&task->pi_lock);
-	if (READ_ONCE(task->__state) & __TASK_TRACED)
-		traced = true;
-	else if (task->saved_state & __TASK_TRACED)
-		traced = true;
-	raw_spin_unlock_irq(&task->pi_lock);
-	return traced;
-}
-
-static inline bool task_is_stopped_or_traced(struct task_struct *task)
-{
-	bool traced_stopped = false;
-	unsigned long flags;
-
-	raw_spin_lock_irqsave(&task->pi_lock, flags);
-
-	if (READ_ONCE(task->__state) & (__TASK_STOPPED | __TASK_TRACED))
-		traced_stopped = true;
-	else if (task->saved_state & (__TASK_STOPPED | __TASK_TRACED))
-		traced_stopped = true;
-
-	raw_spin_unlock_irqrestore(&task->pi_lock, flags);
-	return traced_stopped;
-}
-
-#else
-
-static inline bool task_match_saved_state(struct task_struct *p, long match_state)
-{
-	return false;
-}
-
-static inline bool task_is_traced(struct task_struct *task)
-{
-	return READ_ONCE(task->__state) & __TASK_TRACED;
-}
-
-static inline bool task_is_stopped_or_traced(struct task_struct *task)
-{
-	return READ_ONCE(task->__state) & (__TASK_STOPPED | __TASK_TRACED);
-}
-#endif
-
-static inline bool task_match_state_or_saved(struct task_struct *p,
-					     long match_state)
-{
-	if (READ_ONCE(p->__state) == match_state)
-		return true;
-
-	return task_match_saved_state(p, match_state);
-}
-
-static inline bool task_match_state_lock(struct task_struct *p,
-					 long match_state)
-{
-	bool match;
-
-	raw_spin_lock_irq(&p->pi_lock);
-	match = task_match_state_or_saved(p, match_state);
-	raw_spin_unlock_irq(&p->pi_lock);
-
-	return match;
-}
-
 /*
  * cond_resched() and cond_resched_lock(): latency reduction via
  * explicit rescheduling in places that are safe. The return
@@ -2263,6 +2201,47 @@ static inline void cond_resched_rcu(void)
 #endif
 }
 
+#ifdef CONFIG_PREEMPT_DYNAMIC
+
+extern bool preempt_model_none(void);
+extern bool preempt_model_voluntary(void);
+extern bool preempt_model_full(void);
+
+#else
+
+static inline bool preempt_model_none(void)
+{
+	return IS_ENABLED(CONFIG_PREEMPT_NONE);
+}
+static inline bool preempt_model_voluntary(void)
+{
+	return IS_ENABLED(CONFIG_PREEMPT_VOLUNTARY);
+}
+static inline bool preempt_model_full(void)
+{
+	return IS_ENABLED(CONFIG_PREEMPT);
+}
+
+#endif
+
+static inline bool preempt_model_rt(void)
+{
+	return IS_ENABLED(CONFIG_PREEMPT_RT);
+}
+
+/*
+ * Does the preemption model allow non-cooperative preemption?
+ *
+ * For !CONFIG_PREEMPT_DYNAMIC kernels this is an exact match with
+ * CONFIG_PREEMPTION; for CONFIG_PREEMPT_DYNAMIC this doesn't work as the
+ * kernel is *built* with CONFIG_PREEMPTION=y but may run with e.g. the
+ * PREEMPT_NONE model.
+ */
+static inline bool preempt_model_preemptible(void)
+{
+	return preempt_model_full() || preempt_model_rt();
+}
+
 /*
  * Does a critical section need to be broken due to another
  * task waiting?: (technically does not depend on CONFIG_PREEMPTION,
@@ -2330,6 +2309,7 @@ static inline void set_task_cpu(struct task_struct *p, unsigned int cpu)
 
 extern bool sched_task_on_rq(struct task_struct *p);
 extern unsigned long get_wchan(struct task_struct *p);
+extern struct task_struct *cpu_curr_snapshot(int cpu);
 
 /*
  * In order to reduce various lock holder preemption latencies provide an
@@ -2364,7 +2344,7 @@ static inline bool owner_on_cpu(struct task_struct *owner)
 }
 
 /* Returns effective CPU energy utilization, as seen by the scheduler */
-unsigned long sched_cpu_util(int cpu, unsigned long max);
+unsigned long sched_cpu_util(int cpu);
 #endif /* CONFIG_SMP */
 
 #ifdef CONFIG_RSEQ
@@ -2487,20 +2467,6 @@ static inline void rseq_syscall(struct pt_regs *regs)
 
 #endif
 
-const struct sched_avg *sched_trace_cfs_rq_avg(struct cfs_rq *cfs_rq);
-char *sched_trace_cfs_rq_path(struct cfs_rq *cfs_rq, char *str, int len);
-int sched_trace_cfs_rq_cpu(struct cfs_rq *cfs_rq);
-
-const struct sched_avg *sched_trace_rq_avg_rt(struct rq *rq);
-const struct sched_avg *sched_trace_rq_avg_dl(struct rq *rq);
-const struct sched_avg *sched_trace_rq_avg_irq(struct rq *rq);
-
-int sched_trace_rq_cpu(struct rq *rq);
-int sched_trace_rq_cpu_capacity(struct rq *rq);
-int sched_trace_rq_nr_running(struct rq *rq);
-
-const struct cpumask *sched_trace_rd_span(struct root_domain *rd);
-
 #ifdef CONFIG_SCHED_CORE
 extern void sched_core_free(struct task_struct *tsk);
 extern void sched_core_fork(struct task_struct *p);
@@ -2510,5 +2476,7 @@ extern int sched_core_share_pid(unsigned int cmd, pid_t pid, enum pid_type type,
 static inline void sched_core_free(struct task_struct *tsk) { }
 static inline void sched_core_fork(struct task_struct *p) { }
 #endif
+
+extern void sched_set_stop_task(int cpu, struct task_struct *stop);
 
 #endif

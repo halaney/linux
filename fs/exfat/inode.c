@@ -358,9 +358,9 @@ unlock_ret:
 	return err;
 }
 
-static int exfat_readpage(struct file *file, struct page *page)
+static int exfat_read_folio(struct file *file, struct folio *folio)
 {
-	return mpage_readpage(page, exfat_get_block);
+	return mpage_read_folio(folio, exfat_get_block);
 }
 
 static void exfat_readahead(struct readahead_control *rac)
@@ -390,13 +390,13 @@ static void exfat_write_failed(struct address_space *mapping, loff_t to)
 }
 
 static int exfat_write_begin(struct file *file, struct address_space *mapping,
-		loff_t pos, unsigned int len, unsigned int flags,
+		loff_t pos, unsigned int len,
 		struct page **pagep, void **fsdata)
 {
 	int ret;
 
 	*pagep = NULL;
-	ret = cont_write_begin(file, mapping, pos, len, flags, pagep, fsdata,
+	ret = cont_write_begin(file, mapping, pos, len, pagep, fsdata,
 			       exfat_get_block,
 			       &EXFAT_I(mapping->host)->i_size_ondisk);
 
@@ -491,8 +491,9 @@ int exfat_block_truncate_page(struct inode *inode, loff_t from)
 }
 
 static const struct address_space_operations exfat_aops = {
-	.set_page_dirty	= __set_page_dirty_buffers,
-	.readpage	= exfat_readpage,
+	.dirty_folio	= block_dirty_folio,
+	.invalidate_folio = block_invalidate_folio,
+	.read_folio	= exfat_read_folio,
 	.readahead	= exfat_readahead,
 	.writepage	= exfat_writepage,
 	.writepages	= exfat_writepages,
@@ -603,8 +604,8 @@ static int exfat_fill_inode(struct inode *inode, struct exfat_dir_entry *info)
 
 	exfat_save_attr(inode, info->attr);
 
-	inode->i_blocks = ((i_size_read(inode) + (sbi->cluster_size - 1)) &
-		~(sbi->cluster_size - 1)) >> inode->i_blkbits;
+	inode->i_blocks = round_up(i_size_read(inode), sbi->cluster_size) >>
+				inode->i_blkbits;
 	inode->i_mtime = info->mtime;
 	inode->i_ctime = info->mtime;
 	ei->i_crtime = info->crtime;

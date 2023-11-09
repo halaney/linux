@@ -231,40 +231,6 @@ config QCOM_COINCELL
 	  to maintain PMIC register and RTC state in the absence of
 	  external power.
 
-config APPS_PINCTRL
-	tristate "APPS_PINCTRL"
-	depends on ARCH_QCOM
-        default m
-	help
-	  Driver to set pinmux for Top Level Mode Multiplexer block (TLMM) pins
-          that cannot be configured from UMD. Set one time pins configuration
-          during the device boot to meet all the user mode driver configuration
-          requirements.
-
-
-
-config KIUMD
-	tristate "QCOM_KIUMD"
-	depends on ARCH_QCOM
-        default m
-	help
-	  This driver VFIO based kernel interface for user mode drivers to map DMA-BUF
-	  to device SMMU
-
-config VFIO_IOMMU_QCOM
-	tristate "VFIO_IOMMU_QCOM"
-	depends on ARCH_QCOM && VFIO
-        default m
-	help
-	 This driver enables a VFIO IOMMU implementation for a VFIO
-	 prototype
-
-config IOMMU_CUSTOM_IOVA
-	tristate "IOMMU_CUSTOM_IOVA"
-	depends on ARCH_QCOM
-	help
-	 This driver helps to map custom iova range for a vfio device
-
 config QCOM_FASTRPC
 	tristate "Qualcomm FastRPC"
 	depends on ARCH_QCOM || COMPILE_TEST

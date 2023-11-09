@@ -1057,7 +1057,7 @@ static int init_napi(struct ibmvnic_adapter *adapter)
 	for (i = 0; i < adapter->req_rx_queues; i++) {
 		netdev_dbg(adapter->netdev, "Adding napi[%d]\n", i);
 		netif_napi_add(adapter->netdev, &adapter->napi[i],
-			       ibmvnic_poll, NAPI_POLL_WEIGHT);
+			       ibmvnic_poll);
 	}
 
 	adapter->num_active_rx_napi = adapter->req_rx_queues;
@@ -1420,7 +1420,14 @@ static int __ibmvnic_open(struct net_device *netdev)
 		if (prev_state == VNIC_CLOSED)
 			enable_irq(adapter->tx_scrq[i]->irq);
 		enable_scrq_irq(adapter, adapter->tx_scrq[i]);
-		netdev_tx_reset_queue(netdev_get_tx_queue(netdev, i));
+		/* netdev_tx_reset_queue will reset dql stats. During NON_FATAL
+		 * resets, don't reset the stats because there could be batched
+		 * skb's waiting to be sent. If we reset dql stats, we risk
+		 * num_completed being greater than num_queued. This will cause
+		 * a BUG_ON in dql_completed().
+		 */
+		if (adapter->reset_reason != VNIC_RESET_NON_FATAL)
+			netdev_tx_reset_queue(netdev_get_tx_queue(netdev, i));
 	}
 
 	rc = set_link_state(adapter, IBMVNIC_LOGICAL_LNK_UP);

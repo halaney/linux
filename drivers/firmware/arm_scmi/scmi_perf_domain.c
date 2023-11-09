@@ -56,7 +56,7 @@ scmi_pd_attach_dev(struct generic_pm_domain *genpd, struct device *dev)
 	if (!pd->info->set_perf)
 		return 0;
 
-	ret = pd->perf_ops->device_opps_add(pd->ph, dev, pd->domain_id, true);
+	ret = pd->perf_ops->device_opps_add(pd->ph, dev, pd->domain_id);
 	if (ret)
 		dev_warn(dev, "failed to add OPPs for the device\n");
 

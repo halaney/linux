@@ -47,14 +47,7 @@ Please see Documentation/x86/x86_64/machinecheck.rst for sysfs runtime tunables.
 		in a reboot. On Intel systems it is enabled by default.
    mce=nobootlog
 		Disable boot machine check logging.
-   mce=tolerancelevel[,monarchtimeout] (number,number)
-		tolerance levels:
-		0: always panic on uncorrected errors, log corrected errors
-		1: panic or SIGBUS on uncorrected errors, log corrected errors
-		2: SIGBUS or log uncorrected errors, log corrected errors
-		3: never panic or SIGBUS, log all errors (for testing only)
-		Default is 1
-		Can be also set using sysfs which is preferable.
+   mce=monarchtimeout (number)
 		monarchtimeout:
 		Sets the time in us to wait for other CPUs on machine checks. 0
 		to disable.
@@ -294,11 +287,13 @@ iommu options only relevant to the AMD GART hardware IOMMU:
 iommu options only relevant to the software bounce buffering (SWIOTLB) IOMMU
 implementation:
 
-    swiotlb=<pages>[,force]
-      <pages>
-        Prereserve that many 128K pages for the software IO bounce buffering.
+    swiotlb=<slots>[,force,noforce]
+      <slots>
+        Prereserve that many 2K slots for the software IO bounce buffering.
       force
         Force all IO through the software TLB.
+      noforce
+        Do not initialize the software TLB.
 
 
 Miscellaneous

@@ -667,6 +667,7 @@ static void add_listen_sock(struct socket *sock, struct listen_connection *con)
 
 	sk->sk_user_data = con;
 	sk->sk_allocation = GFP_NOFS;
+	sk->sk_use_task_frag = false;
 	/* Install a data_ready callback */
 	sk->sk_data_ready = lowcomms_listen_data_ready;
 	write_unlock_bh(&sk->sk_callback_lock);
@@ -686,6 +687,7 @@ static void add_sock(struct socket *sock, struct connection *con)
 	sk->sk_write_space = lowcomms_write_space;
 	sk->sk_state_change = lowcomms_state_change;
 	sk->sk_allocation = GFP_NOFS;
+	sk->sk_use_task_frag = false;
 	sk->sk_error_report = lowcomms_error_report;
 	write_unlock_bh(&sk->sk_callback_lock);
 }
@@ -1576,6 +1578,8 @@ struct dlm_msg *dlm_lowcomms_new_msg(int nodeid, int len, gfp_t allocation,
 		return NULL;
 	}
 
+	/* for dlm_lowcomms_commit_msg() */
+	kref_get(&msg->ref);
 	/* we assume if successful commit must called */
 	msg->idx = idx;
 	return msg;
@@ -1610,6 +1614,8 @@ void dlm_lowcomms_commit_msg(struct dlm_msg *msg)
 {
 	_dlm_lowcomms_commit_msg(msg);
 	srcu_read_unlock(&connections_srcu, msg->idx);
+	/* because dlm_lowcomms_new_msg() */
+	kref_put(&msg->ref, dlm_msg_release);
 }
 
 void dlm_lowcomms_put_msg(struct dlm_msg *msg)

@@ -24,7 +24,6 @@
 #include <linux/of.h>
 #include <linux/iommu.h>
 #include <linux/rculist.h>
-#include <linux/local_lock.h>
 #include <asm/io.h>
 #include <asm/prom.h>
 #include <asm/rtas.h>
@@ -191,13 +190,7 @@ static int tce_build_pSeriesLP(unsigned long liobn, long tcenum, long tceshift,
 	return ret;
 }
 
-struct tce_page {
-	__be64 * page;
-	local_lock_t lock;
-};
-static DEFINE_PER_CPU(struct tce_page, tce_page) = {
-	.lock = INIT_LOCAL_LOCK(lock),
-};
+static DEFINE_PER_CPU(__be64 *, tce_page);
 
 static int tce_buildmulti_pSeriesLP(struct iommu_table *tbl, long tcenum,
 				     long npages, unsigned long uaddr,
@@ -219,10 +212,9 @@ static int tce_buildmulti_pSeriesLP(struct iommu_table *tbl, long tcenum,
 		                           direction, attrs);
 	}
 
-	/* to protect tcep and the page behind it */
-	local_lock_irqsave(&tce_page.lock, flags);
+	local_irq_save(flags);	/* to protect tcep and the page behind it */
 
-	tcep = __this_cpu_read(tce_page.page);
+	tcep = __this_cpu_read(tce_page);
 
 	/* This is safe to do since interrupts are off when we're called
 	 * from iommu_alloc{,_sg}()
@@ -231,12 +223,12 @@ static int tce_buildmulti_pSeriesLP(struct iommu_table *tbl, long tcenum,
 		tcep = (__be64 *)__get_free_page(GFP_ATOMIC);
 		/* If allocation fails, fall back to the loop implementation */
 		if (!tcep) {
-			local_unlock_irqrestore(&tce_page.lock, flags);
+			local_irq_restore(flags);
 			return tce_build_pSeriesLP(tbl->it_index, tcenum,
 					tbl->it_page_shift,
 					npages, uaddr, direction, attrs);
 		}
-		__this_cpu_write(tce_page.page, tcep);
+		__this_cpu_write(tce_page, tcep);
 	}
 
 	rpn = __pa(uaddr) >> TCE_SHIFT;
@@ -266,7 +258,7 @@ static int tce_buildmulti_pSeriesLP(struct iommu_table *tbl, long tcenum,
 		tcenum += limit;
 	} while (npages > 0 && !rc);
 
-	local_unlock_irqrestore(&tce_page.lock, flags);
+	local_irq_restore(flags);
 
 	if (unlikely(rc == H_NOT_ENOUGH_RESOURCES)) {
 		ret = (int)rc;
@@ -307,11 +299,20 @@ static void tce_free_pSeriesLP(unsigned long liobn, long tcenum, long npages)
 static void tce_freemulti_pSeriesLP(struct iommu_table *tbl, long tcenum, long npages)
 {
 	u64 rc;
+	long rpages = npages;
+	unsigned long limit;
 
 	if (!firmware_has_feature(FW_FEATURE_STUFF_TCE))
 		return tce_free_pSeriesLP(tbl->it_index, tcenum, npages);
 
-	rc = plpar_tce_stuff((u64)tbl->it_index, (u64)tcenum << 12, 0, npages);
+	do {
+		limit = min_t(unsigned long, rpages, 512);
+
+		rc = plpar_tce_stuff((u64)tbl->it_index, (u64)tcenum << 12, 0, limit);
+
+		rpages -= limit;
+		tcenum += limit;
+	} while (rpages > 0 && !rc);
 
 	if (rc && printk_ratelimit()) {
 		printk("tce_freemulti_pSeriesLP: plpar_tce_stuff failed\n");
@@ -437,17 +438,16 @@ static int tce_setrange_multi_pSeriesLP(unsigned long start_pfn,
 				DMA_BIDIRECTIONAL, 0);
 	}
 
-	/* to protect tcep and the page behind it */
-	local_lock_irq(&tce_page.lock);
-	tcep = __this_cpu_read(tce_page.page);
+	local_irq_disable();	/* to protect tcep and the page behind it */
+	tcep = __this_cpu_read(tce_page);
 
 	if (!tcep) {
 		tcep = (__be64 *)__get_free_page(GFP_ATOMIC);
 		if (!tcep) {
-			local_unlock_irq(&tce_page.lock);
+			local_irq_enable();
 			return -ENOMEM;
 		}
-		__this_cpu_write(tce_page.page, tcep);
+		__this_cpu_write(tce_page, tcep);
 	}
 
 	proto_tce = TCE_PCI_READ | TCE_PCI_WRITE;
@@ -490,7 +490,7 @@ static int tce_setrange_multi_pSeriesLP(unsigned long start_pfn,
 
 	/* error cleanup: caller will clear whole range */
 
-	local_unlock_irq(&tce_page.lock);
+	local_irq_enable();
 	return rc;
 }
 

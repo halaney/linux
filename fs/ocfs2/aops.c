@@ -309,7 +309,7 @@ static int ocfs2_readpage(struct file *file, struct page *page)
 	/*
 	 * i_size might have just been updated as we grabed the meta lock.  We
 	 * might now be discovering a truncate that hit on another node.
-	 * block_read_full_page->get_block freaks out if it is asked to read
+	 * block_read_full_folio->get_block freaks out if it is asked to read
 	 * beyond the end of a file, so we check here.  Callers
 	 * (generic_file_read, vm_ops->fault) are clever enough to check i_size
 	 * and notice that the page they just read isn't needed.
@@ -326,7 +326,7 @@ static int ocfs2_readpage(struct file *file, struct page *page)
 	if (oi->ip_dyn_features & OCFS2_INLINE_DATA_FL)
 		ret = ocfs2_readpage_inline(inode, page);
 	else
-		ret = block_read_full_page(page, ocfs2_get_block);
+		ret = block_read_full_folio(page_folio(page), ocfs2_get_block);
 	unlock = 0;
 
 out_alloc:
@@ -637,7 +637,7 @@ int ocfs2_map_page_blocks(struct page *page, u64 *p_blkno,
 			   !buffer_new(bh) &&
 			   ocfs2_should_read_blk(inode, page, block_start) &&
 			   (block_start < from || block_end > to)) {
-			ll_rw_block(REQ_OP_READ, 0, 1, &bh);
+			ll_rw_block(REQ_OP_READ, 1, &bh);
 			*wait_bh++=bh;
 		}
 
@@ -1881,7 +1881,7 @@ out:
 }
 
 static int ocfs2_write_begin(struct file *file, struct address_space *mapping,
-			     loff_t pos, unsigned len, unsigned flags,
+			     loff_t pos, unsigned len,
 			     struct page **pagep, void **fsdata)
 {
 	int ret;
@@ -1897,7 +1897,7 @@ static int ocfs2_write_begin(struct file *file, struct address_space *mapping,
 	/*
 	 * Take alloc sem here to prevent concurrent lookups. That way
 	 * the mapping, zeroing and tree manipulation within
-	 * ocfs2_write() will be safe against ->readpage(). This
+	 * ocfs2_write() will be safe against ->read_folio(). This
 	 * should also serve to lock out allocation from a shared
 	 * writeable region.
 	 */
@@ -2453,7 +2453,7 @@ static ssize_t ocfs2_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
 }
 
 const struct address_space_operations ocfs2_aops = {
-	.set_page_dirty		= __set_page_dirty_buffers,
+	.dirty_folio		= block_dirty_folio,
 	.readpage		= ocfs2_readpage,
 	.readahead		= ocfs2_readahead,
 	.writepage		= ocfs2_writepage,
@@ -2461,7 +2461,7 @@ const struct address_space_operations ocfs2_aops = {
 	.write_end		= ocfs2_write_end,
 	.bmap			= ocfs2_bmap,
 	.direct_IO		= ocfs2_direct_IO,
-	.invalidatepage		= block_invalidatepage,
+	.invalidate_folio	= block_invalidate_folio,
 	.releasepage		= ocfs2_releasepage,
 	.migratepage		= buffer_migrate_page,
 	.is_partially_uptodate	= block_is_partially_uptodate,

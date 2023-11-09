@@ -23,6 +23,7 @@
 #include <linux/dma-map-ops.h>
 #include <linux/kobject.h>
 #include <linux/kexec.h>
+#include <linux/of_irq.h>
 
 #include <asm/iommu.h>
 #include <asm/dma.h>
@@ -1258,7 +1259,7 @@ static int vio_bus_probe(struct device *dev)
 }
 
 /* convert from struct device to struct vio_dev and pass to driver. */
-static int vio_bus_remove(struct device *dev)
+static void vio_bus_remove(struct device *dev)
 {
 	struct vio_dev *viodev = to_vio_dev(dev);
 	struct vio_driver *viodrv = to_vio_driver(dev->driver);
@@ -1277,7 +1278,6 @@ static int vio_bus_remove(struct device *dev)
 		vio_cmo_bus_remove(viodev);
 
 	put_device(devptr);
-	return 0;
 }
 
 static void vio_bus_shutdown(struct device *dev)

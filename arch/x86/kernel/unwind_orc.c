@@ -9,7 +9,7 @@
 #include <asm/orc_lookup.h>
 
 #define orc_warn(fmt, ...) \
-	pr_warn_once("WARNING: " fmt, ##__VA_ARGS__)
+	printk_deferred_once(KERN_WARNING "WARNING: " fmt, ##__VA_ARGS__)
 
 #define orc_warn_current(args...)					\
 ({									\
@@ -131,6 +131,21 @@ static struct orc_entry null_orc_entry = {
 	.type = UNWIND_HINT_TYPE_CALL
 };
 
+#ifdef CONFIG_CALL_THUNKS
+static struct orc_entry *orc_callthunk_find(unsigned long ip)
+{
+	if (!is_callthunk((void *)ip))
+		return NULL;
+
+	return &null_orc_entry;
+}
+#else
+static struct orc_entry *orc_callthunk_find(unsigned long ip)
+{
+	return NULL;
+}
+#endif
+
 /* Fake frame pointer entry -- used as a fallback for generated code */
 static struct orc_entry orc_fp_entry = {
 	.type		= UNWIND_HINT_TYPE_CALL,
@@ -175,7 +190,7 @@ static struct orc_entry *orc_find(unsigned long ip)
 	}
 
 	/* vmlinux .init slow lookup: */
-	if (init_kernel_text(ip))
+	if (is_kernel_inittext(ip))
 		return __orc_find(__start_orc_unwind_ip, __start_orc_unwind,
 				  __stop_orc_unwind_ip - __start_orc_unwind_ip, ip);
 
@@ -184,7 +199,11 @@ static struct orc_entry *orc_find(unsigned long ip)
 	if (orc)
 		return orc;
 
-	return orc_ftrace_find(ip);
+	orc =  orc_ftrace_find(ip);
+	if (orc)
+		return orc;
+
+	return orc_callthunk_find(ip);
 }
 
 #ifdef CONFIG_MODULES
@@ -550,15 +569,15 @@ bool unwind_next_frame(struct unwind_state *state)
 		}
 		/*
 		 * There is a small chance to interrupt at the entry of
-		 * __kretprobe_trampoline() where the ORC info doesn't exist.
-		 * That point is right after the RET to __kretprobe_trampoline()
+		 * arch_rethook_trampoline() where the ORC info doesn't exist.
+		 * That point is right after the RET to arch_rethook_trampoline()
 		 * which was modified return address.
-		 * At that point, the @addr_p of the unwind_recover_kretprobe()
+		 * At that point, the @addr_p of the unwind_recover_rethook()
 		 * (this has to point the address of the stack entry storing
 		 * the modified return address) must be "SP - (a stack entry)"
 		 * because SP is incremented by the RET.
 		 */
-		state->ip = unwind_recover_kretprobe(state, state->ip,
+		state->ip = unwind_recover_rethook(state, state->ip,
 				(unsigned long *)(state->sp - sizeof(long)));
 		state->regs = (struct pt_regs *)sp;
 		state->prev_regs = NULL;
@@ -573,7 +592,7 @@ bool unwind_next_frame(struct unwind_state *state)
 			goto err;
 		}
 		/* See UNWIND_HINT_TYPE_REGS case comment. */
-		state->ip = unwind_recover_kretprobe(state, state->ip,
+		state->ip = unwind_recover_rethook(state, state->ip,
 				(unsigned long *)(state->sp - sizeof(long)));
 
 		if (state->full_regs)

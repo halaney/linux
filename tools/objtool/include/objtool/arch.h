@@ -27,6 +27,7 @@ enum insn_type {
 	INSN_STD,
 	INSN_CLD,
 	INSN_TRAP,
+	INSN_ENDBR,
 	INSN_OTHER,
 };
 
@@ -91,5 +92,7 @@ bool arch_is_retpoline(struct symbol *sym);
 bool arch_is_rethunk(struct symbol *sym);
 
 int arch_rewrite_retpolines(struct objtool_file *file);
+
+bool arch_pc_relative_reloc(struct reloc *reloc);
 
 #endif /* _ARCH_H */

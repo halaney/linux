@@ -45,6 +45,7 @@ properties:
           - enum:
               - qcom,msm8996-tsens
               - qcom,msm8998-tsens
+              - qcom,sa8775p-tsens
               - qcom,sc7180-tsens
               - qcom,sc7280-tsens
               - qcom,sc8180x-tsens
@@ -52,7 +53,6 @@ properties:
               - qcom,sm8150-tsens
               - qcom,sm8250-tsens
               - qcom,sm8350-tsens
-              - qcom,lemans-tsens
           - const: qcom,tsens-v2
 
   reg:

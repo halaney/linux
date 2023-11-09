@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/pagewalk.h>
 #include <linux/vmacache.h>
+#include <linux/mm_inline.h>
 #include <linux/hugetlb.h>
 #include <linux/huge_mm.h>
 #include <linux/mount.h>
@@ -308,6 +309,8 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
 
 	name = arch_vma_name(vma);
 	if (!name) {
+		struct anon_vma_name *anon_name;
+
 		if (!mm) {
 			name = "[vdso]";
 			goto done;
@@ -319,8 +322,16 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
 			goto done;
 		}
 
-		if (is_stack(vma))
+		if (is_stack(vma)) {
 			name = "[stack]";
+			goto done;
+		}
+
+		anon_name = anon_vma_name(vma);
+		if (anon_name) {
+			seq_pad(m, ' ');
+			seq_printf(m, "[anon:%s]", anon_name->name);
+		}
 	}
 
 done:
@@ -713,9 +724,7 @@ static int smaps_hugetlb_range(pte_t *pte, unsigned long hmask,
 			page = pfn_swap_entry_to_page(swpent);
 	}
 	if (page) {
-		int mapcount = page_mapcount(page);
-
-		if (mapcount >= 2)
+		if (page_mapcount(page) >= 2 || hugetlb_pmd_shared(pte))
 			mss->shared_hugetlb += huge_page_size(hstate_vma(vma));
 		else
 			mss->private_hugetlb += huge_page_size(hstate_vma(vma));
@@ -845,7 +854,7 @@ static int show_smap(struct seq_file *m, void *v)
 	__show_smap(m, &mss, false);
 
 	seq_printf(m, "THPeligible:    %d\n",
-		   transparent_hugepage_active(vma));
+		   hugepage_vma_check(vma, vma->vm_flags, true, false));
 
 	if (arch_pkeys_enabled())
 		seq_printf(m, "ProtectionKey:  %8u\n", vma_pkey(vma));
@@ -1051,6 +1060,23 @@ struct clear_refs_private {
 };
 
 #ifdef CONFIG_MEM_SOFT_DIRTY
+
+static inline bool pte_is_pinned(struct vm_area_struct *vma, unsigned long addr, pte_t pte)
+{
+	struct page *page;
+
+	if (!pte_write(pte))
+		return false;
+	if (!is_cow_mapping(vma->vm_flags))
+		return false;
+	if (likely(!test_bit(MMF_HAS_PINNED, &vma->vm_mm->flags)))
+		return false;
+	page = vm_normal_page(vma, addr, pte);
+	if (!page)
+		return false;
+	return page_maybe_dma_pinned(page);
+}
+
 static inline void clear_soft_dirty(struct vm_area_struct *vma,
 		unsigned long addr, pte_t *pte)
 {
@@ -1065,6 +1091,8 @@ static inline void clear_soft_dirty(struct vm_area_struct *vma,
 	if (pte_present(ptent)) {
 		pte_t old_pte;
 
+		if (pte_is_pinned(vma, addr, ptent))
+			return;
 		old_pte = ptep_modify_prot_start(vma, addr, pte);
 		ptent = pte_wrprotect(old_pte);
 		ptent = pte_clear_soft_dirty(ptent);
@@ -1230,40 +1258,25 @@ static ssize_t clear_refs_write(struct file *file, const char __user *buf,
 			.type = type,
 		};
 
+		if (mmap_write_lock_killable(mm)) {
+			count = -EINTR;
+			goto out_mm;
+		}
 		if (type == CLEAR_REFS_MM_HIWATER_RSS) {
-			if (mmap_write_lock_killable(mm)) {
-				count = -EINTR;
-				goto out_mm;
-			}
-
 			/*
 			 * Writing 5 to /proc/pid/clear_refs resets the peak
 			 * resident set size to this mm's current rss value.
 			 */
 			reset_mm_hiwater_rss(mm);
-			mmap_write_unlock(mm);
-			goto out_mm;
+			goto out_unlock;
 		}
 
-		if (mmap_read_lock_killable(mm)) {
-			count = -EINTR;
-			goto out_mm;
-		}
 		if (type == CLEAR_REFS_SOFT_DIRTY) {
 			for (vma = mm->mmap; vma; vma = vma->vm_next) {
 				if (!(vma->vm_flags & VM_SOFTDIRTY))
 					continue;
-				mmap_read_unlock(mm);
-				if (mmap_write_lock_killable(mm)) {
-					count = -EINTR;
-					goto out_mm;
-				}
-				for (vma = mm->mmap; vma; vma = vma->vm_next) {
-					vma->vm_flags &= ~VM_SOFTDIRTY;
-					vma_set_page_prot(vma);
-				}
-				mmap_write_downgrade(mm);
-				break;
+				vma->vm_flags &= ~VM_SOFTDIRTY;
+				vma_set_page_prot(vma);
 			}
 
 			inc_tlb_flush_pending(mm);
@@ -1278,7 +1291,8 @@ static ssize_t clear_refs_write(struct file *file, const char __user *buf,
 			flush_tlb_mm(mm);
 			dec_tlb_flush_pending(mm);
 		}
-		mmap_read_unlock(mm);
+out_unlock:
+		mmap_write_unlock(mm);
 out_mm:
 		mmput(mm);
 	}
@@ -1394,9 +1408,19 @@ static pagemap_entry_t pte_to_pagemap_entry(struct pagemapread *pm,
 		if (pte_swp_uffd_wp(pte))
 			flags |= PM_UFFD_WP;
 		entry = pte_to_swp_entry(pte);
-		if (pm->show_pfn)
+		if (pm->show_pfn) {
+			pgoff_t offset;
+			/*
+			 * For PFN swap offsets, keeping the offset field
+			 * to be PFN only to be compatible with old smaps.
+			 */
+			if (is_pfn_swap_entry(entry))
+				offset = swp_offset_pfn(entry);
+			else
+				offset = swp_offset(entry);
 			frame = swp_type(entry) |
-				(swp_offset(entry) << MAX_SWAPFILES_SHIFT);
+			    (offset << MAX_SWAPFILES_SHIFT);
+		}
 		flags |= PM_SWAP;
 		migration = is_migration_entry(entry);
 		if (is_pfn_swap_entry(entry))
@@ -1451,7 +1475,11 @@ static int pagemap_pmd_range(pmd_t *pmdp, unsigned long addr, unsigned long end,
 			unsigned long offset;
 
 			if (pm->show_pfn) {
-				offset = swp_offset(entry) +
+				if (is_pfn_swap_entry(entry))
+					offset = swp_offset_pfn(entry);
+				else
+					offset = swp_offset(entry);
+				offset = offset +
 					((addr & ~PMD_MASK) >> PAGE_SHIFT);
 				frame = swp_type(entry) |
 					(offset << MAX_SWAPFILES_SHIFT);
@@ -1764,7 +1792,7 @@ static struct page *can_gather_numa_stats(pte_t pte, struct vm_area_struct *vma,
 		return NULL;
 
 	page = vm_normal_page(vma, addr, pte);
-	if (!page)
+	if (!page || is_zone_device_page(page))
 		return NULL;
 
 	if (PageReserved(page))

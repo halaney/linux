@@ -19,7 +19,7 @@
 #include <linux/percpu-rwsem.h>
 #include <linux/u64_stats_sync.h>
 #include <linux/workqueue.h>
-#include <linux/bpf-cgroup.h>
+#include <linux/bpf-cgroup-defs.h>
 #include <linux/psi_types.h>
 
 #ifdef CONFIG_CGROUPS
@@ -113,11 +113,11 @@ enum {
 	CFTYPE_NO_PREFIX	= (1 << 3),	/* (DON'T USE FOR NEW FILES) no subsys prefix */
 	CFTYPE_WORLD_WRITABLE	= (1 << 4),	/* (DON'T USE FOR NEW FILES) S_IWUGO */
 	CFTYPE_DEBUG		= (1 << 5),	/* create when cgroup_debug */
-	CFTYPE_PRESSURE		= (1 << 6),	/* only if pressure feature is enabled */
 
 	/* internal flags, do not use outside cgroup core proper */
 	__CFTYPE_ONLY_ON_DFL	= (1 << 16),	/* only on default hierarchy */
 	__CFTYPE_NOT_ON_DFL	= (1 << 17),	/* not on default hierarchy */
+	__CFTYPE_ADDED		= (1 << 18),
 };
 
 /*
@@ -264,7 +264,8 @@ struct css_set {
 	 * List of csets participating in the on-going migration either as
 	 * source or destination.  Protected by cgroup_mutex.
 	 */
-	struct list_head mg_preload_node;
+	struct list_head mg_src_preload_node;
+	struct list_head mg_dst_preload_node;
 	struct list_head mg_node;
 
 	/*
@@ -287,6 +288,10 @@ struct css_set {
 
 struct cgroup_base_stat {
 	struct task_cputime cputime;
+
+#ifdef CONFIG_SCHED_CORE
+	u64 forceidle_sum;
+#endif
 };
 
 /*
@@ -366,7 +371,7 @@ struct cgroup {
 	/*
 	 * The depth this cgroup is at.  The root is at depth zero and each
 	 * step down the hierarchy increments the level.  This along with
-	 * ancestor_ids[] can determine whether a given cgroup is a
+	 * ancestors[] can determine whether a given cgroup is a
 	 * descendant of another without traversing the hierarchy.
 	 */
 	int level;
@@ -413,7 +418,7 @@ struct cgroup {
 	/*
 	 * The bitmask of subsystems enabled on the child cgroups.
 	 * ->subtree_control is the one configured through
-	 * "cgroup.subtree_control" while ->child_ss_mask is the effective
+	 * "cgroup.subtree_control" while ->subtree_ss_mask is the effective
 	 * one which may have more subsystems enabled.  Controller knobs
 	 * are made available iff it's enabled in ->subtree_control.
 	 */
@@ -475,7 +480,7 @@ struct cgroup {
 	struct work_struct release_agent_work;
 
 	/* used to track pressure stalls */
-	struct psi_group psi;
+	struct psi_group *psi;
 
 	/* used to store eBPF programs */
 	struct cgroup_bpf bpf;
@@ -486,8 +491,12 @@ struct cgroup {
 	/* Used to store internal freezer state */
 	struct cgroup_freezer_state freezer;
 
-	/* ids of the ancestors at each level including self */
-	u64 ancestor_ids[];
+#ifdef CONFIG_BPF_SYSCALL
+	struct bpf_local_storage __rcu  *bpf_cgrp_storage;
+#endif
+
+	/* All ancestors including self */
+	struct cgroup *ancestors[];
 };
 
 /*
@@ -504,11 +513,15 @@ struct cgroup_root {
 	/* Unique id for this hierarchy. */
 	int hierarchy_id;
 
-	/* The root cgroup.  Root is destroyed on its release. */
+	/*
+	 * The root cgroup. The containing cgroup_root will be destroyed on its
+	 * release. cgrp->ancestors[0] will be used overflowing into the
+	 * following field. cgrp_ancestor_storage must immediately follow.
+	 */
 	struct cgroup cgrp;
 
-	/* for cgrp->ancestor_ids[0] */
-	u64 cgrp_ancestor_id_storage;
+	/* must follow cgrp for cgrp->ancestors[0], see above */
+	struct cgroup *cgrp_ancestor_storage;
 
 	/* Number of cgroups in the hierarchy, used only for /proc/cgroups */
 	atomic_t nr_cgrps;

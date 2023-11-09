@@ -1,1 +1,1 @@
-CONFIG_QCOM_STATS=m
+# CONFIG_QCOM_STATS is not set

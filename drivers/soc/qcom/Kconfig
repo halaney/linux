@@ -26,13 +26,6 @@ config QCOM_COMMAND_DB
 	  resource on a RPM-hardened platform must use this database to get
 	  SoC specific identifier and information for the shared resources.
 
-config QCOM_KASLR_OFF_SAVE
-	tristate "Qualcom Technologies, Inc. kaslr offset save"
-	depends on ARCH_QCOM || COMPILE_TEST
-	depends on OF_RESERVED_MEM
-	help
-	  Save the kaslr offset region in a dedicated reserved region.
-
 config QCOM_CPR
 	tristate "QCOM Core Power Reduction (CPR) support"
 	depends on ARCH_QCOM && HAS_IOMEM
@@ -70,6 +63,7 @@ config QCOM_GSBI
 config QCOM_LLCC
 	tristate "Qualcomm Technologies, Inc. LLCC driver"
 	depends on ARCH_QCOM || COMPILE_TEST
+	select REGMAP_MMIO
 	help
 	  Qualcomm Technologies, Inc. platform specific
 	  Last Level Cache Controller(LLCC) driver for platforms such as,
@@ -101,8 +95,6 @@ config QCOM_PDR_HELPERS
 config QCOM_QMI_HELPERS
 	tristate
 	depends on NET
-
-source "drivers/soc/qcom/hab/Kconfig"
 
 config QCOM_RMTFS_MEM
 	tristate "Qualcomm Remote Filesystem memory driver"
@@ -138,7 +130,7 @@ config QCOM_RPMHPD
 
 config QCOM_RPMPD
 	tristate "Qualcomm RPM Power domain driver"
-	depends on PM
+	depends on PM && OF
 	depends on QCOM_SMD_RPM
 	select PM_GENERIC_DOMAINS
 	select PM_GENERIC_DOMAINS_OF
@@ -245,6 +237,7 @@ config QCOM_ICC_BWMON
 	tristate "QCOM Interconnect Bandwidth Monitor driver"
 	depends on ARCH_QCOM || COMPILE_TEST
 	select PM_OPP
+	select REGMAP_MMIO
 	help
 	  Sets up driver monitoring bandwidth on various interconnects and
 	  based on that voting for interconnect bandwidth, adjusting their
@@ -255,36 +248,4 @@ config QCOM_ICC_BWMON
 	  the fixed bandwidth votes from cpufreq (CPU nodes) thus achieve high
 	  memory throughput even with lower CPU frequencies.
 
-config QCOM_SECURE_BUFFER
-	tristate "Helper functions for secure buffers through TZ"
-	depends on QCOM_SCM
-	help
-	  Enable for targets that need to call into TZ to secure
-	  memory buffers. This ensures that only the correct clients can
-	  use this memory and no unauthorized access is made to the
-	  buffer.
-
-config HYP_ASSIGN_DEBUG
-	bool "Enable caller tracking for hyp-assign"
-	depends on QCOM_SECURE_BUFFER
-	help
-	  Track all pages which are in the hyp-assigned state. Enable
-	  additional error checking on hyp-assign based on this state.
-	  Detects double-assign and double-unassign scenarios.
-	  If unsure, say 'N' here.
-
-config DUMP_XBL_LOG
-        tristate "Print secondary bootloader (xbl) logs on console from sysfs"
-        help
-           This driver is used to capture secondary bootloader (xbl) log
-           from reserved memory region and provide a sysfs entry for reading
-           logs captured from this memory region. User can use below command
-           to print xbl log to console:
-
-                cat /sys/kernel/xbl_log/xbl_log
-
-           These logs help to identify firmware configuration information
-           on the SoC
-
 endmenu
-

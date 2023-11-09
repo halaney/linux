@@ -77,8 +77,10 @@ static void fuse_add_dirent_to_cache(struct file *file,
 		goto unlock;
 
 	addr = kmap_atomic(page);
-	if (!offset)
+	if (!offset) {
 		clear_page(addr);
+		SetPageUptodate(page);
+	}
 	memcpy(addr + offset, dirent, reclen);
 	kunmap_atomic(addr);
 	fi->rdc.size = (index << PAGE_SHIFT) + offset + reclen;
@@ -158,7 +160,7 @@ static int fuse_direntplus_link(struct file *file,
 	struct inode *dir = d_inode(parent);
 	struct fuse_conn *fc;
 	struct inode *inode;
-	DECLARE_SWAIT_QUEUE_HEAD_ONSTACK(wq);
+	DECLARE_WAIT_QUEUE_HEAD_ONSTACK(wq);
 
 	if (!o->nodeid) {
 		/*
@@ -516,6 +518,12 @@ retry_locked:
 
 	page = find_get_page_flags(file->f_mapping, index,
 				   FGP_ACCESSED | FGP_LOCK);
+	/* Page gone missing, then re-added to cache, but not initialized? */
+	if (page && !PageUptodate(page)) {
+		unlock_page(page);
+		put_page(page);
+		page = NULL;
+	}
 	spin_lock(&fi->rdc.lock);
 	if (!page) {
 		/*

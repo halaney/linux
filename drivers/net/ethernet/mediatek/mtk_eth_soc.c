@@ -23,6 +23,7 @@
 #include <net/dsa.h>
 
 #include "mtk_eth_soc.h"
+#include "mtk_wed.h"
 
 static int mtk_msg_level = -1;
 module_param_named(msg_level, mtk_msg_level, int, 0);
@@ -760,7 +761,7 @@ static void mtk_get_stats64(struct net_device *dev,
 	}
 
 	do {
-		start = u64_stats_fetch_begin_irq(&hw_stats->syncp);
+		start = u64_stats_fetch_begin(&hw_stats->syncp);
 		storage->rx_packets = hw_stats->rx_packets;
 		storage->tx_packets = hw_stats->tx_packets;
 		storage->rx_bytes = hw_stats->rx_bytes;
@@ -772,7 +773,7 @@ static void mtk_get_stats64(struct net_device *dev,
 		storage->rx_crc_errors = hw_stats->rx_fcs_errors;
 		storage->rx_errors = hw_stats->rx_checksum_errors;
 		storage->tx_aborted_errors = hw_stats->tx_skip;
-	} while (u64_stats_fetch_retry_irq(&hw_stats->syncp, start));
+	} while (u64_stats_fetch_retry(&hw_stats->syncp, start));
 
 	storage->tx_errors = dev->stats.tx_errors;
 	storage->rx_dropped = dev->stats.rx_dropped;
@@ -2768,8 +2769,8 @@ static void mtk_get_drvinfo(struct net_device *dev,
 {
 	struct mtk_mac *mac = netdev_priv(dev);
 
-	strlcpy(info->driver, mac->hw->dev->driver->name, sizeof(info->driver));
-	strlcpy(info->bus_info, dev_name(mac->hw->dev), sizeof(info->bus_info));
+	strscpy(info->driver, mac->hw->dev->driver->name, sizeof(info->driver));
+	strscpy(info->bus_info, dev_name(mac->hw->dev), sizeof(info->bus_info));
 	info->n_stats = ARRAY_SIZE(mtk_ethtool_stats);
 }
 
@@ -2847,11 +2848,11 @@ static void mtk_get_ethtool_stats(struct net_device *dev,
 
 	do {
 		data_dst = data;
-		start = u64_stats_fetch_begin_irq(&hwstats->syncp);
+		start = u64_stats_fetch_begin(&hwstats->syncp);
 
 		for (i = 0; i < ARRAY_SIZE(mtk_ethtool_stats); i++)
 			*data_dst++ = *(data_src + mtk_ethtool_stats[i].offset);
-	} while (u64_stats_fetch_retry_irq(&hwstats->syncp, start));
+	} while (u64_stats_fetch_retry(&hwstats->syncp, start));
 }
 
 static int mtk_get_rxnfc(struct net_device *dev, struct ethtool_rxnfc *cmd,
@@ -3130,6 +3131,22 @@ static int mtk_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "no pctl regmap found\n");
 			return PTR_ERR(eth->pctl);
 		}
+	}
+
+	for (i = 0;; i++) {
+		struct device_node *np = of_parse_phandle(pdev->dev.of_node,
+							  "mediatek,wed", i);
+		static const u32 wdma_regs[] = {
+			MTK_WDMA0_BASE,
+			MTK_WDMA1_BASE
+		};
+		void __iomem *wdma;
+
+		if (!np || i >= ARRAY_SIZE(wdma_regs))
+			break;
+
+		wdma = eth->base + wdma_regs[i];
+		mtk_wed_add_hw(np, eth, wdma, i);
 	}
 
 	for (i = 0; i < 3; i++) {

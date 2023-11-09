@@ -858,8 +858,8 @@ static struct net_device_stats *tulip_get_stats(struct net_device *dev)
 static void tulip_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *info)
 {
 	struct tulip_private *np = netdev_priv(dev);
-	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
-	strlcpy(info->bus_info, pci_name(np->pdev), sizeof(info->bus_info));
+	strscpy(info->driver, DRV_NAME, sizeof(info->driver));
+	strscpy(info->bus_info, pci_name(np->pdev), sizeof(info->bus_info));
 }
 
 
@@ -1682,7 +1682,7 @@ static int tulip_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	dev->netdev_ops = &tulip_netdev_ops;
 	dev->watchdog_timeo = TX_TIMEOUT;
 #ifdef CONFIG_TULIP_NAPI
-	netif_napi_add(dev, &tp->napi, tulip_poll, 16);
+	netif_napi_add_weight(dev, &tp->napi, tulip_poll, 16);
 #endif
 	dev->ethtool_ops = &ops;
 

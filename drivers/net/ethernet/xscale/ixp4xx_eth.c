@@ -978,11 +978,11 @@ static void ixp4xx_get_drvinfo(struct net_device *dev,
 {
 	struct port *port = netdev_priv(dev);
 
-	strlcpy(info->driver, DRV_NAME, sizeof(info->driver));
+	strscpy(info->driver, DRV_NAME, sizeof(info->driver));
 	snprintf(info->fw_version, sizeof(info->fw_version), "%u:%u:%u:%u",
 		 port->firmware[0], port->firmware[1],
 		 port->firmware[2], port->firmware[3]);
-	strlcpy(info->bus_info, "internal", sizeof(info->bus_info));
+	strscpy(info->bus_info, "internal", sizeof(info->bus_info));
 }
 
 int ixp46x_phc_index = -1;
@@ -1505,7 +1505,7 @@ static int ixp4xx_eth_probe(struct platform_device *pdev)
 	ndev->dev.dma_mask = dev->dma_mask;
 	ndev->dev.coherent_dma_mask = dev->coherent_dma_mask;
 
-	netif_napi_add(ndev, &port->napi, eth_poll, NAPI_WEIGHT);
+	netif_napi_add_weight(ndev, &port->napi, eth_poll, NAPI_WEIGHT);
 
 	if (!(port->npe = npe_request(NPE_ID(port->id))))
 		return -EIO;

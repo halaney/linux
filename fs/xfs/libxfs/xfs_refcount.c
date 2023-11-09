@@ -24,6 +24,8 @@
 #include "xfs_rmap.h"
 #include "xfs_ag.h"
 
+struct kmem_cache	*xfs_refcount_intent_cache;
+
 /* Allowable refcount adjustment amounts. */
 enum xfs_refc_adjust_op {
 	XFS_REFCOUNT_ADJUST_INCREASE	= 1,
@@ -91,7 +93,7 @@ xfs_refcount_lookup_eq(
 /* Convert on-disk record to in-core format. */
 void
 xfs_refcount_btrec_to_irec(
-	union xfs_btree_rec		*rec,
+	const union xfs_btree_rec	*rec,
 	struct xfs_refcount_irec	*irec)
 {
 	irec->rc_startblock = be32_to_cpu(rec->refc.rc_startblock);
@@ -109,7 +111,7 @@ xfs_refcount_get_rec(
 	int				*stat)
 {
 	struct xfs_mount		*mp = cur->bc_mp;
-	xfs_agnumber_t			agno = cur->bc_ag.pag->pag_agno;
+	struct xfs_perag		*pag = cur->bc_ag.pag;
 	union xfs_btree_rec		*rec;
 	int				error;
 	xfs_agblock_t			realstart;
@@ -119,8 +121,6 @@ xfs_refcount_get_rec(
 		return error;
 
 	xfs_refcount_btrec_to_irec(rec, irec);
-
-	agno = cur->bc_ag.pag->pag_agno;
 	if (irec->rc_blockcount == 0 || irec->rc_blockcount > MAXREFCEXTLEN)
 		goto out_bad_rec;
 
@@ -135,22 +135,23 @@ xfs_refcount_get_rec(
 	}
 
 	/* check for valid extent range, including overflow */
-	if (!xfs_verify_agbno(mp, agno, realstart))
+	if (!xfs_verify_agbno(pag, realstart))
 		goto out_bad_rec;
 	if (realstart > realstart + irec->rc_blockcount)
 		goto out_bad_rec;
-	if (!xfs_verify_agbno(mp, agno, realstart + irec->rc_blockcount - 1))
+	if (!xfs_verify_agbno(pag, realstart + irec->rc_blockcount - 1))
 		goto out_bad_rec;
 
 	if (irec->rc_refcount == 0 || irec->rc_refcount > MAXREFCOUNT)
 		goto out_bad_rec;
 
-	trace_xfs_refcount_get(cur->bc_mp, cur->bc_ag.pag->pag_agno, irec);
+	trace_xfs_refcount_get(cur->bc_mp, pag->pag_agno, irec);
 	return 0;
 
 out_bad_rec:
 	xfs_warn(mp,
-		"Refcount BTree record corruption in AG %d detected!", agno);
+		"Refcount BTree record corruption in AG %d detected!",
+		pag->pag_agno);
 	xfs_warn(mp,
 		"Start block 0x%x, block count 0x%x, references 0x%x",
 		irec->rc_startblock, irec->rc_blockcount, irec->rc_refcount);
@@ -782,9 +783,134 @@ out_error:
 /* Is this extent valid? */
 static inline bool
 xfs_refc_valid(
-	struct xfs_refcount_irec	*rc)
+	const struct xfs_refcount_irec	*rc)
 {
 	return rc->rc_startblock != NULLAGBLOCK;
+}
+
+static inline xfs_nlink_t
+xfs_refc_merge_refcount(
+	const struct xfs_refcount_irec	*irec,
+	enum xfs_refc_adjust_op		adjust)
+{
+	/* Once a record hits MAXREFCOUNT, it is pinned there forever */
+	if (irec->rc_refcount == MAXREFCOUNT)
+		return MAXREFCOUNT;
+	return irec->rc_refcount + adjust;
+}
+
+static inline bool
+xfs_refc_want_merge_center(
+	const struct xfs_refcount_irec	*left,
+	const struct xfs_refcount_irec	*cleft,
+	const struct xfs_refcount_irec	*cright,
+	const struct xfs_refcount_irec	*right,
+	bool				cleft_is_cright,
+	enum xfs_refc_adjust_op		adjust,
+	unsigned long long		*ulenp)
+{
+	unsigned long long		ulen = left->rc_blockcount;
+	xfs_nlink_t			new_refcount;
+
+	/*
+	 * To merge with a center record, both shoulder records must be
+	 * adjacent to the record we want to adjust.  This is only true if
+	 * find_left and find_right made all four records valid.
+	 */
+	if (!xfs_refc_valid(left)  || !xfs_refc_valid(right) ||
+	    !xfs_refc_valid(cleft) || !xfs_refc_valid(cright))
+		return false;
+
+	/* There must only be one record for the entire range. */
+	if (!cleft_is_cright)
+		return false;
+
+	/* The shoulder record refcounts must match the new refcount. */
+	new_refcount = xfs_refc_merge_refcount(cleft, adjust);
+	if (left->rc_refcount != new_refcount)
+		return false;
+	if (right->rc_refcount != new_refcount)
+		return false;
+
+	/*
+	 * The new record cannot exceed the max length.  ulen is a ULL as the
+	 * individual record block counts can be up to (u32 - 1) in length
+	 * hence we need to catch u32 addition overflows here.
+	 */
+	ulen += cleft->rc_blockcount + right->rc_blockcount;
+	if (ulen >= MAXREFCEXTLEN)
+		return false;
+
+	*ulenp = ulen;
+	return true;
+}
+
+static inline bool
+xfs_refc_want_merge_left(
+	const struct xfs_refcount_irec	*left,
+	const struct xfs_refcount_irec	*cleft,
+	enum xfs_refc_adjust_op		adjust)
+{
+	unsigned long long		ulen = left->rc_blockcount;
+	xfs_nlink_t			new_refcount;
+
+	/*
+	 * For a left merge, the left shoulder record must be adjacent to the
+	 * start of the range.  If this is true, find_left made left and cleft
+	 * contain valid contents.
+	 */
+	if (!xfs_refc_valid(left) || !xfs_refc_valid(cleft))
+		return false;
+
+	/* Left shoulder record refcount must match the new refcount. */
+	new_refcount = xfs_refc_merge_refcount(cleft, adjust);
+	if (left->rc_refcount != new_refcount)
+		return false;
+
+	/*
+	 * The new record cannot exceed the max length.  ulen is a ULL as the
+	 * individual record block counts can be up to (u32 - 1) in length
+	 * hence we need to catch u32 addition overflows here.
+	 */
+	ulen += cleft->rc_blockcount;
+	if (ulen >= MAXREFCEXTLEN)
+		return false;
+
+	return true;
+}
+
+static inline bool
+xfs_refc_want_merge_right(
+	const struct xfs_refcount_irec	*cright,
+	const struct xfs_refcount_irec	*right,
+	enum xfs_refc_adjust_op		adjust)
+{
+	unsigned long long		ulen = right->rc_blockcount;
+	xfs_nlink_t			new_refcount;
+
+	/*
+	 * For a right merge, the right shoulder record must be adjacent to the
+	 * end of the range.  If this is true, find_right made cright and right
+	 * contain valid contents.
+	 */
+	if (!xfs_refc_valid(right) || !xfs_refc_valid(cright))
+		return false;
+
+	/* Right shoulder record refcount must match the new refcount. */
+	new_refcount = xfs_refc_merge_refcount(cright, adjust);
+	if (right->rc_refcount != new_refcount)
+		return false;
+
+	/*
+	 * The new record cannot exceed the max length.  ulen is a ULL as the
+	 * individual record block counts can be up to (u32 - 1) in length
+	 * hence we need to catch u32 addition overflows here.
+	 */
+	ulen += cright->rc_blockcount;
+	if (ulen >= MAXREFCEXTLEN)
+		return false;
+
+	return true;
 }
 
 /*
@@ -828,23 +954,15 @@ xfs_refcount_merge_extents(
 		 (cleft.rc_blockcount == cright.rc_blockcount);
 
 	/* Try to merge left, cleft, and right.  cleft must == cright. */
-	ulen = (unsigned long long)left.rc_blockcount + cleft.rc_blockcount +
-			right.rc_blockcount;
-	if (xfs_refc_valid(&left) && xfs_refc_valid(&right) &&
-	    xfs_refc_valid(&cleft) && xfs_refc_valid(&cright) && cequal &&
-	    left.rc_refcount == cleft.rc_refcount + adjust &&
-	    right.rc_refcount == cleft.rc_refcount + adjust &&
-	    ulen < MAXREFCEXTLEN) {
+	if (xfs_refc_want_merge_center(&left, &cleft, &cright, &right, cequal,
+				adjust, &ulen)) {
 		*shape_changed = true;
 		return xfs_refcount_merge_center_extents(cur, &left, &cleft,
 				&right, ulen, aglen);
 	}
 
 	/* Try to merge left and cleft. */
-	ulen = (unsigned long long)left.rc_blockcount + cleft.rc_blockcount;
-	if (xfs_refc_valid(&left) && xfs_refc_valid(&cleft) &&
-	    left.rc_refcount == cleft.rc_refcount + adjust &&
-	    ulen < MAXREFCEXTLEN) {
+	if (xfs_refc_want_merge_left(&left, &cleft, adjust)) {
 		*shape_changed = true;
 		error = xfs_refcount_merge_left_extent(cur, &left, &cleft,
 				agbno, aglen);
@@ -860,10 +978,7 @@ xfs_refcount_merge_extents(
 	}
 
 	/* Try to merge cright and right. */
-	ulen = (unsigned long long)right.rc_blockcount + cright.rc_blockcount;
-	if (xfs_refc_valid(&right) && xfs_refc_valid(&cright) &&
-	    right.rc_refcount == cright.rc_refcount + adjust &&
-	    ulen < MAXREFCEXTLEN) {
+	if (xfs_refc_want_merge_right(&cright, &right, adjust)) {
 		*shape_changed = true;
 		return xfs_refcount_merge_right_extent(cur, &right, &cright,
 				aglen);
@@ -884,8 +999,13 @@ xfs_refcount_still_have_space(
 {
 	unsigned long			overhead;
 
-	overhead = cur->bc_ag.refc.shape_changes *
-			xfs_allocfree_log_count(cur->bc_mp, 1);
+	/*
+	 * Worst case estimate: full splits of the free space and rmap btrees
+	 * to handle each of the shape changes to the refcount btree.
+	 */
+	overhead = xfs_allocfree_block_count(cur->bc_mp,
+				cur->bc_ag.refc.shape_changes);
+	overhead += cur->bc_mp->m_refc_maxlevels;
 	overhead *= cur->bc_mp->m_sb.sb_blocksize;
 
 	/*
@@ -916,8 +1036,7 @@ xfs_refcount_adjust_extents(
 	struct xfs_btree_cur	*cur,
 	xfs_agblock_t		*agbno,
 	xfs_extlen_t		*aglen,
-	enum xfs_refc_adjust_op	adj,
-	struct xfs_owner_info	*oinfo)
+	enum xfs_refc_adjust_op	adj)
 {
 	struct xfs_refcount_irec	ext, tmp;
 	int				error;
@@ -959,6 +1078,7 @@ xfs_refcount_adjust_extents(
 			 * Either cover the hole (increment) or
 			 * delete the range (decrement).
 			 */
+			cur->bc_ag.refc.nr_ops++;
 			if (tmp.rc_refcount) {
 				error = xfs_refcount_insert(cur, &tmp,
 						&found_tmp);
@@ -969,13 +1089,12 @@ xfs_refcount_adjust_extents(
 					error = -EFSCORRUPTED;
 					goto out_error;
 				}
-				cur->bc_ag.refc.nr_ops++;
 			} else {
 				fsbno = XFS_AGB_TO_FSB(cur->bc_mp,
 						cur->bc_ag.pag->pag_agno,
 						tmp.rc_startblock);
-				xfs_bmap_add_free(cur->bc_tp, fsbno,
-						  tmp.rc_blockcount, oinfo);
+				xfs_free_extent_later(cur->bc_tp, fsbno,
+						  tmp.rc_blockcount, NULL);
 			}
 
 			(*agbno) += tmp.rc_blockcount;
@@ -1000,11 +1119,11 @@ xfs_refcount_adjust_extents(
 		ext.rc_refcount += adj;
 		trace_xfs_refcount_modify_extent(cur->bc_mp,
 				cur->bc_ag.pag->pag_agno, &ext);
+		cur->bc_ag.refc.nr_ops++;
 		if (ext.rc_refcount > 1) {
 			error = xfs_refcount_update(cur, &ext);
 			if (error)
 				goto out_error;
-			cur->bc_ag.refc.nr_ops++;
 		} else if (ext.rc_refcount == 1) {
 			error = xfs_refcount_delete(cur, &found_rec);
 			if (error)
@@ -1013,14 +1132,13 @@ xfs_refcount_adjust_extents(
 				error = -EFSCORRUPTED;
 				goto out_error;
 			}
-			cur->bc_ag.refc.nr_ops++;
 			goto advloop;
 		} else {
 			fsbno = XFS_AGB_TO_FSB(cur->bc_mp,
 					cur->bc_ag.pag->pag_agno,
 					ext.rc_startblock);
-			xfs_bmap_add_free(cur->bc_tp, fsbno, ext.rc_blockcount,
-					  oinfo);
+			xfs_free_extent_later(cur->bc_tp, fsbno,
+					ext.rc_blockcount, NULL);
 		}
 
 skip:
@@ -1048,8 +1166,7 @@ xfs_refcount_adjust(
 	xfs_extlen_t		aglen,
 	xfs_agblock_t		*new_agbno,
 	xfs_extlen_t		*new_aglen,
-	enum xfs_refc_adjust_op	adj,
-	struct xfs_owner_info	*oinfo)
+	enum xfs_refc_adjust_op	adj)
 {
 	bool			shape_changed;
 	int			shape_changes = 0;
@@ -1092,8 +1209,7 @@ xfs_refcount_adjust(
 		cur->bc_ag.refc.shape_changes++;
 
 	/* Now that we've taken care of the ends, adjust the middle extents */
-	error = xfs_refcount_adjust_extents(cur, new_agbno, new_aglen,
-			adj, oinfo);
+	error = xfs_refcount_adjust_extents(cur, new_agbno, new_aglen, adj);
 	if (error)
 		goto out_error;
 
@@ -1174,8 +1290,8 @@ xfs_refcount_finish_one(
 		*pcur = NULL;
 	}
 	if (rcur == NULL) {
-		error = xfs_alloc_read_agf(tp->t_mountp, tp, pag->pag_agno,
-				XFS_ALLOC_FLAG_FREEING, &agbp);
+		error = xfs_alloc_read_agf(pag, tp, XFS_ALLOC_FLAG_FREEING,
+				&agbp);
 		if (error)
 			goto out_drop;
 
@@ -1188,12 +1304,12 @@ xfs_refcount_finish_one(
 	switch (type) {
 	case XFS_REFCOUNT_INCREASE:
 		error = xfs_refcount_adjust(rcur, bno, blockcount, &new_agbno,
-			new_len, XFS_REFCOUNT_ADJUST_INCREASE, NULL);
+				new_len, XFS_REFCOUNT_ADJUST_INCREASE);
 		*new_fsb = XFS_AGB_TO_FSB(mp, pag->pag_agno, new_agbno);
 		break;
 	case XFS_REFCOUNT_DECREASE:
 		error = xfs_refcount_adjust(rcur, bno, blockcount, &new_agbno,
-			new_len, XFS_REFCOUNT_ADJUST_DECREASE, NULL);
+				new_len, XFS_REFCOUNT_ADJUST_DECREASE);
 		*new_fsb = XFS_AGB_TO_FSB(mp, pag->pag_agno, new_agbno);
 		break;
 	case XFS_REFCOUNT_ALLOC_COW:
@@ -1235,8 +1351,8 @@ __xfs_refcount_add(
 			type, XFS_FSB_TO_AGBNO(tp->t_mountp, startblock),
 			blockcount);
 
-	ri = kmem_alloc(sizeof(struct xfs_refcount_intent),
-			KM_NOFS);
+	ri = kmem_cache_alloc(xfs_refcount_intent_cache,
+			GFP_NOFS | __GFP_NOFAIL);
 	INIT_LIST_HEAD(&ri->ri_list);
 	ri->ri_type = type;
 	ri->ri_startblock = startblock;
@@ -1253,7 +1369,7 @@ xfs_refcount_increase_extent(
 	struct xfs_trans		*tp,
 	struct xfs_bmbt_irec		*PREV)
 {
-	if (!xfs_sb_version_hasreflink(&tp->t_mountp->m_sb))
+	if (!xfs_has_reflink(tp->t_mountp))
 		return;
 
 	__xfs_refcount_add(tp, XFS_REFCOUNT_INCREASE, PREV->br_startblock,
@@ -1268,7 +1384,7 @@ xfs_refcount_decrease_extent(
 	struct xfs_trans		*tp,
 	struct xfs_bmbt_irec		*PREV)
 {
-	if (!xfs_sb_version_hasreflink(&tp->t_mountp->m_sb))
+	if (!xfs_has_reflink(tp->t_mountp))
 		return;
 
 	__xfs_refcount_add(tp, XFS_REFCOUNT_DECREASE, PREV->br_startblock,
@@ -1617,7 +1733,7 @@ xfs_refcount_alloc_cow_extent(
 {
 	struct xfs_mount		*mp = tp->t_mountp;
 
-	if (!xfs_sb_version_hasreflink(&mp->m_sb))
+	if (!xfs_has_reflink(mp))
 		return;
 
 	__xfs_refcount_add(tp, XFS_REFCOUNT_ALLOC_COW, fsb, len);
@@ -1636,7 +1752,7 @@ xfs_refcount_free_cow_extent(
 {
 	struct xfs_mount		*mp = tp->t_mountp;
 
-	if (!xfs_sb_version_hasreflink(&mp->m_sb))
+	if (!xfs_has_reflink(mp))
 		return;
 
 	/* Remove rmap entry */
@@ -1654,7 +1770,7 @@ struct xfs_refcount_recovery {
 STATIC int
 xfs_refcount_recover_extent(
 	struct xfs_btree_cur		*cur,
-	union xfs_btree_rec		*rec,
+	const union xfs_btree_rec	*rec,
 	void				*priv)
 {
 	struct list_head		*debris = priv;
@@ -1664,7 +1780,9 @@ xfs_refcount_recover_extent(
 			   be32_to_cpu(rec->refc.rc_refcount) != 1))
 		return -EFSCORRUPTED;
 
-	rr = kmem_alloc(sizeof(struct xfs_refcount_recovery), 0);
+	rr = kmalloc(sizeof(struct xfs_refcount_recovery),
+			GFP_KERNEL | __GFP_NOFAIL);
+	INIT_LIST_HEAD(&rr->rr_list);
 	xfs_refcount_btrec_to_irec(rec, &rr->rr_rrec);
 	list_add_tail(&rr->rr_list, debris);
 
@@ -1707,7 +1825,7 @@ xfs_refcount_recover_cow_leftovers(
 	if (error)
 		return error;
 
-	error = xfs_alloc_read_agf(mp, tp, pag->pag_agno, 0, &agbp);
+	error = xfs_alloc_read_agf(pag, tp, 0, &agbp);
 	if (error)
 		goto out_trans;
 	cur = xfs_refcountbt_init_cursor(mp, tp, agbp, pag);
@@ -1742,14 +1860,14 @@ xfs_refcount_recover_cow_leftovers(
 				rr->rr_rrec.rc_blockcount);
 
 		/* Free the block. */
-		xfs_bmap_add_free(tp, fsb, rr->rr_rrec.rc_blockcount, NULL);
+		xfs_free_extent_later(tp, fsb, rr->rr_rrec.rc_blockcount, NULL);
 
 		error = xfs_trans_commit(tp);
 		if (error)
 			goto out_free;
 
 		list_del(&rr->rr_list);
-		kmem_free(rr);
+		kfree(rr);
 	}
 
 	return error;
@@ -1759,7 +1877,7 @@ out_free:
 	/* Free the leftover list */
 	list_for_each_entry_safe(rr, n, &debris, rr_list) {
 		list_del(&rr->rr_list);
-		kmem_free(rr);
+		kfree(rr);
 	}
 	return error;
 }
@@ -1781,4 +1899,21 @@ xfs_refcount_has_record(
 	high.rc.rc_startblock = bno + len - 1;
 
 	return xfs_btree_has_record(cur, &low, &high, exists);
+}
+
+int __init
+xfs_refcount_intent_init_cache(void)
+{
+	xfs_refcount_intent_cache = kmem_cache_create("xfs_refc_intent",
+			sizeof(struct xfs_refcount_intent),
+			0, 0, NULL);
+
+	return xfs_refcount_intent_cache != NULL ? 0 : -ENOMEM;
+}
+
+void
+xfs_refcount_intent_destroy_cache(void)
+{
+	kmem_cache_destroy(xfs_refcount_intent_cache);
+	xfs_refcount_intent_cache = NULL;
 }

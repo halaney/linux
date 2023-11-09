@@ -154,6 +154,9 @@ route/max_size - INTEGER
 	From linux kernel 3.6 onwards, this is deprecated for ipv4
 	as route cache is no longer used.
 
+	From linux kernel 6.3 onwards, this is deprecated for ipv6
+	as garbage collection manages cached route entries.
+
 neigh/default/gc_thresh1 - INTEGER
 	Minimum number of entries to keep.  Garbage collector will not
 	purge entries if there are fewer than this number.
@@ -328,6 +331,8 @@ tcp_allowed_congestion_control - STRING
 tcp_app_win - INTEGER
 	Reserve max(window/2^tcp_app_win, mss) of window for application
 	buffer. Value 0 is special, it means that nothing is reserved.
+
+	Possible values are [0, 31], inclusive.
 
 	Default: 31
 
@@ -1066,7 +1071,7 @@ cipso_cache_enable - BOOLEAN
 cipso_cache_bucket_size - INTEGER
 	The CIPSO label cache consists of a fixed size hash table with each
 	hash bucket containing a number of cache entries.  This variable limits
-	the number of entries in each hash bucket; the larger the value the
+	the number of entries in each hash bucket; the larger the value is, the
 	more CIPSO label mappings that can be cached.  When the number of
 	entries in a given hash bucket reaches this limit adding new entries
 	causes the oldest entry in the bucket to be removed to make room.
@@ -1160,7 +1165,7 @@ ip_autobind_reuse - BOOLEAN
 	option should only be set by experts.
 	Default: 0
 
-ip_dynaddr - BOOLEAN
+ip_dynaddr - INTEGER
 	If set non-zero, enables support for dynamic addresses.
 	If set to a non-zero value larger than 1, a kernel log
 	message will be printed when dynamic address rewriting
@@ -2794,7 +2799,14 @@ sctp_rmem - vector of 3 INTEGERs: min, default, max
 	Default: 4K
 
 sctp_wmem  - vector of 3 INTEGERs: min, default, max
-	Currently this tunable has no effect.
+	Only the first value ("min") is used, "default" and "max" are
+	ignored.
+
+	min: Minimum size of send buffer that can be used by SCTP sockets.
+	It is guaranteed to each SCTP socket (but not association) even
+	under moderate memory pressure.
+
+	Default: 4K
 
 addr_scope_policy - INTEGER
 	Control IPv4 address scoping - draft-stewart-tsvwg-sctp-ipv4-00
@@ -2848,6 +2860,52 @@ plpmtud_probe_interval - INTEGER
         must be >= 5000.
 
 	Default: 0
+
+reconf_enable - BOOLEAN
+        Enable or disable extension of Stream Reconfiguration functionality
+        specified in RFC6525. This extension provides the ability to "reset"
+        a stream, and it includes the Parameters of "Outgoing/Incoming SSN
+        Reset", "SSN/TSN Reset" and "Add Outgoing/Incoming Streams".
+
+	- 1: Enable extension.
+	- 0: Disable extension.
+
+	Default: 0
+
+intl_enable - BOOLEAN
+        Enable or disable extension of User Message Interleaving functionality
+        specified in RFC8260. This extension allows the interleaving of user
+        messages sent on different streams. With this feature enabled, I-DATA
+        chunk will replace DATA chunk to carry user messages if also supported
+        by the peer. Note that to use this feature, one needs to set this option
+        to 1 and also needs to set socket options SCTP_FRAGMENT_INTERLEAVE to 2
+        and SCTP_INTERLEAVING_SUPPORTED to 1.
+
+	- 1: Enable extension.
+	- 0: Disable extension.
+
+	Default: 0
+
+ecn_enable - BOOLEAN
+        Control use of Explicit Congestion Notification (ECN) by SCTP.
+        Like in TCP, ECN is used only when both ends of the SCTP connection
+        indicate support for it. This feature is useful in avoiding losses
+        due to congestion by allowing supporting routers to signal congestion
+        before having to drop packets.
+
+        1: Enable ecn.
+        0: Disable ecn.
+
+        Default: 1
+
+l3mdev_accept - BOOLEAN
+	Enabling this option allows a "global" bound socket to work
+	across L3 master domains (e.g., VRFs) with packets capable of
+	being received regardless of the L3 domain in which they
+	originated. Only valid when the kernel was compiled with
+	CONFIG_NET_L3_MASTER_DEV.
+
+	Default: 1 (enabled)
 
 
 ``/proc/sys/net/core/*``

@@ -42,6 +42,15 @@
 #undef pr_info
 #undef pr_debug
 
+#define mmMP1_C2PMSG_2                                                                            (0xbee142 + 0xb00000 / 4)
+#define mmMP1_C2PMSG_2_BASE_IDX                                                                   0
+
+#define mmMP1_C2PMSG_34                                                                           (0xbee262 + 0xb00000 / 4)
+#define mmMP1_C2PMSG_34_BASE_IDX                                                                   0
+
+#define mmMP1_C2PMSG_33                                                                                (0xbee261 + 0xb00000 / 4)
+#define mmMP1_C2PMSG_33_BASE_IDX                                                                   0
+
 #define FEATURE_MASK(feature) (1ULL << feature)
 #define SMC_DPM_FEATURE ( \
 	FEATURE_MASK(FEATURE_CCLK_DPM_BIT) | \
@@ -166,6 +175,9 @@ static int smu_v13_0_5_fini_smc_tables(struct smu_context *smu)
 
 	kfree(smu_table->watermarks_table);
 	smu_table->watermarks_table = NULL;
+
+	kfree(smu_table->gpu_metrics_table);
+	smu_table->gpu_metrics_table = NULL;
 
 	return 0;
 }
@@ -854,7 +866,7 @@ out:
 static int smu_v13_0_5_print_clk_levels(struct smu_context *smu,
 				enum smu_clk_type clk_type, char *buf)
 {
-	int i, size = 0, ret = 0;
+	int i, idx, size = 0, ret = 0;
 	uint32_t cur_value = 0, value = 0, count = 0;
 	uint32_t min = 0, max = 0;
 
@@ -886,7 +898,8 @@ static int smu_v13_0_5_print_clk_levels(struct smu_context *smu,
 			goto print_clk_out;
 
 		for (i = 0; i < count; i++) {
-			ret = smu_v13_0_5_get_dpm_freq_by_index(smu, clk_type, i, &value);
+			idx = (clk_type == SMU_MCLK) ? (count - i - 1) : i;
+			ret = smu_v13_0_5_get_dpm_freq_by_index(smu, clk_type, idx, &value);
 			if (ret)
 				goto print_clk_out;
 
@@ -1049,9 +1062,14 @@ static const struct pptable_funcs smu_v13_0_5_ppt_funcs = {
 
 void smu_v13_0_5_set_ppt_funcs(struct smu_context *smu)
 {
+	struct amdgpu_device *adev = smu->adev;
+
 	smu->ppt_funcs = &smu_v13_0_5_ppt_funcs;
 	smu->message_map = smu_v13_0_5_message_map;
 	smu->feature_map = smu_v13_0_5_feature_mask_map;
 	smu->table_map = smu_v13_0_5_table_map;
 	smu->is_apu = true;
+	smu->param_reg = SOC15_REG_OFFSET(MP1, 0, mmMP1_C2PMSG_34);
+	smu->msg_reg = SOC15_REG_OFFSET(MP1, 0, mmMP1_C2PMSG_2);
+	smu->resp_reg = SOC15_REG_OFFSET(MP1, 0, mmMP1_C2PMSG_33);
 }

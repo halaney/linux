@@ -30,15 +30,15 @@
 #include <linux/serial_8250.h>
 #include <linux/percpu.h>
 #include <linux/memblock.h>
+#include <linux/of_irq.h>
+#include <linux/of_fdt.h>
 #include <linux/of_platform.h>
 #include <linux/hugetlb.h>
 #include <linux/pgtable.h>
 #include <linux/security.h>
 #include <asm/secure_boot.h>
-#include <asm/debugfs.h>
 #include <asm/io.h>
 #include <asm/paca.h>
-#include <asm/prom.h>
 #include <asm/processor.h>
 #include <asm/vdso_datapage.h>
 #include <asm/smp.h>
@@ -175,6 +175,18 @@ EXPORT_SYMBOL_GPL(machine_power_off);
 
 void (*pm_power_off)(void);
 EXPORT_SYMBOL_GPL(pm_power_off);
+
+#ifdef CONFIG_ARCH_RANDOM
+bool __must_check arch_get_random_seed_long(unsigned long *v)
+{
+	if (ppc_md.get_random_seed)
+		return ppc_md.get_random_seed(v);
+
+	return false;
+}
+EXPORT_SYMBOL(arch_get_random_seed_long);
+
+#endif
 
 void machine_halt(void)
 {
@@ -775,18 +787,6 @@ static int __init check_cache_coherency(void)
 late_initcall(check_cache_coherency);
 #endif /* CONFIG_CHECK_CACHE_COHERENCY */
 
-#ifdef CONFIG_DEBUG_FS
-struct dentry *powerpc_debugfs_root;
-EXPORT_SYMBOL(powerpc_debugfs_root);
-
-static int powerpc_debugfs_init(void)
-{
-	powerpc_debugfs_root = debugfs_create_dir("powerpc", NULL);
-	return 0;
-}
-arch_initcall(powerpc_debugfs_init);
-#endif
-
 void ppc_printk_progress(char *s, unsigned short hex)
 {
 	pr_info("%s\n", s);
@@ -927,12 +927,6 @@ void __init setup_arch(char **cmdline_p)
 	/* Print various info about the machine that has been gathered so far. */
 	print_system_info();
 
-	/* Reserve large chunks of memory for use by CMA for KVM. */
-	kvm_cma_reserve();
-
-	/*  Reserve large chunks of memory for us by CMA for hugetlb */
-	gigantic_hugetlb_cma_reserve();
-
 	klp_init_thread_info(&init_task);
 
 	setup_initial_init_mm(_stext, _etext, _edata, _end);
@@ -946,6 +940,13 @@ void __init setup_arch(char **cmdline_p)
 	smp_release_cpus();
 
 	initmem_init();
+
+	/*
+	 * Reserve large chunks of memory for use by CMA for KVM and hugetlb. These must
+	 * be called after initmem_init(), so that pageblock_order is initialised.
+	 */
+	kvm_cma_reserve();
+	gigantic_hugetlb_cma_reserve();
 
 	early_memtest(min_low_pfn << PAGE_SHIFT, max_low_pfn << PAGE_SHIFT);
 

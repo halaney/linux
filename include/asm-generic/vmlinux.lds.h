@@ -81,8 +81,8 @@
 #define RO_EXCEPTION_TABLE
 #endif
 
-/* Align . to a 8 byte boundary equals to maximum function alignment. */
-#define ALIGN_FUNCTION()  . = ALIGN(8)
+/* Align . function alignment. */
+#define ALIGN_FUNCTION()  . = ALIGN(CONFIG_FUNCTION_ALIGNMENT)
 
 /*
  * LD_DEAD_CODE_DATA_ELIMINATION option enables -fdata-sections, which
@@ -130,13 +130,13 @@
  */
 #define SCHED_DATA				\
 	STRUCT_ALIGN();				\
-	__begin_sched_classes = .;		\
-	*(__idle_sched_class)			\
-	*(__fair_sched_class)			\
-	*(__rt_sched_class)			\
-	*(__dl_sched_class)			\
+	__sched_class_highest = .;		\
 	*(__stop_sched_class)			\
-	__end_sched_classes = .;
+	*(__dl_sched_class)			\
+	*(__rt_sched_class)			\
+	*(__fair_sched_class)			\
+	*(__idle_sched_class)			\
+	__sched_class_lowest = .;
 
 /* The actual configuration determine if the init/exit sections
  * are handled as text/data or they can be discarded (which
@@ -158,6 +158,14 @@
 #define MEM_DISCARD(sec) *(.mem##sec)
 #endif
 
+#ifndef CONFIG_HAVE_DYNAMIC_FTRACE_NO_PATCHABLE
+#define KEEP_PATCHABLE		KEEP(*(__patchable_function_entries))
+#define PATCHABLE_DISCARDS
+#else
+#define KEEP_PATCHABLE
+#define PATCHABLE_DISCARDS	*(__patchable_function_entries)
+#endif
+
 #ifdef CONFIG_FTRACE_MCOUNT_RECORD
 /*
  * The ftrace call sites are logged to a section whose name depends on the
@@ -172,7 +180,7 @@
 #define MCOUNT_REC()	. = ALIGN(8);				\
 			__start_mcount_loc = .;			\
 			KEEP(*(__mcount_loc))			\
-			KEEP(*(__patchable_function_entries))	\
+			KEEP_PATCHABLE				\
 			__stop_mcount_loc = .;			\
 			ftrace_stub_graph = ftrace_stub;
 #else
@@ -319,16 +327,6 @@
 #define THERMAL_TABLE(name)
 #endif
 
-#ifdef CONFIG_DTPM
-#define DTPM_TABLE()							\
-	. = ALIGN(8);							\
-	__dtpm_table = .;						\
-	KEEP(*(__dtpm_table))						\
-	__dtpm_table_end = .;
-#else
-#define DTPM_TABLE()
-#endif
-
 #define KERNEL_DTB()							\
 	STRUCT_ALIGN();							\
 	__dtb_start = .;						\
@@ -402,6 +400,7 @@
 	KEEP(*(__jump_table))						\
 	__stop___jump_table = .;
 
+#ifdef CONFIG_HAVE_STATIC_CALL_INLINE
 #define STATIC_CALL_DATA						\
 	. = ALIGN(8);							\
 	__start_static_call_sites = .;					\
@@ -410,6 +409,9 @@
 	__start_static_call_tramp_key = .;				\
 	KEEP(*(.static_call_tramp_key))					\
 	__stop_static_call_tramp_key = .;
+#else
+#define STATIC_CALL_DATA
+#endif
 
 /*
  * Allow architectures to handle ro_after_init data on their
@@ -476,6 +478,8 @@
 									\
 	FW_LOADER_BUILT_IN_DATA						\
 	TRACEDATA							\
+									\
+	PRINTK_INDEX							\
 									\
 	/* Kernel symbol table: Normal symbols */			\
 	__ksymtab         : AT(ADDR(__ksymtab) - LOAD_OFFSET) {		\
@@ -561,6 +565,9 @@
 		ALIGN_FUNCTION();					\
 		__noinstr_text_start = .;				\
 		*(.noinstr.text)					\
+		__cpuidle_text_start = .;				\
+		*(.cpuidle.text)					\
+		__cpuidle_text_end = .;					\
 		__noinstr_text_end = .;
 
 /*
@@ -601,12 +608,6 @@
 		__lock_text_start = .;					\
 		*(.spinlock.text)					\
 		__lock_text_end = .;
-
-#define CPUIDLE_TEXT							\
-		ALIGN_FUNCTION();					\
-		__cpuidle_text_start = .;				\
-		*(.cpuidle.text)					\
-		__cpuidle_text_end = .;
 
 #define KPROBES_TEXT							\
 		ALIGN_FUNCTION();					\
@@ -719,7 +720,6 @@
 	ACPI_PROBE_TABLE(irqchip)					\
 	ACPI_PROBE_TABLE(timer)						\
 	THERMAL_TABLE(governor)						\
-	DTPM_TABLE()							\
 	EARLYCON_TABLE()						\
 	LSM_TABLE()							\
 	EARLY_LSM_TABLE()						\
@@ -900,6 +900,17 @@
 #define TRACEDATA
 #endif
 
+#ifdef CONFIG_PRINTK_INDEX
+#define PRINTK_INDEX							\
+	.printk_index : AT(ADDR(.printk_index) - LOAD_OFFSET) {		\
+		__start_printk_index = .;				\
+		*(.printk_index)					\
+		__stop_printk_index = .;				\
+	}
+#else
+#define PRINTK_INDEX
+#endif
+
 #define NOTES								\
 	.notes : AT(ADDR(.notes) - LOAD_OFFSET) {			\
 		__start_notes = .;					\
@@ -999,15 +1010,20 @@
  * keep any .init_array.* sections.
  * https://bugs.llvm.org/show_bug.cgi?id=46478
  */
+#ifdef CONFIG_UNWIND_TABLES
+#define DISCARD_EH_FRAME
+#else
+#define DISCARD_EH_FRAME	*(.eh_frame)
+#endif
 #if defined(CONFIG_GCOV_KERNEL) || defined(CONFIG_KASAN_GENERIC) || defined(CONFIG_KCSAN) || \
 	defined(CONFIG_CFI_CLANG)
 # ifdef CONFIG_CONSTRUCTORS
 #  define SANITIZER_DISCARDS						\
-	*(.eh_frame)
+	DISCARD_EH_FRAME
 # else
 #  define SANITIZER_DISCARDS						\
 	*(.init_array) *(.init_array.*)					\
-	*(.eh_frame)
+	DISCARD_EH_FRAME
 # endif
 #else
 # define SANITIZER_DISCARDS
@@ -1015,6 +1031,7 @@
 
 #define COMMON_DISCARDS							\
 	SANITIZER_DISCARDS						\
+	PATCHABLE_DISCARDS						\
 	*(.discard)							\
 	*(.discard.*)							\
 	*(.modinfo)							\

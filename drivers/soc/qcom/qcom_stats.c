@@ -35,15 +35,11 @@ static const struct subsystem_data subsystems[] = {
 	{ "wpss", 605, 13 },
 	{ "adsp", 606, 2 },
 	{ "cdsp", 607, 5 },
-	{ "cdsp1", 607, 12 },
-	{ "gpdsp0", 607, 17 },
-	{ "gpdsp1", 607, 18 },
 	{ "slpi", 608, 3 },
 	{ "gpu", 609, 0 },
 	{ "display", 610, 0 },
 	{ "adsp_island", 613, 2 },
 	{ "slpi_island", 613, 3 },
-	{ "apss", 631, QCOM_SMEM_HOST_ANY },
 };
 
 struct stats_config {
@@ -221,6 +217,8 @@ static int qcom_stats_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, root);
 
+	device_set_pm_not_required(&pdev->dev);
+
 	return 0;
 }
 
@@ -250,6 +248,14 @@ static const struct stats_config rpm_data_dba0 = {
 	.subsystem_stats_in_smem = false,
 };
 
+static const struct stats_config rpmh_data_sdm845 = {
+	.stats_offset = 0x48,
+	.num_records = 2,
+	.appended_stats_avail = false,
+	.dynamic_offset = false,
+	.subsystem_stats_in_smem = true,
+};
+
 static const struct stats_config rpmh_data = {
 	.stats_offset = 0x48,
 	.num_records = 3,
@@ -265,6 +271,7 @@ static const struct of_device_id qcom_stats_table[] = {
 	{ .compatible = "qcom,msm8974-rpm-stats", .data = &rpm_data_dba0 },
 	{ .compatible = "qcom,rpm-stats", .data = &rpm_data },
 	{ .compatible = "qcom,rpmh-stats", .data = &rpmh_data },
+	{ .compatible = "qcom,sdm845-rpmh-stats", .data = &rpmh_data_sdm845 },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, qcom_stats_table);
