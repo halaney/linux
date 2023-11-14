@@ -1810,8 +1810,12 @@ static int cam_cc_sa8775p_probe(struct platform_device *pdev)
 	/*
 	 * Keep clocks always enabled:
 	 *	cam_cc_gdsc_clk
+	 *	cam_cc_qdss_debug_xo_clk
+	 *	cam_cc_qdss_debug_clk
 	 */
 	regmap_update_bits(regmap, 0x131ec, BIT(0), BIT(0));
+	regmap_update_bits(regmap, 0x131b8, BIT(0), BIT(0));
+	regmap_update_bits(regmap, 0x131b4, BIT(0), BIT(0));
 
 	ret = qcom_cc_really_probe(pdev, &cam_cc_sa8775p_desc, regmap);
 	clk_set_rate(cam_cc_ipe_clk.clkr.hw.clk, 600000000);
