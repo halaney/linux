@@ -579,10 +579,14 @@ static struct phy_device *mdiobus_scan_c45(struct mii_bus *bus, int addr)
 static int mdiobus_scan_bus_c22(struct mii_bus *bus)
 {
 	int i;
+	dump_stack();
 
+	dev_err(&bus->dev, "phy_mask: %0x\n", bus->phy_mask);
 	for (i = 0; i < PHY_MAX_ADDR; i++) {
+		dev_err(&bus->dev, "On address: %d\n", i);
 		if ((bus->phy_mask & BIT(i)) == 0) {
 			struct phy_device *phydev;
+			dev_err(&bus->dev, "Scanning address: %d\n", i);
 
 			phydev = mdiobus_scan_c22(bus, i);
 			if (IS_ERR(phydev) && (PTR_ERR(phydev) != -ENODEV))
