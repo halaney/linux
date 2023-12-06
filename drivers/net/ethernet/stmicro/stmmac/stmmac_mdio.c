@@ -588,6 +588,7 @@ int stmmac_mdio_register(struct net_device *ndev)
 		 new_bus->name, priv->plat->bus_id);
 	new_bus->priv = ndev;
 	new_bus->phy_mask = mdio_bus_data->phy_mask;
+	dev_err(dev, "We set phy_mask to: 0x%x\n", new_bus->phy_mask);
 	new_bus->parent = priv->device;
 
 	err = of_mdiobus_register(new_bus, mdio_node);
