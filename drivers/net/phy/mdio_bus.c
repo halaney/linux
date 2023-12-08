@@ -587,8 +587,8 @@ static int mdiobus_scan_bus_c22(struct mii_bus *bus)
 		if ((bus->phy_mask & BIT(i)) == 0) {
 			struct phy_device *phydev;
 			dev_err(&bus->dev, "Scanning address: %d\n", i);
-
 			phydev = mdiobus_scan_c22(bus, i);
+			dev_err(&bus->dev, "Scanned address: %d\n", i);
 			if (IS_ERR(phydev) && (PTR_ERR(phydev) != -ENODEV))
 				return PTR_ERR(phydev);
 		}

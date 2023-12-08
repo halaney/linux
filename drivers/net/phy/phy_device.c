@@ -953,10 +953,12 @@ struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45)
 	c45_ids.mmds_present = 0;
 	memset(c45_ids.device_ids, 0xff, sizeof(c45_ids.device_ids));
 
+	dev_err(&bus->dev, "Calling get_phy_c*_ids\n");
 	if (is_c45)
 		r = get_phy_c45_ids(bus, addr, &c45_ids);
 	else
 		r = get_phy_c22_id(bus, addr, &phy_id);
+	dev_err(&bus->dev, "Called get_phy_c*_ids\n");
 
 	if (r)
 		return ERR_PTR(r);
