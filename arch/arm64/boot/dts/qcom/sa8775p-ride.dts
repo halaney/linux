@@ -277,9 +277,7 @@
 	status = "okay";
 
 	mdio {
-		compatible = "snps,dwmac-mdio";
-		#address-cells = <1>;
-		#size-cells = <0>;
+		status = "okay";
 
 		sgmii_phy0: phy@8 {
 			compatible = "ethernet-phy-id0141.0dd4";
