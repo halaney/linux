@@ -4726,7 +4726,7 @@ int ufshcd_make_hba_operational(struct ufs_hba *hba)
 	 * Make sure base address and interrupt setup are updated before
 	 * enabling the run/stop registers below.
 	 */
-	wmb();
+	ufshcd_readl(hba, REG_UTP_TASK_REQ_LIST_BASE_H);
 
 	/*
 	 * UCRDY, UTMRLDY and UTRLRDY bits must be 1
