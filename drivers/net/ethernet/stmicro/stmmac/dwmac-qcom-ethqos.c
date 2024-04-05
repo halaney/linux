@@ -94,6 +94,7 @@ struct ethqos_emac_driver_data {
 	const char *link_clk_name;
 	bool has_integrated_pcs;
 	struct dwmac4_addrs dwmac4_addrs;
+	unsigned int stmmac_clk_rate;
 };
 
 struct qcom_ethqos {
@@ -292,6 +293,7 @@ static const struct ethqos_emac_driver_data emac_v4_0_0_data = {
 		.mtl_low_cred = 0x00008024,
 		.mtl_low_cred_offset = 0x1000,
 	},
+	.stmmac_clk_rate = 240000000,
 };
 
 static int ethqos_dll_configure(struct qcom_ethqos *ethqos)
@@ -839,6 +841,7 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	if (ethqos->has_emac_ge_3)
 		plat_dat->dwmac4_addrs = &data->dwmac4_addrs;
 	plat_dat->pmt = 1;
+	plat_dat->clk_ref_rate = data->stmmac_clk_rate;
 	if (of_property_read_bool(np, "snps,tso"))
 		plat_dat->flags |= STMMAC_FLAG_TSO_EN;
 	if (of_device_is_compatible(np, "qcom,qcs404-ethqos"))
