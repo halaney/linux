@@ -659,6 +659,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
 	struct mdio_device *mdiodev;
 	int ret = 0;
 
+	printk(KERN_ERR "Starting phy_create_device for addr: %x\n", addr);
 	/* We allocate the device, and initialize the default values */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
@@ -734,6 +735,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, u32 phy_id,
 		dev = ERR_PTR(ret);
 	}
 
+	printk(KERN_ERR "Ending phy_create_device for addr: %x\n", addr);
 	return dev;
 }
 EXPORT_SYMBOL(phy_device_create);

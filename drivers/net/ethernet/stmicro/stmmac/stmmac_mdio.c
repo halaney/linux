@@ -590,7 +590,9 @@ int stmmac_mdio_register(struct net_device *ndev)
 	new_bus->phy_mask = mdio_bus_data->phy_mask;
 	new_bus->parent = priv->device;
 
+	dev_err(dev, "Before of_mdiobus_reg\n");
 	err = of_mdiobus_register(new_bus, mdio_node);
+	dev_err(dev, "After of_mdiobus_reg\n");
 	if (err == -ENODEV) {
 		err = 0;
 		dev_info(dev, "MDIO bus is disabled\n");

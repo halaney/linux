@@ -758,6 +758,18 @@ static int qcom_ethqos_probe(struct platform_device *pdev)
 	struct qcom_ethqos *ethqos;
 	int ret, i;
 
+#if 0
+	static u64 timeout = 0;
+
+	if(of_alias_get_id(np, "ethernet") == 0) {
+		if (!timeout)
+			timeout = ktime_get_mono_fast_ns() + 10000000000;
+		dev_err(dev, "Deferring 10 seconds to trigger failing race condition\n");
+		if (ktime_get_mono_fast_ns() < timeout)
+			return -EPROBE_DEFER;
+	}
+#endif
+
 	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
 	if (ret)
 		return dev_err_probe(dev, ret,

@@ -1181,7 +1181,9 @@ static int stmmac_init_phy(struct net_device *dev)
 		ret = phylink_connect_phy(priv->phylink, phydev);
 	} else {
 		fwnode_handle_put(phy_fwnode);
+		dev_err(&dev->dev, "Before phylink_fwnode_phy_connect\n");
 		ret = phylink_fwnode_phy_connect(priv->phylink, fwnode, 0);
+		dev_err(&dev->dev, "After phylink_fwnode_phy_connect\n");
 	}
 
 	if (!priv->plat->pmt) {
