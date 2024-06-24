@@ -580,6 +580,7 @@ struct mii_regs {
 };
 
 struct mac_device_info {
+	struct stmmac_priv *priv;
 	const struct stmmac_ops *mac;
 	const struct stmmac_desc_ops *desc;
 	const struct stmmac_dma_ops *dma;
