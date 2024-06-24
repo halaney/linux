@@ -86,6 +86,7 @@ enum power_event {
 #define GMAC_RGSMIIIS		0x000000d8	/* RGMII/SMII status */
 
 /* SGMII/RGMII status register */
+#define GMAC_RGSMIIIS_CONFIG_REG	GENMASK(15, 0)
 #define GMAC_RGSMIIIS_LNKMODE		BIT(0)
 #define GMAC_RGSMIIIS_SPEED		GENMASK(2, 1)
 #define GMAC_RGSMIIIS_SPEED_SHIFT	1
