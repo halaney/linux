@@ -6,6 +6,7 @@
 
 #include "common.h"
 #include "stmmac.h"
+#include "stmmac_pcs.h"
 #include "stmmac_ptp.h"
 #include "stmmac_est.h"
 
@@ -116,6 +117,7 @@ static const struct stmmac_hwif_entry {
 	const void *tc;
 	const void *mmc;
 	const void *est;
+	const void *pcs;
 	int (*setup)(struct stmmac_priv *priv);
 	int (*quirks)(struct stmmac_priv *priv);
 } stmmac_hw[] = {
@@ -144,12 +146,14 @@ static const struct stmmac_hwif_entry {
 		.xgmac = false,
 		.min_id = 0,
 		.regs = {
+			.pcs_off = PCS_GMAC3_X_OFFSET,
 			.ptp_off = PTP_GMAC3_X_OFFSET,
 			.mmc_off = MMC_GMAC3_X_OFFSET,
 		},
 		.desc = NULL,
 		.dma = &dwmac1000_dma_ops,
 		.mac = &dwmac1000_ops,
+		.pcs = &dwmac_pcs_ops,
 		.hwtimestamp = &stmmac_ptp,
 		.mode = NULL,
 		.tc = NULL,
@@ -162,6 +166,7 @@ static const struct stmmac_hwif_entry {
 		.xgmac = false,
 		.min_id = 0,
 		.regs = {
+			.pcs_off = PCS_GMAC4_OFFSET,
 			.ptp_off = PTP_GMAC4_OFFSET,
 			.mmc_off = MMC_GMAC4_OFFSET,
 			.est_off = EST_GMAC4_OFFSET,
@@ -169,6 +174,7 @@ static const struct stmmac_hwif_entry {
 		.desc = &dwmac4_desc_ops,
 		.dma = &dwmac4_dma_ops,
 		.mac = &dwmac4_ops,
+		.pcs = &dwmac_pcs_ops,
 		.hwtimestamp = &stmmac_ptp,
 		.mode = NULL,
 		.tc = &dwmac510_tc_ops,
@@ -182,6 +188,7 @@ static const struct stmmac_hwif_entry {
 		.xgmac = false,
 		.min_id = DWMAC_CORE_4_00,
 		.regs = {
+			.pcs_off = PCS_GMAC4_OFFSET,
 			.ptp_off = PTP_GMAC4_OFFSET,
 			.mmc_off = MMC_GMAC4_OFFSET,
 			.est_off = EST_GMAC4_OFFSET,
@@ -189,6 +196,7 @@ static const struct stmmac_hwif_entry {
 		.desc = &dwmac4_desc_ops,
 		.dma = &dwmac4_dma_ops,
 		.mac = &dwmac410_ops,
+		.pcs = &dwmac_pcs_ops,
 		.hwtimestamp = &stmmac_ptp,
 		.mode = &dwmac4_ring_mode_ops,
 		.tc = &dwmac510_tc_ops,
@@ -202,6 +210,7 @@ static const struct stmmac_hwif_entry {
 		.xgmac = false,
 		.min_id = DWMAC_CORE_4_10,
 		.regs = {
+			.pcs_off = PCS_GMAC4_OFFSET,
 			.ptp_off = PTP_GMAC4_OFFSET,
 			.mmc_off = MMC_GMAC4_OFFSET,
 			.est_off = EST_GMAC4_OFFSET,
@@ -209,6 +218,7 @@ static const struct stmmac_hwif_entry {
 		.desc = &dwmac4_desc_ops,
 		.dma = &dwmac410_dma_ops,
 		.mac = &dwmac410_ops,
+		.pcs = &dwmac_pcs_ops,
 		.hwtimestamp = &stmmac_ptp,
 		.mode = &dwmac4_ring_mode_ops,
 		.tc = &dwmac510_tc_ops,
@@ -222,6 +232,7 @@ static const struct stmmac_hwif_entry {
 		.xgmac = false,
 		.min_id = DWMAC_CORE_5_10,
 		.regs = {
+			.pcs_off = PCS_GMAC4_OFFSET,
 			.ptp_off = PTP_GMAC4_OFFSET,
 			.mmc_off = MMC_GMAC4_OFFSET,
 			.est_off = EST_GMAC4_OFFSET,
@@ -229,6 +240,7 @@ static const struct stmmac_hwif_entry {
 		.desc = &dwmac4_desc_ops,
 		.dma = &dwmac410_dma_ops,
 		.mac = &dwmac510_ops,
+		.pcs = &dwmac_pcs_ops,
 		.hwtimestamp = &stmmac_ptp,
 		.mode = &dwmac4_ring_mode_ops,
 		.tc = &dwmac510_tc_ops,
@@ -356,6 +368,8 @@ int stmmac_hwif_init(struct stmmac_priv *priv)
 		priv->hw = mac;
 		priv->ptpaddr = priv->ioaddr + entry->regs.ptp_off;
 		priv->mmcaddr = priv->ioaddr + entry->regs.mmc_off;
+		if (entry->pcs)
+			priv->pcsaddr = priv->ioaddr + entry->regs.pcs_off;
 		if (entry->est)
 			priv->estaddr = priv->ioaddr + entry->regs.est_off;
 

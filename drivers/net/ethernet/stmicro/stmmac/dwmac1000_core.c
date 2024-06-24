@@ -296,7 +296,7 @@ static int dwmac1000_irq_status(struct mac_device_info *hw,
 			x->irq_rx_path_exit_lpi_mode_n++;
 	}
 
-	dwmac_pcs_isr(ioaddr, GMAC_PCS_BASE, intr_status, x);
+	dwmac_pcs_isr(hw->priv->pcsaddr, intr_status, x);
 
 	if (intr_status & PCS_RGSMIIIS_IRQ) {
 		/* TODO Dummy-read to clear the IRQ status */
@@ -365,10 +365,10 @@ static void dwmac1000_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
 	writel(value, ioaddr + LPI_TIMER_CTRL);
 }
 
-static void dwmac1000_ctrl_ane(void __iomem *ioaddr, bool ane, bool srgmi_ral,
+static void dwmac1000_ctrl_ane(void __iomem *pcsaddr, bool ane, bool srgmi_ral,
 			       bool loopback)
 {
-	dwmac_ctrl_ane(ioaddr, GMAC_PCS_BASE, ane, srgmi_ral, loopback);
+	dwmac_ctrl_ane(pcsaddr, ane, srgmi_ral, loopback);
 }
 
 static int dwmac1000_mii_pcs_validate(struct phylink_pcs *pcs,
@@ -414,8 +414,7 @@ static int dwmac1000_mii_pcs_config(struct phylink_pcs *pcs,
 {
 	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
 
-	return dwmac_pcs_config(hw, neg_mode, interface, advertising,
-				GMAC_PCS_BASE);
+	return dwmac_pcs_config(hw, neg_mode, advertising, advertising);
 }
 
 static void dwmac1000_mii_pcs_get_state(struct phylink_pcs *pcs,
@@ -442,7 +441,7 @@ static void dwmac1000_mii_pcs_get_state(struct phylink_pcs *pcs,
 	state->duplex = status & GMAC_RGSMIIIS_LNKMOD_MASK ?
 			DUPLEX_FULL : DUPLEX_HALF;
 
-	dwmac_pcs_get_state(hw, state, GMAC_PCS_BASE);
+	dwmac_pcs_get_state(hw, state);
 }
 
 static const struct phylink_pcs_ops dwmac1000_mii_pcs_ops = {

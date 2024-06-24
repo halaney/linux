@@ -312,6 +312,7 @@ struct stmmac_priv {
 	struct mutex aux_ts_lock;
 	wait_queue_head_t tstamp_busy_wait;
 
+	void __iomem *pcsaddr;
 	void __iomem *mmcaddr;
 	void __iomem *ptpaddr;
 	void __iomem *estaddr;

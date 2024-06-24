@@ -13,61 +13,63 @@
 #include <linux/io.h>
 #include "common.h"
 
+#define PCS_GMAC4_OFFSET		0x000000e0
+#define PCS_GMAC3_X_OFFSET		0x000000c0
+
 /* PCS registers (AN/TBI/SGMII/RGMII) offsets */
-#define GMAC_AN_CTRL(x)		(x)		/* AN control */
-#define GMAC_AN_STATUS(x)	(x + 0x4)	/* AN status */
-#define GMAC_ANE_ADV(x)		(x + 0x8)	/* ANE Advertisement */
-#define GMAC_ANE_LPA(x)		(x + 0xc)	/* ANE link partener ability */
-#define GMAC_ANE_EXP(x)		(x + 0x10)	/* ANE expansion */
-#define GMAC_TBI(x)		(x + 0x14)	/* TBI extend status */
+#define PCS_AN_CTRL		0x00		/* AN control */
+#define PCS_AN_STATUS		0x04		/* AN status */
+#define PCS_ANE_ADV		0x08		/* ANE Advertisement */
+#define PCS_ANE_LPA		0x0c		/* ANE link partener ability */
+#define PCS_ANE_EXP		0x10		/* ANE expansion */
+#define PCS_TBI_EXT		0x14		/* TBI extended status */
 
 /* AN Configuration defines */
-#define GMAC_AN_CTRL_RAN	BIT(9)	/* Restart Auto-Negotiation */
-#define GMAC_AN_CTRL_ANE	BIT(12)	/* Auto-Negotiation Enable */
-#define GMAC_AN_CTRL_ELE	BIT(14)	/* External Loopback Enable */
-#define GMAC_AN_CTRL_ECD	BIT(16)	/* Enable Comma Detect */
-#define GMAC_AN_CTRL_LR		BIT(17)	/* Lock to Reference */
-#define GMAC_AN_CTRL_SGMRAL	BIT(18)	/* SGMII RAL Control */
+#define PCS_AN_CTRL_RAN		BIT(9)		/* Restart Auto-Negotiation */
+#define PCS_AN_CTRL_ANE		BIT(12)		/* Auto-Negotiation Enable */
+#define PCS_AN_CTRL_ELE		BIT(14)		/* External Loopback Enable */
+#define PCS_AN_CTRL_ECD		BIT(16)		/* Enable Comma Detect */
+#define PCS_AN_CTRL_LR		BIT(17)		/* Lock to Reference */
+#define PCS_AN_CTRL_SGMRAL	BIT(18)		/* SGMII RAL Control */
 
 /* AN Status defines */
-#define GMAC_AN_STATUS_LS	BIT(2)	/* Link Status 0:down 1:up */
-#define GMAC_AN_STATUS_ANA	BIT(3)	/* Auto-Negotiation Ability */
-#define GMAC_AN_STATUS_ANC	BIT(5)	/* Auto-Negotiation Complete */
-#define GMAC_AN_STATUS_ES	BIT(8)	/* Extended Status */
+#define PCS_AN_STATUS_LS	BIT(2)		/* Link Status 0:down 1:up */
+#define PCS_AN_STATUS_ANA	BIT(3)		/* Auto-Negotiation Ability */
+#define PCS_AN_STATUS_ANC	BIT(5)		/* Auto-Negotiation Complete */
+#define PCS_AN_STATUS_ES	BIT(8)		/* Extended Status Ability */
 
 /* ADV and LPA defines */
-#define GMAC_ANE_FD		BIT(5)
-#define GMAC_ANE_HD		BIT(6)
-#define GMAC_ANE_PSE		GENMASK(8, 7)
-#define GMAC_ANE_PSE_SHIFT	7
-#define GMAC_ANE_RFE		GENMASK(13, 12)
-#define GMAC_ANE_RFE_SHIFT	12
-#define GMAC_ANE_ACK		BIT(14)
+#define PCS_ANE_FD		BIT(5)		/* AN Full-duplex flag */
+#define PCS_ANE_HD		BIT(6)		/* AN Half-duplex flag */
+#define PCS_ANE_PSE		GENMASK(8, 7)	/* AN Pause Encoding */
+#define PCS_ANE_PSE_SHIFT	7
+#define PCS_ANE_RFE		GENMASK(13, 12)	/* AN Remote Fault Encoding */
+#define PCS_ANE_RFE_SHIFT	12
+#define PCS_ANE_ACK		BIT(14)		/* AN Base-page acknowledge */
 
 /**
  * dwmac_pcs_isr - TBI, RTBI, or SGMII PHY ISR
  * @ioaddr: IO registers pointer
- * @reg: Base address of the AN Control Register.
  * @intr_status: GMAC core interrupt status
  * @x: pointer to log these events as stats
  * Description: it is the ISR for PCS events: Auto-Negotiation Completed and
  * Link status.
  */
-static inline void dwmac_pcs_isr(void __iomem *ioaddr, u32 reg,
+static inline void dwmac_pcs_isr(void __iomem *pcsaddr,
 				 unsigned int intr_status,
 				 struct stmmac_extra_stats *x)
 {
-	u32 val = readl(ioaddr + GMAC_AN_STATUS(reg));
+	u32 val = readl(pcsaddr + PCS_AN_STATUS);
 
 	if (intr_status & PCS_ANE_IRQ) {
 		x->irq_pcs_ane_n++;
-		if (val & GMAC_AN_STATUS_ANC)
+		if (val & PCS_AN_STATUS_ANC)
 			pr_info("stmmac_pcs: ANE process completed\n");
 	}
 
 	if (intr_status & PCS_LINK_IRQ) {
 		x->irq_pcs_link_n++;
-		if (val & GMAC_AN_STATUS_LS)
+		if (val & PCS_AN_STATUS_LS)
 			pr_info("stmmac_pcs: Link Up\n");
 		else
 			pr_info("stmmac_pcs: Link Down\n");
@@ -77,7 +79,6 @@ static inline void dwmac_pcs_isr(void __iomem *ioaddr, u32 reg,
 /**
  * dwmac_ctrl_ane - To program the AN Control Register.
  * @ioaddr: IO registers pointer
- * @reg: Base address of the AN Control Register.
  * @ane: to enable the auto-negotiation
  * @srgmi_ral: to manage MAC-2-MAC SGMII connections.
  * @loopback: to cause the PHY to loopback tx data into rx path.
@@ -85,36 +86,34 @@ static inline void dwmac_pcs_isr(void __iomem *ioaddr, u32 reg,
  * and init the ANE, select loopback (usually for debugging purpose) and
  * configure SGMII RAL.
  */
-static inline void dwmac_ctrl_ane(void __iomem *ioaddr, u32 reg, bool ane,
+static inline void dwmac_ctrl_ane(void __iomem *pcsaddr, bool ane,
 				  bool srgmi_ral, bool loopback)
 {
-	u32 value = readl(ioaddr + GMAC_AN_CTRL(reg));
+	u32 value = readl(pcsaddr + PCS_AN_CTRL);
 
 	/* Enable and restart the Auto-Negotiation */
 	if (ane)
-		value |= GMAC_AN_CTRL_ANE | GMAC_AN_CTRL_RAN;
+		value |= PCS_AN_CTRL_ANE | PCS_AN_CTRL_RAN;
 	else
-		value &= ~GMAC_AN_CTRL_ANE;
+		value &= ~PCS_AN_CTRL_ANE;
 
 	/* In case of MAC-2-MAC connection, block is configured to operate
 	 * according to MAC conf register.
 	 */
 	if (srgmi_ral)
-		value |= GMAC_AN_CTRL_SGMRAL;
+		value |= PCS_AN_CTRL_SGMRAL;
 
 	if (loopback)
-		value |= GMAC_AN_CTRL_ELE;
+		value |= PCS_AN_CTRL_ELE;
 
-	writel(value, ioaddr + GMAC_AN_CTRL(reg));
+	writel(value, pcsaddr + PCS_AN_CTRL);
 }
 
 int dwmac_pcs_config(struct mac_device_info *hw, unsigned int neg_mode,
 		     phy_interface_t interface,
-		     const unsigned long *advertising,
-		     unsigned int reg_base);
+		     const unsigned long *advertising);
 
 void dwmac_pcs_get_state(struct mac_device_info *hw,
-			 struct phylink_link_state *state,
-			 unsigned int reg_base);
+			 struct phylink_link_state *state);
 
 #endif /* __STMMAC_PCS_H__ */
