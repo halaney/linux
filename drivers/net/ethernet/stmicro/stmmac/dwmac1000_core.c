@@ -296,14 +296,7 @@ static int dwmac1000_irq_status(struct mac_device_info *hw,
 			x->irq_rx_path_exit_lpi_mode_n++;
 	}
 
-	dwmac_pcs_isr(hw->priv->pcsaddr, intr_status, x);
-
-	if (intr_status & PCS_RGSMIIIS_IRQ) {
-		/* TODO Dummy-read to clear the IRQ status */
-		readl(ioaddr + GMAC_RGSMIIIS);
-		phylink_pcs_change(&hw->mac_pcs, false);
-		x->irq_rgmii_n++;
-	}
+	dwmac_pcs_isr(hw, intr_status, x);
 
 	return ret;
 }

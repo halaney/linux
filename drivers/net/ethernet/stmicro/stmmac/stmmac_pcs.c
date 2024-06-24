@@ -134,3 +134,36 @@ const struct phylink_pcs_ops dwmac_pcs_ops = {
 	.pcs_get_state = dwmac_pcs_get_state,
 
 };
+
+void dwmac_pcs_isr(struct mac_device_info *hw, unsigned int intr_status,
+		   struct stmmac_extra_stats *x)
+{
+	struct stmmac_priv *priv = hw->priv;
+	bool an_status = false, sr_status = false;
+
+	if (intr_status & PCS_ANE_IRQ) {
+		x->irq_pcs_ane_n++;
+		an_status = true;
+	}
+
+	if (intr_status & PCS_LINK_IRQ) {
+		x->irq_pcs_link_n++;
+		an_status = true;
+	}
+
+	if (intr_status & PCS_RGSMIIIS_IRQ) {
+		x->irq_rgmii_n++;
+		sr_status = true;
+	}
+
+	/* Read the AN and SGMII/RGMII/SMII status regs to clear IRQ */
+	if (an_status)
+		readl(priv->pcsaddr + PCS_AN_STATUS);
+
+	if (sr_status)
+		readl(priv->pcsaddr + PCS_SRGMII_CSR);
+
+	/* Any PCS event shall trigger the PHYLINK PCS state update */
+	if (an_status || sr_status)
+		phylink_pcs_change(&hw->mac_pcs, false);
+}

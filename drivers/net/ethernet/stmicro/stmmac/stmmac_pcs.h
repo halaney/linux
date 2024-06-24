@@ -23,6 +23,7 @@
 #define PCS_ANE_LPA		0x0c		/* ANE link partener ability */
 #define PCS_ANE_EXP		0x10		/* ANE expansion */
 #define PCS_TBI_EXT		0x14		/* TBI extended status */
+#define PCS_SRGMII_CSR		0x18		/* SGMII/RGMII/SMII CSR */
 
 /* AN Configuration defines */
 #define PCS_AN_CTRL_RAN		BIT(9)		/* Restart Auto-Negotiation */
@@ -57,33 +58,7 @@
 #define PCS_CFG_JABTO		BIT(4)		/* Jabber Timeout (SMII only) */
 #define PCS_CFG_FALSCARDET	BIT(5)		/* False Carrier (SMII only) */
 
-/**
- * dwmac_pcs_isr - TBI, RTBI, or SGMII PHY ISR
- * @ioaddr: IO registers pointer
- * @intr_status: GMAC core interrupt status
- * @x: pointer to log these events as stats
- * Description: it is the ISR for PCS events: Auto-Negotiation Completed and
- * Link status.
- */
-static inline void dwmac_pcs_isr(void __iomem *pcsaddr,
-				 unsigned int intr_status,
-				 struct stmmac_extra_stats *x)
-{
-	u32 val = readl(pcsaddr + PCS_AN_STATUS);
-
-	if (intr_status & PCS_ANE_IRQ) {
-		x->irq_pcs_ane_n++;
-		if (val & PCS_AN_STATUS_ANC)
-			pr_info("stmmac_pcs: ANE process completed\n");
-	}
-
-	if (intr_status & PCS_LINK_IRQ) {
-		x->irq_pcs_link_n++;
-		if (val & PCS_AN_STATUS_LS)
-			pr_info("stmmac_pcs: Link Up\n");
-		else
-			pr_info("stmmac_pcs: Link Down\n");
-	}
-}
+void dwmac_pcs_isr(struct mac_device_info *hw, unsigned int intr_status,
+		   struct stmmac_extra_stats *x);
 
 #endif /* __STMMAC_PCS_H__ */
