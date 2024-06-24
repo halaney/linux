@@ -43,9 +43,7 @@
 #define PCS_ANE_FD		BIT(5)		/* AN Full-duplex flag */
 #define PCS_ANE_HD		BIT(6)		/* AN Half-duplex flag */
 #define PCS_ANE_PSE		GENMASK(8, 7)	/* AN Pause Encoding */
-#define PCS_ANE_PSE_SHIFT	7
 #define PCS_ANE_RFE		GENMASK(13, 12)	/* AN Remote Fault Encoding */
-#define PCS_ANE_RFE_SHIFT	12
 #define PCS_ANE_ACK		BIT(14)		/* AN Base-page acknowledge */
 
 /* SGMII/RGMII/SMII link status register */
