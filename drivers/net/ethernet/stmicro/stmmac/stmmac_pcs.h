@@ -76,39 +76,6 @@ static inline void dwmac_pcs_isr(void __iomem *pcsaddr,
 	}
 }
 
-/**
- * dwmac_ctrl_ane - To program the AN Control Register.
- * @ioaddr: IO registers pointer
- * @ane: to enable the auto-negotiation
- * @srgmi_ral: to manage MAC-2-MAC SGMII connections.
- * @loopback: to cause the PHY to loopback tx data into rx path.
- * Description: this is the main function to configure the AN control register
- * and init the ANE, select loopback (usually for debugging purpose) and
- * configure SGMII RAL.
- */
-static inline void dwmac_ctrl_ane(void __iomem *pcsaddr, bool ane,
-				  bool srgmi_ral, bool loopback)
-{
-	u32 value = readl(pcsaddr + PCS_AN_CTRL);
-
-	/* Enable and restart the Auto-Negotiation */
-	if (ane)
-		value |= PCS_AN_CTRL_ANE | PCS_AN_CTRL_RAN;
-	else
-		value &= ~PCS_AN_CTRL_ANE;
-
-	/* In case of MAC-2-MAC connection, block is configured to operate
-	 * according to MAC conf register.
-	 */
-	if (srgmi_ral)
-		value |= PCS_AN_CTRL_SGMRAL;
-
-	if (loopback)
-		value |= PCS_AN_CTRL_ELE;
-
-	writel(value, pcsaddr + PCS_AN_CTRL);
-}
-
 int dwmac_pcs_config(struct mac_device_info *hw, unsigned int neg_mode,
 		     phy_interface_t interface,
 		     const unsigned long *advertising);

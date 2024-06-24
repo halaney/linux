@@ -615,6 +615,29 @@ static void ethqos_set_serdes_speed(struct qcom_ethqos *ethqos, int speed)
 	}
 }
 
+static inline void ethqos_ctrl_ane(void __iomem *pcsaddr, bool ane,
+				   bool srgmi_ral, bool loopback)
+{
+	u32 value = readl(pcsaddr + PCS_AN_CTRL);
+
+	/* Enable and restart the Auto-Negotiation */
+	if (ane)
+		value |= PCS_AN_CTRL_ANE | PCS_AN_CTRL_RAN;
+	else
+		value &= ~PCS_AN_CTRL_ANE;
+
+	/* In case of MAC-2-MAC connection, block is configured to operate
+	 * according to MAC conf register.
+	 */
+	if (srgmi_ral)
+		value |= PCS_AN_CTRL_SGMRAL;
+
+	if (loopback)
+		value |= PCS_AN_CTRL_ELE;
+
+	writel(value, pcsaddr + PCS_AN_CTRL);
+}
+
 /* On interface toggle MAC registers gets reset.
  * Configure MAC block for SGMII on ethernet phy link up
  */
@@ -633,7 +656,7 @@ static int ethqos_configure_sgmii(struct qcom_ethqos *ethqos)
 			      RGMII_CONFIG2_RGMII_CLK_SEL_CFG,
 			      RGMII_IO_MACRO_CONFIG2);
 		ethqos_set_serdes_speed(ethqos, SPEED_2500);
-		stmmac_pcs_ctrl_ane(priv, priv->pcsaddr, 0, 0, 0);
+		ethqos_ctrl_ane(priv->pcsaddr, 0, 0, 0);
 		break;
 	case SPEED_1000:
 		val &= ~ETHQOS_MAC_CTRL_PORT_SEL;
@@ -641,12 +664,12 @@ static int ethqos_configure_sgmii(struct qcom_ethqos *ethqos)
 			      RGMII_CONFIG2_RGMII_CLK_SEL_CFG,
 			      RGMII_IO_MACRO_CONFIG2);
 		ethqos_set_serdes_speed(ethqos, SPEED_1000);
-		stmmac_pcs_ctrl_ane(priv, priv->pcsaddr, 1, 0, 0);
+		ethqos_ctrl_ane(priv->pcsaddr, 1, 0, 0);
 		break;
 	case SPEED_100:
 		val |= ETHQOS_MAC_CTRL_PORT_SEL | ETHQOS_MAC_CTRL_SPEED_MODE;
 		ethqos_set_serdes_speed(ethqos, SPEED_1000);
-		stmmac_pcs_ctrl_ane(priv, priv->pcsaddr, 1, 0, 0);
+		ethqos_ctrl_ane(priv->pcsaddr, 1, 0, 0);
 		break;
 	case SPEED_10:
 		val |= ETHQOS_MAC_CTRL_PORT_SEL;
@@ -656,7 +679,7 @@ static int ethqos_configure_sgmii(struct qcom_ethqos *ethqos)
 					 SGMII_10M_RX_CLK_DVDR),
 			      RGMII_IO_MACRO_CONFIG);
 		ethqos_set_serdes_speed(ethqos, SPEED_1000);
-		stmmac_pcs_ctrl_ane(priv, priv->pcsaddr, 1, 0, 0);
+		ethqos_ctrl_ane(priv->pcsaddr, 1, 0, 0);
 		break;
 	}
 
