@@ -365,6 +365,26 @@ static void dwmac1000_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
 	writel(value, ioaddr + LPI_TIMER_CTRL);
 }
 
+static void dwmac1000_pcs_enable_irq(struct mac_device_info *hw)
+{
+	void __iomem *ioaddr = hw->pcsr;
+	u32 intr_mask;
+
+	intr_mask = readl(ioaddr + GMAC_INT_MASK);
+	intr_mask &= ~GMAC_INT_DISABLE_PCS;
+	writel(intr_mask, ioaddr + GMAC_INT_MASK);
+}
+
+static void dwmac1000_pcs_disable_irq(struct mac_device_info *hw)
+{
+	void __iomem *ioaddr = hw->pcsr;
+	u32 intr_mask;
+
+	intr_mask = readl(ioaddr + GMAC_INT_MASK);
+	intr_mask |= GMAC_INT_DISABLE_PCS;
+	writel(intr_mask, ioaddr + GMAC_INT_MASK);
+}
+
 static u16 dwmac1000_pcs_get_config_reg(struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -395,12 +415,8 @@ static int dwmac1000_mii_pcs_validate(struct phylink_pcs *pcs,
 static int dwmac1000_mii_pcs_enable(struct phylink_pcs *pcs)
 {
 	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-	void __iomem *ioaddr = hw->pcsr;
-	u32 intr_mask;
 
-	intr_mask = readl(ioaddr + GMAC_INT_MASK);
-	intr_mask &= ~GMAC_INT_DISABLE_PCS;
-	writel(intr_mask, ioaddr + GMAC_INT_MASK);
+	dwmac1000_pcs_enable_irq(hw);
 
 	return 0;
 }
@@ -408,12 +424,8 @@ static int dwmac1000_mii_pcs_enable(struct phylink_pcs *pcs)
 static void dwmac1000_mii_pcs_disable(struct phylink_pcs *pcs)
 {
 	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-	void __iomem *ioaddr = hw->pcsr;
-	u32 intr_mask;
 
-	intr_mask = readl(ioaddr + GMAC_INT_MASK);
-	intr_mask |= GMAC_INT_DISABLE_PCS;
-	writel(intr_mask, ioaddr + GMAC_INT_MASK);
+	dwmac1000_pcs_disable_irq(hw);
 }
 
 static int dwmac1000_mii_pcs_config(struct phylink_pcs *pcs,
@@ -578,6 +590,8 @@ const struct stmmac_ops dwmac1000_ops = {
 	.set_eee_timer = dwmac1000_set_eee_timer,
 	.set_eee_pls = dwmac1000_set_eee_pls,
 	.debug = dwmac1000_debug,
+	.pcs_enable_irq = dwmac1000_pcs_enable_irq,
+	.pcs_disable_irq = dwmac1000_pcs_disable_irq,
 	.pcs_get_config_reg = dwmac1000_pcs_get_config_reg,
 	.pcs_ctrl_ane = dwmac1000_ctrl_ane,
 	.set_mac_loopback = dwmac1000_set_mac_loopback,

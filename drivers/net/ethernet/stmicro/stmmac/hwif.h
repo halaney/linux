@@ -376,6 +376,8 @@ struct stmmac_ops {
 		      struct stmmac_extra_stats *x, u32 rx_queues,
 		      u32 tx_queues);
 	/* PCS calls */
+	void (*pcs_enable_irq)(struct mac_device_info *hw);
+	void (*pcs_disable_irq)(struct mac_device_info *hw);
 	u16 (*pcs_get_config_reg)(struct mac_device_info *hw);
 	void (*pcs_ctrl_ane)(void __iomem *pcsaddr, bool ane, bool srgmi_ral,
 			     bool loopback);
@@ -493,6 +495,10 @@ struct stmmac_ops {
 	stmmac_do_void_callback(__priv, mac, set_eee_pls, __args)
 #define stmmac_mac_debug(__priv, __args...) \
 	stmmac_do_void_callback(__priv, mac, debug, __priv, __args)
+#define stmmac_pcs_enable_irq(__priv, __args...) \
+	stmmac_do_void_callback(__priv, mac, pcs_enable_irq, __args)
+#define stmmac_pcs_disable_irq(__priv, __args...) \
+	stmmac_do_void_callback(__priv, mac, pcs_disable_irq, __args)
 #define stmmac_pcs_get_config_reg(__priv, __args...) \
 	stmmac_do_callback(__priv, mac, pcs_get_config_reg, __args)
 #define stmmac_pcs_ctrl_ane(__priv, __args...) \

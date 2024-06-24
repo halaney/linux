@@ -456,6 +456,26 @@ static void dwmac4_set_eee_timer(struct mac_device_info *hw, int ls, int tw)
 	writel(value, ioaddr + GMAC4_LPI_TIMER_CTRL);
 }
 
+static void dwmac4_pcs_enable_irq(struct mac_device_info *hw)
+{
+	void __iomem *ioaddr = hw->pcsr;
+	u32 intr_enable;
+
+	intr_enable = readl(ioaddr + GMAC_INT_EN);
+	intr_enable |= GMAC_PCS_IRQ_DEFAULT;
+	writel(intr_enable, ioaddr + GMAC_INT_EN);
+}
+
+static void dwmac4_pcs_disable_irq(struct mac_device_info *hw)
+{
+	void __iomem *ioaddr = hw->pcsr;
+	u32 intr_enable;
+
+	intr_enable = readl(ioaddr + GMAC_INT_EN);
+	intr_enable &= ~GMAC_PCS_IRQ_DEFAULT;
+	writel(intr_enable, ioaddr + GMAC_INT_EN);
+}
+
 static u16 dwmac4_pcs_get_config_reg(struct mac_device_info *hw)
 {
 	void __iomem *ioaddr = hw->pcsr;
@@ -780,12 +800,8 @@ static int dwmac4_mii_pcs_validate(struct phylink_pcs *pcs,
 static int dwmac4_mii_pcs_enable(struct phylink_pcs *pcs)
 {
 	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-	void __iomem *ioaddr = hw->pcsr;
-	u32 intr_enable;
 
-	intr_enable = readl(ioaddr + GMAC_INT_EN);
-	intr_enable |= GMAC_PCS_IRQ_DEFAULT;
-	writel(intr_enable, ioaddr + GMAC_INT_EN);
+	dwmac4_pcs_enable_irq(hw);
 
 	return 0;
 }
@@ -793,12 +809,8 @@ static int dwmac4_mii_pcs_enable(struct phylink_pcs *pcs)
 static void dwmac4_mii_pcs_disable(struct phylink_pcs *pcs)
 {
 	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-	void __iomem *ioaddr = hw->pcsr;
-	u32 intr_enable;
 
-	intr_enable = readl(ioaddr + GMAC_INT_EN);
-	intr_enable &= ~GMAC_PCS_IRQ_DEFAULT;
-	writel(intr_enable, ioaddr + GMAC_INT_EN);
+	dwmac4_pcs_disable_irq(hw);
 }
 
 static int dwmac4_mii_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
@@ -1284,6 +1296,8 @@ const struct stmmac_ops dwmac4_ops = {
 	.set_eee_pls = dwmac4_set_eee_pls,
 	.pcs_ctrl_ane = dwmac4_ctrl_ane,
 	.debug = dwmac4_debug,
+	.pcs_enable_irq = dwmac4_pcs_enable_irq,
+	.pcs_disable_irq = dwmac4_pcs_disable_irq,
 	.pcs_get_config_reg = dwmac4_pcs_get_config_reg,
 	.set_filter = dwmac4_set_filter,
 	.set_mac_loopback = dwmac4_set_mac_loopback,
@@ -1329,6 +1343,8 @@ const struct stmmac_ops dwmac410_ops = {
 	.set_eee_pls = dwmac4_set_eee_pls,
 	.pcs_ctrl_ane = dwmac4_ctrl_ane,
 	.debug = dwmac4_debug,
+	.pcs_enable_irq = dwmac4_pcs_enable_irq,
+	.pcs_disable_irq = dwmac4_pcs_disable_irq,
 	.pcs_get_config_reg = dwmac4_pcs_get_config_reg,
 	.set_filter = dwmac4_set_filter,
 	.flex_pps_config = dwmac5_flex_pps_config,
@@ -1378,6 +1394,8 @@ const struct stmmac_ops dwmac510_ops = {
 	.set_eee_pls = dwmac4_set_eee_pls,
 	.pcs_ctrl_ane = dwmac4_ctrl_ane,
 	.debug = dwmac4_debug,
+	.pcs_enable_irq = dwmac4_pcs_enable_irq,
+	.pcs_disable_irq = dwmac4_pcs_disable_irq,
 	.pcs_get_config_reg = dwmac4_pcs_get_config_reg,
 	.set_filter = dwmac4_set_filter,
 	.safety_feat_config = dwmac5_safety_feat_config,
