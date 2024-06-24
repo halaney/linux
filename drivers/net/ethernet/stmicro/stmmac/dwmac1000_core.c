@@ -16,7 +16,7 @@
 #include <linux/slab.h>
 #include <linux/ethtool.h>
 #include <linux/io.h>
-#include <linux/phylink.h>
+
 #include "stmmac.h"
 #include "stmmac_pcs.h"
 #include "dwmac1000.h"
@@ -388,17 +388,6 @@ static u16 dwmac1000_pcs_get_config_reg(struct mac_device_info *hw)
 	return FIELD_GET(GMAC_RGSMIIIS_CONFIG_REG, val);
 }
 
-static struct phylink_pcs *
-dwmac1000_phylink_select_pcs(struct stmmac_priv *priv,
-			     phy_interface_t interface)
-{
-	if (priv->hw->pcs & STMMAC_PCS_RGMII ||
-	    priv->hw->pcs & STMMAC_PCS_SGMII)
-		return &priv->hw->mac_pcs;
-
-	return NULL;
-}
-
 static void dwmac1000_debug(struct stmmac_priv *priv, void __iomem *ioaddr,
 			    struct stmmac_extra_stats *x,
 			    u32 rx_queues, u32 tx_queues)
@@ -489,7 +478,6 @@ static void dwmac1000_set_mac_loopback(void __iomem *ioaddr, bool enable)
 
 const struct stmmac_ops dwmac1000_ops = {
 	.core_init = dwmac1000_core_init,
-	.phylink_select_pcs = dwmac1000_phylink_select_pcs,
 	.set_mac = stmmac_set_mac,
 	.rx_ipc = dwmac1000_rx_ipc_enable,
 	.dump_regs = dwmac1000_dump_regs,
@@ -540,8 +528,6 @@ int dwmac1000_setup(struct stmmac_priv *priv)
 	mac->mii.reg_mask = 0x000007C0;
 	mac->mii.clk_csr_shift = 2;
 	mac->mii.clk_csr_mask = GENMASK(5, 2);
-
-	mac->mac_pcs.neg_mode = true;
 
 	return 0;
 }

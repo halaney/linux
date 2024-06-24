@@ -950,13 +950,16 @@ static struct phylink_pcs *stmmac_mac_select_pcs(struct phylink_config *config,
 {
 	struct stmmac_priv *priv = netdev_priv(to_net_dev(config->dev));
 
+	if (priv->hw->pcs)
+		return &priv->hw->mac_pcs;
+
 	if (priv->hw->xpcs)
 		return &priv->hw->xpcs->pcs;
 
 	if (priv->hw->phylink_pcs)
 		return priv->hw->phylink_pcs;
 
-	return stmmac_mac_phylink_select_pcs(priv, interface);
+	return NULL;
 }
 
 static void stmmac_mac_config(struct phylink_config *config, unsigned int mode,
@@ -1120,23 +1123,6 @@ static const struct phylink_mac_ops stmmac_phylink_mac_ops = {
 	.mac_link_down = stmmac_mac_link_down,
 	.mac_link_up = stmmac_mac_link_up,
 };
-
-/**
- * stmmac_check_pcs_mode - verify if RGMII/SGMII is supported
- * @priv: driver private structure
- * Description: this is to verify if the HW supports the PCS.
- * Physical Coding Sublayer (PCS) interface that can be used when the MAC is
- * configured for the TBI, RTBI, or SGMII PHY interface.
- */
-static void stmmac_check_pcs_mode(struct stmmac_priv *priv)
-{
-	int interface = priv->plat->mac_interface;
-
-	if (phy_interface_mode_is_rgmii(interface))
-		priv->hw->pcs = STMMAC_PCS_RGMII;
-	else if (priv->dma_cap.pcs && interface == PHY_INTERFACE_MODE_SGMII)
-		priv->hw->pcs = STMMAC_PCS_SGMII;
-}
 
 /**
  * stmmac_init_phy - PHY initialization
@@ -7709,8 +7695,6 @@ int stmmac_dvr_probe(struct device *device,
 		priv->clk_csr = priv->plat->clk_csr;
 	else
 		stmmac_clk_csr_set(priv);
-
-	stmmac_check_pcs_mode(priv);
 
 	pm_runtime_get_noresume(device);
 	pm_runtime_set_active(device);

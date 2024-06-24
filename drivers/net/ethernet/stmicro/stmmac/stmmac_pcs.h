@@ -61,4 +61,6 @@
 void dwmac_pcs_isr(struct mac_device_info *hw, unsigned int intr_status,
 		   struct stmmac_extra_stats *x);
 
+void dwmac_pcs_init(struct mac_device_info *hw);
+
 #endif /* __STMMAC_PCS_H__ */

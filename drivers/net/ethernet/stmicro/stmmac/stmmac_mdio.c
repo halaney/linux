@@ -22,6 +22,7 @@
 
 #include "dwxgmac2.h"
 #include "stmmac.h"
+#include "stmmac_pcs.h"
 
 #define MII_BUSY 0x00000001
 #define MII_WRITE 0x00000002
@@ -504,6 +505,8 @@ int stmmac_pcs_setup(struct net_device *ndev)
 
 	priv = netdev_priv(ndev);
 	mode = priv->plat->phy_interface;
+
+	dwmac_pcs_init(priv->hw);
 
 	if (priv->plat->pcs_init) {
 		ret = priv->plat->pcs_init(priv);
