@@ -363,6 +363,7 @@ int stmmac_hwif_init(struct stmmac_priv *priv)
 		mac->tc = mac->tc ? : entry->tc;
 		mac->mmc = mac->mmc ? : entry->mmc;
 		mac->est = mac->est ? : entry->est;
+		mac->mac_pcs.ops = mac->mac_pcs.ops ?: entry->pcs;
 		mac->priv = priv;
 
 		priv->hw = mac;

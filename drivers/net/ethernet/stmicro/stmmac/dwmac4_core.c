@@ -780,85 +780,6 @@ static void dwmac4_flow_ctrl(struct mac_device_info *hw, unsigned int duplex,
 	}
 }
 
-static int dwmac4_mii_pcs_validate(struct phylink_pcs *pcs,
-				   unsigned long *supported,
-				   const struct phylink_link_state *state)
-{
-	/* Only support in-band */
-	if (!test_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, state->advertising))
-		return -EINVAL;
-
-	return 0;
-}
-
-static int dwmac4_mii_pcs_enable(struct phylink_pcs *pcs)
-{
-	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-
-	dwmac4_pcs_enable_irq(hw);
-
-	return 0;
-}
-
-static void dwmac4_mii_pcs_disable(struct phylink_pcs *pcs)
-{
-	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-
-	dwmac4_pcs_disable_irq(hw);
-}
-
-static int dwmac4_mii_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
-				 phy_interface_t interface,
-				 const unsigned long *advertising,
-				 bool permit_pause_to_mac)
-{
-	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-
-	return dwmac_pcs_config(hw, advertising, interface, advertising);
-}
-
-static void dwmac4_mii_pcs_get_state(struct phylink_pcs *pcs,
-				     struct phylink_link_state *state)
-{
-	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-	unsigned int clk_spd;
-	u32 status;
-
-	status = readl(hw->pcsr + GMAC_PHYIF_CONTROL_STATUS);
-
-	state->link = !!(status & GMAC_PHYIF_CTRLSTATUS_LNKSTS);
-	if (!state->link)
-		return;
-
-	clk_spd = FIELD_GET(GMAC_PHYIF_CTRLSTATUS_SPEED, status);
-	if (clk_spd == GMAC_PHYIF_CTRLSTATUS_SPEED_125)
-		state->speed = SPEED_1000;
-	else if (clk_spd == GMAC_PHYIF_CTRLSTATUS_SPEED_25)
-		state->speed = SPEED_100;
-	else if (clk_spd == GMAC_PHYIF_CTRLSTATUS_SPEED_2_5)
-		state->speed = SPEED_10;
-
-	/* FIXME: Is this even correct?
-	 * GMAC_PHYIF_CTRLSTATUS_TC = BIT(0)
-	 * GMAC_PHYIF_CTRLSTATUS_LNKMOD = BIT(16)
-	 * GMAC_PHYIF_CTRLSTATUS_LNKMOD_MASK = 1
-	 *
-	 * The result is, we test bit 0 for the duplex setting.
-	 */
-	state->duplex = status & GMAC_PHYIF_CTRLSTATUS_LNKMOD_MASK ?
-			DUPLEX_FULL : DUPLEX_HALF;
-
-	dwmac_pcs_get_state(hw, state);
-}
-
-static const struct phylink_pcs_ops dwmac4_mii_pcs_ops = {
-	.pcs_validate = dwmac4_mii_pcs_validate,
-	.pcs_enable = dwmac4_mii_pcs_enable,
-	.pcs_disable = dwmac4_mii_pcs_disable,
-	.pcs_config = dwmac4_mii_pcs_config,
-	.pcs_get_state = dwmac4_mii_pcs_get_state,
-};
-
 static struct phylink_pcs *
 dwmac4_phylink_select_pcs(struct stmmac_priv *priv, phy_interface_t interface)
 {
@@ -1475,7 +1396,6 @@ int dwmac4_setup(struct stmmac_priv *priv)
 	mac->mii.clk_csr_mask = GENMASK(11, 8);
 	mac->num_vlan = dwmac4_get_num_vlan(priv->ioaddr);
 
-	mac->mac_pcs.ops = &dwmac4_mii_pcs_ops;
 	mac->mac_pcs.neg_mode = true;
 
 	return 0;

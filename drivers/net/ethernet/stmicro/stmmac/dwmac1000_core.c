@@ -395,79 +395,6 @@ static u16 dwmac1000_pcs_get_config_reg(struct mac_device_info *hw)
 	return FIELD_GET(GMAC_RGSMIIIS_CONFIG_REG, val);
 }
 
-static int dwmac1000_mii_pcs_validate(struct phylink_pcs *pcs,
-				      unsigned long *supported,
-				      const struct phylink_link_state *state)
-{
-	/* Only support in-band */
-	if (!test_bit(ETHTOOL_LINK_MODE_Autoneg_BIT, state->advertising))
-		return -EINVAL;
-
-	return 0;
-}
-
-static int dwmac1000_mii_pcs_enable(struct phylink_pcs *pcs)
-{
-	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-
-	dwmac1000_pcs_enable_irq(hw);
-
-	return 0;
-}
-
-static void dwmac1000_mii_pcs_disable(struct phylink_pcs *pcs)
-{
-	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-
-	dwmac1000_pcs_disable_irq(hw);
-}
-
-static int dwmac1000_mii_pcs_config(struct phylink_pcs *pcs,
-				    unsigned int neg_mode,
-				    phy_interface_t interface,
-				    const unsigned long *advertising,
-				    bool permit_pause_to_mac)
-{
-	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-
-	return dwmac_pcs_config(hw, neg_mode, advertising, advertising);
-}
-
-static void dwmac1000_mii_pcs_get_state(struct phylink_pcs *pcs,
-					struct phylink_link_state *state)
-{
-	struct mac_device_info *hw = phylink_pcs_to_mac_dev_info(pcs);
-	unsigned int spd_clk;
-	u32 status;
-
-	status = readl(hw->pcsr + GMAC_RGSMIIIS);
-
-	state->link = status & GMAC_RGSMIIIS_LNKSTS;
-	if (!state->link)
-		return;
-
-	spd_clk = FIELD_GET(GMAC_RGSMIIIS_SPEED, status);
-	if (spd_clk == GMAC_RGSMIIIS_SPEED_125)
-		state->speed = SPEED_1000;
-	else if (spd_clk == GMAC_RGSMIIIS_SPEED_25)
-		state->speed = SPEED_100;
-	else if (spd_clk == GMAC_RGSMIIIS_SPEED_2_5)
-		state->speed = SPEED_10;
-
-	state->duplex = status & GMAC_RGSMIIIS_LNKMOD_MASK ?
-			DUPLEX_FULL : DUPLEX_HALF;
-
-	dwmac_pcs_get_state(hw, state);
-}
-
-static const struct phylink_pcs_ops dwmac1000_mii_pcs_ops = {
-	.pcs_validate = dwmac1000_mii_pcs_validate,
-	.pcs_enable = dwmac1000_mii_pcs_enable,
-	.pcs_disable = dwmac1000_mii_pcs_disable,
-	.pcs_config = dwmac1000_mii_pcs_config,
-	.pcs_get_state = dwmac1000_mii_pcs_get_state,
-};
-
 static struct phylink_pcs *
 dwmac1000_phylink_select_pcs(struct stmmac_priv *priv,
 			     phy_interface_t interface)
@@ -621,7 +548,6 @@ int dwmac1000_setup(struct stmmac_priv *priv)
 	mac->mii.clk_csr_shift = 2;
 	mac->mii.clk_csr_mask = GENMASK(5, 2);
 
-	mac->mac_pcs.ops = &dwmac1000_mii_pcs_ops;
 	mac->mac_pcs.neg_mode = true;
 
 	return 0;

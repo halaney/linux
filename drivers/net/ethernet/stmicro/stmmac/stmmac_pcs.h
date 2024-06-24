@@ -47,6 +47,16 @@
 #define PCS_ANE_RFE_SHIFT	12
 #define PCS_ANE_ACK		BIT(14)		/* AN Base-page acknowledge */
 
+/* SGMII/RGMII/SMII link status register */
+#define PCS_CFG_LNKMOD		BIT(0)		/* Link Duplex Mode */
+#define PCS_CFG_LNKSPEED	GENMASK(2, 1)	/* Link Speed: */
+#define PCS_CFG_LNKSPEED_2_5	0x0		/* 2.5 MHz - 10 Mbps */
+#define PCS_CFG_LNKSPEED_25	0x1		/* 25 MHz - 100 Mbps */
+#define PCS_CFG_LNKSPEED_250	0x2		/* 250 MHz - 1000 Mbps */
+#define PCS_CFG_LNKSTS		BIT(3)		/* Link Up/Down Status */
+#define PCS_CFG_JABTO		BIT(4)		/* Jabber Timeout (SMII only) */
+#define PCS_CFG_FALSCARDET	BIT(5)		/* False Carrier (SMII only) */
+
 /**
  * dwmac_pcs_isr - TBI, RTBI, or SGMII PHY ISR
  * @ioaddr: IO registers pointer
@@ -75,12 +85,5 @@ static inline void dwmac_pcs_isr(void __iomem *pcsaddr,
 			pr_info("stmmac_pcs: Link Down\n");
 	}
 }
-
-int dwmac_pcs_config(struct mac_device_info *hw, unsigned int neg_mode,
-		     phy_interface_t interface,
-		     const unsigned long *advertising);
-
-void dwmac_pcs_get_state(struct mac_device_info *hw,
-			 struct phylink_link_state *state);
 
 #endif /* __STMMAC_PCS_H__ */
