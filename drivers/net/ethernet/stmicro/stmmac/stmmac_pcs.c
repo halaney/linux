@@ -173,9 +173,7 @@ void dwmac_pcs_init(struct mac_device_info *hw)
 	struct stmmac_priv *priv = hw->priv;
 	int interface = priv->plat->mac_interface;
 
-	if (priv->plat->flags & STMMAC_FLAG_HAS_INTEGRATED_PCS)
-		return;
-	else if (phy_interface_mode_is_rgmii(interface))
+	if (phy_interface_mode_is_rgmii(interface))
 		hw->pcs = STMMAC_PCS_RGMII;
 	else if (priv->dma_cap.pcs && interface == PHY_INTERFACE_MODE_SGMII)
 		hw->pcs = STMMAC_PCS_SGMII;
