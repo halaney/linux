@@ -823,14 +823,7 @@ static void dwmac4_mii_pcs_get_state(struct phylink_pcs *pcs,
 	else if (clk_spd == GMAC_PHYIF_CTRLSTATUS_SPEED_2_5)
 		state->speed = SPEED_10;
 
-	/* FIXME: Is this even correct?
-	 * GMAC_PHYIF_CTRLSTATUS_TC = BIT(0)
-	 * GMAC_PHYIF_CTRLSTATUS_LNKMOD = BIT(16)
-	 * GMAC_PHYIF_CTRLSTATUS_LNKMOD_MASK = 1
-	 *
-	 * The result is, we test bit 0 for the duplex setting.
-	 */
-	state->duplex = status & GMAC_PHYIF_CTRLSTATUS_LNKMOD_MASK ?
+	state->duplex = status & GMAC_PHYIF_CTRLSTATUS_LNKMOD ?
 			DUPLEX_FULL : DUPLEX_HALF;
 
 	dwmac_pcs_get_state(hw, state, GMAC_PCS_BASE);
