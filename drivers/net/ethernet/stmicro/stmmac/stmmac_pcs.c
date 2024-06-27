@@ -1,6 +1,7 @@
 #include <linux/phylink.h>
 
 #include "common.h"
+#include "stmmac.h"
 #include "stmmac_pcs.h"
 
 static int dwmac_pcs_validate(struct phylink_pcs *pcs, unsigned long *supported,
