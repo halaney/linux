@@ -265,6 +265,7 @@
 
 &ethernet0 {
 	phy-mode = "sgmii";
+	managed = "in-band-status";
 	phy-handle = <&sgmii_phy0>;
 
 	pinctrl-0 = <&ethernet0_default>;
@@ -364,6 +365,7 @@
 
 &ethernet1 {
 	phy-mode = "sgmii";
+	managed = "in-band-status";
 	phy-handle = <&sgmii_phy1>;
 
 	snps,mtl-rx-config = <&mtl_rx_setup1>;
