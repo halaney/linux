@@ -9,6 +9,7 @@
 #include <linux/phy/phy.h>
 
 #include "stmmac.h"
+#include "stmmac_pcs.h"
 #include "stmmac_platform.h"
 
 #define RGMII_IO_MACRO_CONFIG		0x0
