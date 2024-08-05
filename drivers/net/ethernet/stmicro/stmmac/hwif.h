@@ -303,7 +303,6 @@ struct stmmac_dma_ops {
 
 struct mac_device_info;
 struct net_device;
-struct rgmii_adv;
 struct stmmac_tc_entry;
 struct stmmac_pps_cfg;
 struct stmmac_rss;
@@ -538,9 +537,6 @@ struct stmmac_ops {
 	stmmac_do_void_callback(__priv, mac, fpe_send_mpacket, __args)
 #define stmmac_fpe_irq_status(__priv, __args...) \
 	stmmac_do_callback(__priv, mac, fpe_irq_status, __args)
-
-#define stmmac_has_mac_phylink_select_pcs(__priv) \
-	((__priv)->hw->mac->phylink_select_pcs != NULL)
 
 /* PTP and HW Timer helpers */
 struct stmmac_hwtimestamp {
