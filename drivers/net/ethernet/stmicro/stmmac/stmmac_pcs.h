@@ -46,6 +46,19 @@
 #define GMAC_ANE_RFE_SHIFT	12
 #define GMAC_ANE_ACK		BIT(14)
 
+/* MAC specific status - for RGMII and SGMII. These appear as
+ * GMAC_RGSMIIIS[15:0] and GMAC_PHYIF_CONTROL_STATUS[31:16]
+ */
+#define GMAC_RS_STAT_LNKMOD		BIT(0)
+#define GMAC_RS_STAT_SPEED		GENMASK(2, 1)
+#define GMAC_RS_STAT_LNKSTS		BIT(3)
+#define GMAC_RS_STAT_JABTO		BIT(4)
+#define GMAC_RS_STAT_FALSECARDET	BIT(5)
+
+#define GMAC_RS_STAT_SPEED_125		2
+#define GMAC_RS_STAT_SPEED_25		1
+#define GMAC_RS_STAT_SPEED_2_5		0
+
 /**
  * dwmac_pcs_isr - TBI, RTBI, or SGMII PHY ISR
  * @ioaddr: IO registers pointer
@@ -109,4 +122,41 @@ static inline void dwmac_ctrl_ane(void __iomem *ioaddr, u32 reg, bool ane,
 
 	writel(value, ioaddr + GMAC_AN_CTRL(reg));
 }
+
+static inline bool dwmac_rs_decode_stat(struct phylink_link_state *state,
+					uint16_t rs_stat)
+{
+	unsigned int speed;
+
+	state->link = !!(rs_stat & GMAC_RS_STAT_LNKSTS);
+	if (!state->link)
+		return false;
+
+	speed = FIELD_GET(GMAC_RS_STAT_SPEED, rs_stat);
+	switch (speed) {
+	case GMAC_RS_STAT_SPEED_125:
+		state->speed = SPEED_1000;
+		break;
+	case GMAC_RS_STAT_SPEED_25:
+		state->speed = SPEED_100;
+		break;
+	case GMAC_RS_STAT_SPEED_2_5:
+		state->speed = SPEED_10;
+		break;
+	default:
+		state->link = false;
+		return false;
+	}
+
+	state->duplex = rs_stat & GMAC_RS_STAT_LNKMOD ?
+			DUPLEX_FULL : DUPLEX_HALF;
+
+	return true;
+}
+
+int dwmac_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
+		     phy_interface_t interface,
+		     const unsigned long *advertising,
+		     bool permit_pause_to_mac);
+
 #endif /* __STMMAC_PCS_H__ */
