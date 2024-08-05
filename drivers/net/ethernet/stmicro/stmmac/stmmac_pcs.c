@@ -30,6 +30,22 @@ static void __dwmac_ctrl_ane(struct stmmac_pcs *spcs, bool ane, bool srgmi_ral,
 	writel(val, spcs->pcs_base + GMAC_AN_CTRL(0));
 }
 
+/**
+ * dwmac_ctrl_ane - To program the AN Control Register.
+ * @priv: pointer to &struct stmmac_priv
+ * @ane: to enable the auto-negotiation
+ * @srgmi_ral: to manage MAC-2-MAC SGMII connections.
+ * @loopback: to cause the PHY to loopback tx data into rx path.
+ * Description: this is the main function to configure the AN control register
+ * and init the ANE, select loopback (usually for debugging purpose) and
+ * configure SGMII RAL.
+ */
+void dwmac_ctrl_ane(struct stmmac_priv *priv, bool ane, bool srgmi_ral,
+		    bool loopback)
+{
+	__dwmac_ctrl_ane(&priv->hw->mac_pcs, ane, srgmi_ral, loopback);
+}
+
 int dwmac_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 		     phy_interface_t interface,
 		     const unsigned long *advertising,
