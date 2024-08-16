@@ -605,7 +605,9 @@ struct mac_device_info {
 	unsigned int rx_csum;
 	unsigned int pcs;
 	unsigned int pmt;
+#if 0
 	unsigned int ps;
+#endif
 	unsigned int xlgmac;
 	unsigned int num_vlan;
 	u32 vlan_filter[32];

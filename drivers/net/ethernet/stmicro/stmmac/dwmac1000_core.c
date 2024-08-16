@@ -36,6 +36,7 @@ static void dwmac1000_core_init(struct mac_device_info *hw,
 	if (mtu > 2000)
 		value |= GMAC_CONTROL_JE;
 
+#if 0
 	if (hw->ps) {
 		value |= GMAC_CONTROL_TE;
 
@@ -52,6 +53,7 @@ static void dwmac1000_core_init(struct mac_device_info *hw,
 			break;
 		}
 	}
+#endif
 
 	writel(value, ioaddr + GMAC_CONTROL);
 

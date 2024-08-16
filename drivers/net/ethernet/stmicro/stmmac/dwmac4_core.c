@@ -30,6 +30,10 @@ static void dwmac4_core_init(struct mac_device_info *hw,
 
 	value |= GMAC_CORE_INIT;
 
+	/* TODO: move me to speed set function or something called
+	 * for fixed-link in link up
+	 */
+#if 0
 	if (hw->ps) {
 		value |= GMAC_CONFIG_TE;
 
@@ -46,6 +50,7 @@ static void dwmac4_core_init(struct mac_device_info *hw,
 			break;
 		}
 	}
+#endif
 
 	writel(value, ioaddr + GMAC_CONFIG);
 

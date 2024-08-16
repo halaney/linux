@@ -638,7 +638,9 @@ static void ethqos_set_serdes_speed(struct qcom_ethqos *ethqos, int speed)
 
 static void ethqos_pcs_set_inband(struct stmmac_priv *priv, bool enable)
 {
+#if 0
 	stmmac_pcs_ctrl_ane(priv, enable, 0, 0);
+#endif
 }
 
 /* On interface toggle MAC registers gets reset.
@@ -659,6 +661,12 @@ static int ethqos_configure_sgmii(struct qcom_ethqos *ethqos)
 			      RGMII_CONFIG2_RGMII_CLK_SEL_CFG,
 			      RGMII_IO_MACRO_CONFIG2);
 		ethqos_set_serdes_speed(ethqos, SPEED_2500);
+		/* TODO: do we need to keep this? 2500 SGMII isn't a thing
+		 * so I guess they need to disable in-band for sure, but
+		 * ideally... that would be determined in the PCS code
+		 * somehow and not in this sort of hacky touching of the PCS
+		 * bits
+		 */
 		ethqos_pcs_set_inband(priv, false);
 		break;
 	case SPEED_1000:

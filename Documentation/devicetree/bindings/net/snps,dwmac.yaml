@@ -501,6 +501,7 @@ properties:
       instance
 
   snps,ps-speed:
+    deprecated: true
     $ref: /schemas/types.yaml#/definitions/uint32
     description:
       Port selection speed that can be passed to the core when PCS
