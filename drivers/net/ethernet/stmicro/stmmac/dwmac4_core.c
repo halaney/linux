@@ -30,28 +30,6 @@ static void dwmac4_core_init(struct mac_device_info *hw,
 
 	value |= GMAC_CORE_INIT;
 
-	/* TODO: move me to speed set function or something called
-	 * for fixed-link in link up
-	 */
-#if 0
-	if (hw->ps) {
-		value |= GMAC_CONFIG_TE;
-
-		value &= hw->link.speed_mask;
-		switch (hw->ps) {
-		case SPEED_1000:
-			value |= hw->link.speed1000;
-			break;
-		case SPEED_100:
-			value |= hw->link.speed100;
-			break;
-		case SPEED_10:
-			value |= hw->link.speed10;
-			break;
-		}
-	}
-#endif
-
 	writel(value, ioaddr + GMAC_CONFIG);
 
 	/* Configure LPI 1us counter to number of CSR clock ticks in 1us - 1 */

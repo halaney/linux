@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
-#include "linux/phylink.h"
+#include <linux/phylink.h>
 #include "stmmac.h"
 #include "stmmac_pcs.h"
 
@@ -53,18 +53,12 @@ int dwmac_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 		     bool permit_pause_to_mac)
 {
 	struct stmmac_pcs *spcs = phylink_pcs_to_stmmac_pcs(pcs);
-	bool is_inband;
+	bool is_inband = neg_mode & PHYLINK_PCS_NEG_INBAND;
 
 	/* The RGMII interface does not have the STMMAC_PCS_AN_CTRL register */
 	if (phy_interface_mode_is_rgmii(spcs->priv->plat->mac_interface))
 		return 0;
 
-	/* TODO: Does this make sense? I'm essentially trying to say, if its
-	 * a fixed-link don't get the speed, duplex, etc from the PCS, use
-	 * the mac_link_up to do that, and program the PCS/RAL accordingly
-	 * to use the MAC control regs
-	 */
-	is_inband = neg_mode & PHYLINK_PCS_NEG_INBAND;
 	__dwmac_ctrl_ane(spcs, true, !is_inband, false);
 
 	return 0;

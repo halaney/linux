@@ -483,15 +483,11 @@ is used to configure the AMBA bridge to generate more efficient STBus traffic::
 
         int rss_en;
 
-34) MAC Port selection::
-
-        int mac_port_sel_speed;
-
-35) Enables TX LPI Clock Gating::
+34) Enables TX LPI Clock Gating::
 
         bool en_tx_lpi_clockgating;
 
-36) HW uses XGMAC>2.10 cores::
+35) HW uses XGMAC>2.10 cores::
 
         int has_xgmac;
 

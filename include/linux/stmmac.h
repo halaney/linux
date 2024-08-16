@@ -287,7 +287,6 @@ struct plat_stmmacenet_data {
 	struct stmmac_axi *axi;
 	int has_gmac4;
 	int rss_en;
-	int mac_port_sel_speed;
 	int has_xgmac;
 	u8 vlan_fail_q;
 	unsigned int eee_usecs_rate;

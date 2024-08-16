@@ -1003,14 +1003,6 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 			       int speed, int duplex,
 			       bool tx_pause, bool rx_pause)
 {
-	/* TODO: mode is never checked, i.e. from docs
-	 *
- * @speed, @duplex, @tx_pause and @rx_pause indicate the finalised link
- * settings, and should be used to configure the MAC block appropriately
- * where these settings are not automatically conveyed from the PCS block,
- * or if in-band negotiation (as defined by phylink_autoneg_inband(@mode))
- * is disabled.
- * */
 	struct stmmac_priv *priv = netdev_priv(to_net_dev(config->dev));
 	u32 old_ctrl, ctrl;
 
@@ -1064,30 +1056,6 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 	} else {
 		switch (speed) {
 		case SPEED_2500:
-			/* These writes mimic what is done in dwmac4_core_init() when ps is set
-			 * we're just missing that TE bit I think, and plumbing down
-			 * to the RAL code to turn off honoring in-band speed settings
-			 *
-			 * What's the current flow? do we set RAL bit on after programming this?
-			 * What's the TE bits role?
-			 * 
-			 * It seems to me that if the TE bit is sorted out,
-			 * we can let mac_link_up() happen in fixed-link setups
-			 * to program the speed, then set the RAL bit to honor
-			 * the MAC register instead of the PCS stuff as part of
-			 * link up, no need for the ps-speed bullshit.
-			 *
-			 * Currently when ps-speed is set (supposed to be for
-			 * fixed-link && sgmii) then we set ps = speed above,
-			 * we program speed into MAC CTRL regs, then we 
-			 * TODO: figure out if MAC CTRL regs (core_init) runs
-			 * prior to pcs_config() callback which touches RAL via ps value)
-			 *
-			 * TODO: the more i read this, the more it seems 
-			 * we need to check neg_mode in pcs_config callback for 
-			 * PHYLINK_PCS_NEG_OUTBAND and if set set RAL to force
-			 * MAC control regs to be honored (from mac_link_up)
-			 */
 			ctrl |= priv->hw->link.speed2500;
 			break;
 		case SPEED_1000:
@@ -1105,19 +1073,6 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 	}
 
 	priv->speed = speed;
-	/* TODO: does this need to be done, can we drop ps? we could
-	 * just check mode again right to determine "do not use PCS determined
-	 * speed" i.e. just set RAL bit to 1 if fixed-link */
-	/* TODO: figure out if that makes sense for fixed-link && MLO_PHY (not inband)
-	 * too... i.e. should we use the SGMII PCS determined speed when not inband,
-	 * or should we honor mac_link_up() and turn on that RAL bit to ignore it
-	 */
-#if 0
-	priv->hw->ps = speed;
-#endif
-	/* TODO: tickle RAL? Or should the PCS driver tickle that exclusively 
-	 * based on its callbacks? Note ctrl is finally written a little later here*/
-
 	if (priv->plat->fix_mac_speed)
 		priv->plat->fix_mac_speed(priv->plat->bsp_priv, speed, mode);
 
