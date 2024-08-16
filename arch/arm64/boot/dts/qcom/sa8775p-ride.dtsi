@@ -268,7 +268,6 @@
 
 	snps,mtl-rx-config = <&mtl_rx_setup>;
 	snps,mtl-tx-config = <&mtl_tx_setup>;
-	snps,ps-speed = <1000>;
 
 	status = "okay";
 
@@ -343,7 +342,6 @@
 
 	snps,mtl-rx-config = <&mtl_rx_setup1>;
 	snps,mtl-tx-config = <&mtl_tx_setup1>;
-	snps,ps-speed = <1000>;
 
 	status = "okay";
 
