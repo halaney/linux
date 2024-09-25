@@ -10,7 +10,6 @@
  *
  * Copyright (c) 2013 Michael Stapelberg <michael@stapelberg.de>
  */
-#include "linux/timekeeping.h"
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/ctype.h>
@@ -3521,28 +3520,6 @@ static int m88e1318_led_hw_control_get(struct phy_device *phydev, u8 index,
 
 static int marvell_probe(struct phy_device *phydev)
 {
-	struct device *dev = &phydev->mdio.dev;
-#if 0
-	dump_stack();
-
-	static int retry = 20;
-	if (retry) {
-		--retry;
-		return -EPROBE_DEFER;
-	}
-
-	static u64 timeout = 0;
-	if (!timeout)
-		timeout = ktime_get_mono_fast_ns() + 10000000000;
-
-	if (phydev->mdio.addr == 0xa) {
-		dev_err(dev, "Deferring 10 seconds to trigger failing race condition\n");
-		if (ktime_get_mono_fast_ns() < timeout)
-			return -EPROBE_DEFER;
-	}
-#endif
-
-	dev_err(dev, "Starting probe\n");
 	struct marvell_priv *priv;
 
 	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
@@ -3551,9 +3528,7 @@ static int marvell_probe(struct phy_device *phydev)
 
 	phydev->priv = priv;
 
-	int ret = marvell_hwmon_probe(phydev);
-	dev_err(dev, "Ending probe\n");
-	return ret;
+	return marvell_hwmon_probe(phydev);
 }
 
 static int m88e1510_sfp_insert(void *upstream, const struct sfp_eeprom_id *id)

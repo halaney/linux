@@ -2094,7 +2094,6 @@ int phylink_fwnode_phy_connect(struct phylink *pl,
 
 	phy_fwnode = fwnode_get_phy_node(fwnode);
 	if (IS_ERR(phy_fwnode)) {
-		printk(KERN_ERR "Failed at fwnode_get_phy_node\n");
 		if (pl->cfg_link_an_mode == MLO_AN_PHY)
 			return -ENODEV;
 		return 0;
@@ -2103,10 +2102,8 @@ int phylink_fwnode_phy_connect(struct phylink *pl,
 	phy_dev = fwnode_phy_find_device(phy_fwnode);
 	/* We're done with the phy_node handle */
 	fwnode_handle_put(phy_fwnode);
-	if (!phy_dev) {
-		printk(KERN_ERR "Failed at fwnode_phy_find_device\n");
+	if (!phy_dev)
 		return -ENODEV;
-	}
 
 	/* Use PHY device/driver interface */
 	if (pl->link_interface == PHY_INTERFACE_MODE_NA) {
@@ -2120,16 +2117,12 @@ int phylink_fwnode_phy_connect(struct phylink *pl,
 	ret = phy_attach_direct(pl->netdev, phy_dev, flags,
 				pl->link_interface);
 	phy_device_free(phy_dev);
-	if (ret) {
-		printk(KERN_ERR "Failed at phy_attach_direct\n");
+	if (ret)
 		return ret;
-	}
 
 	ret = phylink_bringup_phy(pl, phy_dev, pl->link_config.interface);
-	if (ret) {
-		printk(KERN_ERR "Failed at phylink_bringup_phy\n");
+	if (ret)
 		phy_detach(phy_dev);
-	}
 
 	return ret;
 }
