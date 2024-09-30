@@ -89,7 +89,7 @@ static int __fwnode_link_add(struct fwnode_handle *con,
 
 	list_add(&link->s_hook, &sup->consumers);
 	list_add(&link->c_hook, &con->suppliers);
-	pr_debug("%pfwf Linked as a fwnode consumer to %pfwf\n",
+	pr_info("%pfwf Linked as a fwnode consumer to %pfwf\n",
 		 con, sup);
 
 	return 0;
@@ -111,7 +111,7 @@ int fwnode_link_add(struct fwnode_handle *con, struct fwnode_handle *sup,
  */
 static void __fwnode_link_del(struct fwnode_link *link)
 {
-	pr_debug("%pfwf Dropping the fwnode link to %pfwf\n",
+	pr_info("%pfwf Dropping the fwnode link to %pfwf\n",
 		 link->consumer, link->supplier);
 	list_del(&link->s_hook);
 	list_del(&link->c_hook);
@@ -126,7 +126,7 @@ static void __fwnode_link_del(struct fwnode_link *link)
  */
 static void __fwnode_link_cycle(struct fwnode_link *link)
 {
-	pr_debug("%pfwf: cycle: depends on %pfwf\n",
+	pr_info("%pfwf: cycle: depends on %pfwf\n",
 		 link->consumer, link->supplier);
 	link->flags |= FWLINK_FLAG_CYCLE;
 }
@@ -897,7 +897,7 @@ struct device_link *device_link_add(struct device *consumer,
 	list_add_tail_rcu(&link->c_node, &consumer->links.suppliers);
 
 	if (flags & DL_FLAG_SYNC_STATE_ONLY) {
-		dev_dbg(consumer,
+		dev_info(consumer,
 			"Linked as a sync state only consumer to %s\n",
 			dev_name(supplier));
 		goto out;
@@ -913,7 +913,7 @@ reorder:
 	 */
 	device_reorder_to_tail(consumer, NULL);
 
-	dev_dbg(consumer, "Linked as a consumer to %s\n", dev_name(supplier));
+	dev_info(consumer, "Linked as a consumer to %s\n", dev_name(supplier));
 
 out:
 	device_pm_unlock();
@@ -930,7 +930,7 @@ static void __device_link_del(struct kref *kref)
 {
 	struct device_link *link = container_of(kref, struct device_link, kref);
 
-	dev_dbg(link->consumer, "Dropping the link to %s\n",
+	dev_info(link->consumer, "Dropping the link to %s\n",
 		dev_name(link->supplier));
 
 	pm_runtime_drop_link(link);
@@ -1752,7 +1752,7 @@ static void fw_devlink_relax_link(struct device_link *link)
 
 	pm_runtime_drop_link(link);
 	link->flags = DL_FLAG_MANAGED | FW_DEVLINK_FLAGS_PERMISSIVE;
-	dev_dbg(link->consumer, "Relaxing link with %s\n",
+	dev_info(link->consumer, "Relaxing link with %s\n",
 		dev_name(link->supplier));
 }
 
@@ -2014,7 +2014,7 @@ static bool __fw_devlink_relax_cycles(struct device *con,
 
 	/* Termination condition. */
 	if (sup_dev == con) {
-		pr_debug("----- cycle: start -----\n");
+		pr_info("----- cycle: start -----\n");
 		ret = true;
 		goto out;
 	}
@@ -2050,7 +2050,7 @@ static bool __fw_devlink_relax_cycles(struct device *con,
 		par_dev = fwnode_get_next_parent_dev(sup_handle);
 
 	if (par_dev && __fw_devlink_relax_cycles(con, par_dev->fwnode)) {
-		pr_debug("%pfwf: cycle: child of %pfwf\n", sup_handle,
+		pr_info("%pfwf: cycle: child of %pfwf\n", sup_handle,
 			 par_dev->fwnode);
 		ret = true;
 	}
@@ -2069,7 +2069,7 @@ static bool __fw_devlink_relax_cycles(struct device *con,
 
 		if (__fw_devlink_relax_cycles(con,
 					      dev_link->supplier->fwnode)) {
-			pr_debug("%pfwf: cycle: depends on %pfwf\n", sup_handle,
+			pr_info("%pfwf: cycle: depends on %pfwf\n", sup_handle,
 				 dev_link->supplier->fwnode);
 			fw_devlink_relax_link(dev_link);
 			dev_link->flags |= DL_FLAG_CYCLE;
@@ -2153,7 +2153,7 @@ static int fw_devlink_create_devlink(struct device *con,
 		if (__fw_devlink_relax_cycles(con, sup_handle)) {
 			__fwnode_link_cycle(link);
 			flags = fw_devlink_get_flags(link->flags);
-			pr_debug("----- cycle: end -----\n");
+			pr_info("----- cycle: end -----\n");
 			dev_info(con, "Fixed dependency cycle(s) with %pfwf\n",
 				 sup_handle);
 		}
@@ -2173,7 +2173,7 @@ static int fw_devlink_create_devlink(struct device *con,
 		 */
 		if (sup_dev->links.status == DL_DEV_NO_DRIVER &&
 		    sup_handle->flags & FWNODE_FLAG_INITIALIZED) {
-			dev_dbg(con,
+			dev_info(con,
 				"Not linking %pfwf - dev might never probe\n",
 				sup_handle);
 			ret = -EINVAL;
@@ -2195,7 +2195,7 @@ static int fw_devlink_create_devlink(struct device *con,
 	 */
 	if (fwnode_init_without_drv(sup_handle) ||
 	    fwnode_ancestor_init_without_drv(sup_handle)) {
-		dev_dbg(con, "Not linking %pfwf - might never become dev\n",
+		dev_info(con, "Not linking %pfwf - might never become dev\n",
 			sup_handle);
 		return -EINVAL;
 	}
@@ -3593,7 +3593,7 @@ int device_add(struct device *dev)
 	if (error)
 		goto name_error;
 
-	pr_debug("device: '%s': %s\n", dev_name(dev), __func__);
+	pr_info("device: '%s': %s\n", dev_name(dev), __func__);
 
 	parent = get_device(dev->parent);
 	kobj = get_device_parent(dev, parent);
@@ -3901,7 +3901,7 @@ EXPORT_SYMBOL_GPL(device_del);
  */
 void device_unregister(struct device *dev)
 {
-	pr_debug("device: '%s': %s\n", dev_name(dev), __func__);
+	pr_info("device: '%s': %s\n", dev_name(dev), __func__);
 	device_del(dev);
 	put_device(dev);
 }
@@ -4330,7 +4330,7 @@ EXPORT_SYMBOL_GPL(root_device_unregister);
 
 static void device_create_release(struct device *dev)
 {
-	pr_debug("device: '%s': %s\n", dev_name(dev), __func__);
+	pr_info("device: '%s': %s\n", dev_name(dev), __func__);
 	kfree(dev);
 }
 
@@ -4518,7 +4518,7 @@ int device_rename(struct device *dev, const char *new_name)
 	if (!dev)
 		return -EINVAL;
 
-	dev_dbg(dev, "renaming to %s\n", new_name);
+	dev_info(dev, "renaming to %s\n", new_name);
 
 	old_device_name = kstrdup(dev_name(dev), GFP_KERNEL);
 	if (!old_device_name) {
